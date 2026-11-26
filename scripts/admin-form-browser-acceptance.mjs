@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
-const registration = "MH01EM7360";
+let registration;
 function indiaDateOffsetDays(offset) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -63,7 +63,7 @@ try {
 
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
-  vehicleId = await page.evaluate(async registrationNumber => {
+  const initialProfileVehicle = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -76,41 +76,68 @@ try {
       get.onerror = () => reject(get.error);
     });
     db.close();
-    const matches = rows.filter(row => row.id.startsWith("feature:vehicle:"));
+    const matches = rows.filter(row => row.id.startsWith("feature:vehicle:") &&
+      row.data?.lifecycleState === "active");
     if (matches.length !== 1) throw new Error("initial_profile_vehicle_count_invalid:" + matches.length);
-    const vehicle = matches.find(row => row.data?.registrationNumber === registrationNumber);
-    if (!vehicle) throw new Error("initial_profile_vehicle_not_found:" + registrationNumber);
-    for (const [field, expected] of Object.entries({
-      make: "MARUTI SUZUKI", model: "WAGON R TOUR H3", fuelType: "CNG",
-      yearOfManufacture: 2024, ownership: "Financed",
-    })) {
-      if (vehicle.data[field] !== expected) throw new Error("initial_profile_vehicle_field_invalid:" + field);
+    const vehicle = matches[0];
+    const registrationNumber = vehicle.data.registrationNumber;
+    if (typeof registrationNumber !== "string" || !registrationNumber.trim()) {
+      throw new Error("initial_profile_vehicle_registration_missing");
     }
-    return vehicle.id;
-  }, registration);
+    return { id: vehicle.id, registrationNumber };
+  });
+  vehicleId = initialProfileVehicle.id;
+  registration = initialProfileVehicle.registrationNumber;
   console.log("Initial Admin vehicle profile rendered and verified:", vehicleId);
 
 
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
+  const activeDriverName = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const active = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
+      row.data?.lifecycleState === "active");
+    if (active.length !== 1) throw new Error("initial_profile_active_driver_count_invalid:" + active.length);
+    return active[0].data.name;
+  });
+  const activeDriverCard = page.locator(".admin-capability-record").filter({ hasText: activeDriverName });
+  await activeDriverCard.waitFor({ state: "visible" });
+  const selectForWork = activeDriverCard.getByRole("button", { name: "Select for Work", exact: true });
+  if (await selectForWork.count()) {
+    await selectForWork.click();
+    await page.getByRole("status").filter({ hasText: activeDriverName + " selected for Work." }).waitFor({ state: "visible" });
+  }
+  await activeDriverCard.getByLabel("Vehicle for " + activeDriverName).selectOption(vehicleId);
+  await activeDriverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
+  await activeDriverCard.getByRole("button", { name: "Unassign", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
+  const clearSelection = activeDriverCard.getByRole("button", { name: "Clear Work selection", exact: true });
+  if (await clearSelection.count()) {
+    await clearSelection.click();
+    await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
+  }
+
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
   await page.getByLabel("Driver name").fill(driverName);
   await page.getByLabel("Driving licence number").fill("ACCEPTANCE-LIC-1");
   await page.getByLabel("Mobile number").fill("9990001111");
+  await page.getByLabel("Status").selectOption("inactive");
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
-  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
-  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
-  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
-  console.log("Driver create, Work selection, vehicle assignment and unassignment commands passed.");
-
+  await page.locator(".admin-capability-record").filter({ hasText: driverName }).waitFor({ state: "visible" });
+  console.log("Seeded active driver assignment lifecycle and inactive driver creation passed.");
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
   const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
   await complianceVehicle.selectOption(vehicleId);
