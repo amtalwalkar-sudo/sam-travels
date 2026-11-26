@@ -368,3 +368,27 @@ The owner has explicitly approved the existing append-only Trip Financial correc
 | Final validation | Run Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate on the exact final PR head; inspect all job logs and audit artifacts, fix failures, rerun. | **PENDING** |
 
 Do not mark §1A condition 4 or whole-contract completion as accepted solely from authored tests. The dependency audit must be read, any critical production advisory fixed, and representative backup performance evidence must be recorded or explicitly dispositioned. Continue only on `docs/repository-foundation-audit-gap-register`; no new PR, no merge, and keep PR #99 draft/open/unmerged.
+
+
+### Stage 6 verification checkpoint — 2026-11-27 (superseding)
+
+This checkpoint supersedes the earlier pending/open status wording in the preceding Stage 6 tables only where explicitly updated below. Stages 1–5 remain accepted at their recorded exact heads; they are not reopened.
+
+- **Trip Financial correction:** owner approval received 2026-11-27 for the existing append-only submitted-fare correction UX/schema. Original fare and linked Work/GPS event remain immutable; correction appends before/after, reason, target/chain revisions and Admin actor; current fare projection refreshes.
+- **Backup record count:** raw Room export, native package manifest totals and raw Room restore are capped before normalization/validation/checkpoint mutation. Browser and Android focused tests cover inclusive/first-over and pre-mutation behavior. Exact-head CI is pending.
+- **Plaintext size:** TypeScript encodeBackupSnapshot now counts exact UTF-8 bytes and applies AES-GCM/base64/envelope preflight before TextEncoder allocation. The Android scheduled Dropbox worker performs the equivalent UTF-8 preflight before byte-array creation and native package creation repeats the check. Multibyte and first-over tests are added. Representative peak-memory/time acceptance remains open.
+- **Dependency advisories:** prior audit found three development-toolchain advisories and zero production advisories. Vitest 5.1.2 and the moderate-or-higher full-graph audit gate are committed; the final exact-head artifact must confirm zero remaining advisories.
+- **Android instrumentation:** run #4933 on becec6809276d2a9af40af324b5b9088b478ca23 failed 8/181 tests (seven rendered Work workspace startup failures and one missing overlay action). Admin selector matching alone did not fix them. A retryable startup-failure UI and page/hierarchy diagnostics have been added; they are diagnostic hardening, not acceptance. Fix the root causes based on the next exact-head logs.
+
+| Contract §1A condition | Current disposition |
+|---|---|
+| 1. Entry-path coverage | **INCOMPLETE** — mapped Stage 6 journeys exist, but Android acceptance failures remain unresolved. |
+| 2. Browser/Dexie and Android/Room requirements | **SCOPED CORE PROVEN; STAGE 6 ANDROID ACCEPTANCE PENDING**. |
+| 3. Populated cross-runtime lifecycle and calculation parity | **SCOPED CORE PROVEN; FINAL EXACT-HEAD REGRESSION PENDING**. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — fare correction approved; dependency re-audit and backup performance evidence remain open. |
+| 5. Negative/boundary/interruption/recovery | **STAGE 5 ACCEPTED; NEW BACKUP BOUNDARY TESTS PENDING EXACT-HEAD CI**. |
+| 6. Four records and PR description agree | **RECONCILED AT THIS CHECKPOINT**; recheck after final docs commit. |
+| 7. Required exact-head CI | **PENDING** — Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate must all pass on the same final SHA. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+**Execution controls:** no new PR, no merge, no unrelated feature work, and no whole-contract completion claim. Keep external OEM/device, reboot, Dropbox, owner-visual and branch-protection checks separate from CI.
