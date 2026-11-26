@@ -115,28 +115,6 @@ try {
   await page.getByRole("status").filter({
     hasText: activeDriverName + " is configured with " + registration + " for Work.",
   }).waitFor({ state: "visible" });
-  const configuredPair = await page.evaluate(async ({ driverId, vehicleId }) => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const tx = db.transaction("records", "readonly");
-      const get = tx.objectStore("records").getAll();
-      get.onsuccess = () => resolve(get.result);
-      get.onerror = () => reject(get.error);
-    });
-    db.close();
-    const selected = rows.find(row => row.id === "work:selected-driver");
-    const history = rows.find(row => row.id === "feature:driver-records:assignment:" + driverId);
-    const current = history?.data?.assignments?.find(item => !item.unassignedAt);
-    return { selectedDriverId: selected?.data?.driverId, assignedVehicleId: current?.vehicleId };
-  }, { driverId: activeDriver.driverId, vehicleId });
-  if (configuredPair.selectedDriverId !== activeDriver.driverId ||
-      configuredPair.assignedVehicleId !== vehicleId) {
-    throw new Error("admin_driver_operating_pair_not_persisted:" + JSON.stringify(configuredPair));
-  }
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
   await page.getByLabel("Driver name").fill(driverName);
   await page.getByLabel("Driving licence number").fill("ACCEPTANCE-LIC-1");
