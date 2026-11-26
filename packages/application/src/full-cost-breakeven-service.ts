@@ -358,15 +358,8 @@ export class FullCostBreakevenService {
     }
 
     for (const record of historicalBackfills) {
-      const data = record.data;
-      if (record.deletedAt || data.vehicleId !== vehicleId || data.operationalDate < from || data.operationalDate > to) continue;
-      const driverExpenses = (data.tollPayer === "driver" ? data.tollPaise ?? 0 : 0) +
-        (data.parkingPayer === "driver" ? data.parkingPaise ?? 0 : 0);
-      if (driverExpenses > 0) datedCosts.push({
-        date: data.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
-        sourceId: record.id, sourceRevision: record.revision,
-        sourceRefs: [{ sourceId: record.id, revision: record.revision }],
-      });
+      const data = record.data, driverExpenses = (data.tollPayer === "driver" ? data.tollPaise ?? 0 : 0) + (data.parkingPayer === "driver" ? data.parkingPaise ?? 0 : 0);
+      if (!record.deletedAt && data.vehicleId === vehicleId && data.operationalDate >= from && data.operationalDate <= to && driverExpenses > 0) datedCosts.push({ date: data.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous", sourceId: record.id, sourceRevision: record.revision, sourceRefs: [{ sourceId: record.id, revision: record.revision }] });
     }
 
     for (const source of allocationReport.result.sources) {
