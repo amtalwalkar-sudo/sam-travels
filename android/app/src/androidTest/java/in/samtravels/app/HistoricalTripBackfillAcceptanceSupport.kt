@@ -31,7 +31,7 @@ internal object HistoricalTripBackfillAcceptanceSupport {
             "document.body.innerText.includes('Historical trip recorded as an Admin-declared entry')", 15000)
         if (!saved) {
             val status = support.javascriptValue(activity,
-                "document.querySelector('section[aria-label=\\\"Historical trip backfill\\\"] [role=status]')?.textContent || 'no status message'")
+                "Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill')?.querySelector('[role=status]')?.textContent || 'no status message'")
             throw AssertionError("Historical trip is saved through the Room-backed Admin form; status=$status")
         }
         val backfillRows = db.records().list().filter { row ->
