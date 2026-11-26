@@ -66,7 +66,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                 val fixTimes = mutableSetOf<String>()
                 val latitudes = mutableSetOf<Double>()
                 expected.forEachIndexed { index, (eventType, nextState) ->
-                    assertTrue("Overlay exposes the next action for $eventType", waitUntil(10_000) {
+                    assertTrue("Overlay exposes the next action for $eventType; hierarchy=${describeNodes(ui)}", waitUntil(10_000) {
                         findNode(ui) {
                             it.className?.toString() == "android.widget.SeekBar" &&
                                 it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
