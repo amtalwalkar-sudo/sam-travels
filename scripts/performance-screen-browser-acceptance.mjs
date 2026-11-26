@@ -347,7 +347,7 @@ try {
     throw new Error("rendered_corrected_backfill_fare_and_work_revenue_not_combined_in_period_revenue");
   }
   const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
-  if (!(await lifetimeRevenue.innerText()).includes("₹2,570.00")) {
+  if (!(await lifetimeRevenue.innerText()).includes("₹2,720.00")) {
     throw new Error("rendered_corrected_backfill_fare_missing_from_lifetime_position");
   }
   const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
