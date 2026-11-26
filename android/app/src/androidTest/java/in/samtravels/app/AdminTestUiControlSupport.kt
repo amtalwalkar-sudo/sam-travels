@@ -42,7 +42,7 @@ internal object AdminTestUiControlSupport {
             evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')].find(n=>n.querySelector('.admin-capability-record-actions span')?.textContent.trim()==='active');const edit=[...card?.querySelectorAll('button')??[]].find(b=>b.textContent.trim()==='Edit');edit?.click();return Boolean(edit)})()""")
             setField("Lifecycle status", "inactive")
             clickAction("Save vehicle")
-            check(awaitCondition("document.body.innerText.includes('Vehicle details updated.')", 15000)) {
+            check(awaitCondition("!(" + activeVehicle + ")", 15000)) {
                 "Active Vehicle retirement did not complete"
             }
         }

@@ -77,8 +77,8 @@ export function AdminHistoricalTripBackfillSection() {
       });
       setForm({ backfillId: "", driverId: "", vehicleId: "", startedAt: localDateTime(), endedAt: "", fare: "", toll: "", tollPayer: "", parking: "", parkingPayer: "", reason: "" });
       setOpen(false);
-      setMessage("Historical trip recorded as an Admin-declared entry. No Work, GPS or odometer events were created.");
       await refresh();
+      setMessage("Historical trip recorded as an Admin-declared entry. No Work, GPS or odometer events were created.");
       window.dispatchEvent(new Event("historical-trip-backfill-updated"));
     } catch (error) { setMessage(error instanceof Error ? error.message : "Historical trip could not be saved."); }
     finally { setBusy(false); }

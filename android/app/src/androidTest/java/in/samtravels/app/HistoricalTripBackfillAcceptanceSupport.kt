@@ -27,8 +27,13 @@ internal object HistoricalTripBackfillAcceptanceSupport {
         support.set(activity, "Backfill reference (optional)", backfillReference)
         support.set(activity, "Reason / source of historical information", marker + " reconciled paper trip")
         support.click(activity, "Save historical trip")
-        assertTrue("Historical trip is saved through the Room-backed Admin form",
-            support.await(activity, "document.body.innerText.includes('Historical trip recorded as an Admin-declared entry')", 15000))
+        val saved = support.await(activity,
+            "document.body.innerText.includes('Historical trip recorded as an Admin-declared entry')", 15000)
+        if (!saved) {
+            val status = support.javascriptValue(activity,
+                "document.querySelector('section[aria-label=\\\"Historical trip backfill\\\"] [role=status]')?.textContent || 'no status message'")
+            throw AssertionError("Historical trip is saved through the Room-backed Admin form; status=$status")
+        }
         val backfillRows = db.records().list().filter { row ->
             row.id == "historical-trip-backfill:" + backfillReference
         }
