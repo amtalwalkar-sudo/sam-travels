@@ -13,6 +13,11 @@ import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+/** Only transient form working copies may be hard-deleted through the generic Room repository. */
+internal fun assertTransientRecordDeletionAllowed(id: String) {
+    require(id.startsWith("__sam_travels_form_working_copy__:")) { "record_delete_forbidden" }
+}
+
 /** Shared transaction primitive used by the native repository and Room instrumentation tests. */
 internal suspend fun compareAndSetStoredRecord(
     database: LocalDatabase,
@@ -42,6 +47,7 @@ internal suspend fun commitFeatureUpgradeBatch(
     records: JSONArray,
     deletes: JSONArray,
     expectedRevisions: JSONObject,
+    deleteNamespacePrefix: String? = null,
 ): Boolean {
     val writesById = linkedMapOf<String, JSONObject>()
     for (index in 0 until records.length()) {
@@ -55,6 +61,11 @@ internal suspend fun commitFeatureUpgradeBatch(
     val deleteIds = (0 until deletes.length()).map { deletes.getString(it) }
     require(deleteIds.all { it.isNotBlank() } && deleteIds.distinct().size == deleteIds.size) {
         "feature_upgrade_invalid_delete"
+    }
+    if (deleteIds.isNotEmpty()) {
+        require(!deleteNamespacePrefix.isNullOrBlank() && deleteIds.all { it.startsWith(deleteNamespacePrefix) }) {
+            "feature_upgrade_delete_namespace_mismatch"
+        }
     }
     require(deleteIds.none { it in writesById }) { "feature_upgrade_write_delete_conflict" }
     val touchedIds = writesById.keys + deleteIds
@@ -155,6 +166,10 @@ class RoomStorePlugin : Plugin() {
             call.reject("Record id required")
             return
         }
+        try { assertTransientRecordDeletionAllowed(id) } catch (error: Exception) {
+            call.reject("Room delete failed", error)
+            return
+        }
         executor.execute {
             try {
                 NativeStartupRecovery.ensure(db)
@@ -242,10 +257,11 @@ class RoomStorePlugin : Plugin() {
         val records = call.getArray("records") ?: JSONArray()
         val deletes = call.getArray("deletes") ?: JSONArray()
         val expected = call.getObject("expectedRevisions") ?: JSONObject()
+        val deleteNamespacePrefix = call.getString("deleteNamespacePrefix")
         executor.execute {
             try {
                 NativeStartupRecovery.ensure(db)
-                val committed = runBlocking { commitFeatureUpgradeBatch(db, records, deletes, expected) }
+                val committed = runBlocking { commitFeatureUpgradeBatch(db, records, deletes, expected, deleteNamespacePrefix) }
                 val out = JSObject()
                 out.put("committed", committed)
                 call.resolve(out)
