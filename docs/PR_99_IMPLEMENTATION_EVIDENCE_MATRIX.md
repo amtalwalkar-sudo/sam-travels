@@ -749,3 +749,33 @@ Physical OEM/device certification, full OS reboot persistence where emulator pro
 | Dependency advisory report | Initial exact-head audit found 3 development-only advisories: `@vitest/mocker` (moderate), `tinypool` (critical), `vitest` (critical); production-only report found 0. Vitest is upgraded to 5.1.2 and the gate now fails for moderate-or-higher advisories across all dependencies. | Required Web CI step; artifact `dependency-advisory-reports`. | Upgrade committed; exact-head re-audit must confirm zero advisories |
 
 **Stage 6 disposition:** Trip correction owner approval is complete. Backup count enforcement has implementation and focused regression coverage but awaits exact-head CI. Plaintext preflight is implemented at the available pre-byte-allocation boundary; representative peak-memory/time acceptance remains open. Dependency advisories remain unclassified until the new CI artifact is inspected. Whole-contract acceptance is still **INCOMPLETE**.
+
+
+## 9.56 — Android acceptance failure triage and pre-allocation backup preflight — 2026-11-27
+
+This checkpoint supersedes only the corresponding pending implementation descriptions in §9.55. It does not claim Stage 6 or whole-contract acceptance.
+
+**Backup boundaries**
+- The encodeBackupSnapshot helper now serializes the snapshot to a string, counts exact UTF-8 bytes without allocating the encoded payload, applies the AES-GCM tag/base64/envelope preflight, and only then calls TextEncoder. The existing package-creation preflight remains as a second fence.
+- The Android scheduled Dropbox worker independently counts UTF-8 bytes and applies the package preflight before String.toByteArray(UTF_8); native package creation repeats the preflight.
+- tests/backup-limits.test.ts now checks multibyte UTF-8 and the inclusive/first-over encrypted-package boundary. Existing Android BackupPackageLimitsTest and NativeBackupRecordLimitAcceptanceTest cover Android size/count and pre-mutation boundaries.
+- Representative peak-memory/time measurement on supported Android/browser devices remains open. The 512 MiB package-format ceiling is not a device-RAM certification.
+
+**Android failure triage**
+- Previous exact-head run #4933 on becec6809276d2a9af40af324b5b9088b478ca23 failed 8 of 181 Android instrumentation tests. Seven failures reported the rendered Work workspace missing; one overlay transition did not expose the expected action. The Admin label matcher change alone did not resolve the failures.
+- Added a visible, retryable bootstrap-failure surface in the web entry point. Android acceptance assertions now include rendered page content; the overlay transition assertion includes the accessibility hierarchy. These changes improve diagnosis and are not passing evidence.
+- The new exact-head workflow must be inspected for the concrete startup/overlay state, then the underlying implementation or fixture defect must be fixed and the five required jobs repeated.
+
+**Whole-contract §1A status**
+| Condition | Current disposition |
+|---|---|
+| 1. Every applicable entry path mapped and audited | **INCOMPLETE** — Stage 6 paths and tests are mapped; Android acceptance failures remain unresolved. |
+| 2. Browser/Dexie and Android/Room authority and workflow requirements | **SCOPED CORE PROVEN; STAGE 6 ANDROID ACCEPTANCE PENDING** — Stages 1–5 remain accepted; Stage 6 rendered Android verification is not green. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **SCOPED CORE PROVEN; FINAL EXACT-HEAD REGRESSION PENDING** — prior accepted lifecycle evidence remains valid for its recorded scope. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction UX/schema approved by owner on 2026-11-27; backup boundary implementation added; dependency re-audit and representative backup performance evidence remain open. |
+| 5. Negative/boundary/interruption/recovery proof | **STAGE 5 ACCEPTED; NEW BACKUP BOUNDARY TESTS PENDING EXACT-HEAD CI**. |
+| 6. Four project records and PR description agree | **RECONCILED AT THIS CHECKPOINT** — this addendum is mirrored in the execution plan, end-to-end contract and architecture gap register; PR description is updated to the same open gates. Recheck after the final documentation commit. |
+| 7. Five required CI jobs green on exact final SHA | **PENDING** — required jobs are Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate. |
+| 8. PR open, draft and unmerged | **VERIFIED** — PR #99 remains open, draft and unmerged; no merge is authorized. |
+
+**Disposition:** Stage 6 remains **ACTIVE / NOT ACCEPTED** and the whole contract remains **INCOMPLETE**. Physical OEM/device certification, full OS reboot where nondeterministic, live Dropbox account tests, owner visual approval and branch-protection verification remain separate manual/administrative gates.
