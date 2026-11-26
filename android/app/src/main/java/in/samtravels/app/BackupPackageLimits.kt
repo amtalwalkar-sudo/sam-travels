@@ -25,6 +25,31 @@ internal fun estimateBackupPackageBytes(
     return Math.addExact(base64Bytes, envelopeReserveBytes)
 }
 
+/** Count UTF-8 bytes without allocating the encoded plaintext byte array. */
+internal fun utf8ByteLength(value: CharSequence): Long {
+    var bytes = 0L
+    var index = 0
+    while (index < value.length) {
+        val character = value[index]
+        val width = when {
+            character.code <= 0x7f -> 1L
+            character.code <= 0x7ff -> 2L
+            character.isHighSurrogate() -> {
+                require(index + 1 < value.length && value[index + 1].isLowSurrogate()) {
+                    "backup_invalid_plaintext_encoding"
+                }
+                index += 1
+                4L
+            }
+            character.isLowSurrogate() -> error("backup_invalid_plaintext_encoding")
+            else -> 3L
+        }
+        bytes = Math.addExact(bytes, width)
+        index += 1
+    }
+    return bytes
+}
+
 internal fun requireBackupPlaintextWithinPackageLimit(
     plaintextBytes: Long,
     limit: Long = MAX_BACKUP_PACKAGE_BYTES,
