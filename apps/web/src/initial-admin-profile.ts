@@ -74,7 +74,7 @@ export async function seedInitialAdminProfile(input: Readonly<{
     }
   }
 
-  const loan = await input.financeLoans.get(profile.loan.id);
+  const loan = await input.financeLoans.getForReadOnly(profile.loan.id);
   if (!loan) {
     await input.financeLoans.create({
       uuid: profile.loan.id.slice("feature:finance:loan:".length),

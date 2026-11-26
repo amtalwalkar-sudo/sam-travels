@@ -18,7 +18,7 @@ describe("initial Admin profile import", () => {
         create: vi.fn(async (input: { data: { complianceName: string } }) => { created.push("compliance:" + input.data.complianceName); }),
       },
       financeLoans: {
-        get: vi.fn(async () => undefined),
+        getForReadOnly: vi.fn(async () => undefined),
         create: vi.fn(async (input: { details: { lenderName: string; firstEmiDate: string } }) => { created.push("loan:" + input.details.lenderName + ":" + input.details.firstEmiDate); }),
       },
       source: "import" as const,

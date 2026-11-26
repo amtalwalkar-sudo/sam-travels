@@ -79,16 +79,17 @@ export class ComplianceService {
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
     // Compliance is Vehicle-owned. Resolve and revalidate the configured
     // Vehicle without requiring an active Work Driver or Driver–Vehicle assignment.
-    const operating = this.operatingConfiguration
+    const trustedImport = input.source === "import";
+    const operating = trustedImport ? undefined : this.operatingConfiguration
       ? await (this.operatingConfiguration.getVehicleForReadOnly
         ? this.operatingConfiguration.getVehicleForReadOnly()
         : this.operatingConfiguration.getForReadOnly
           ? this.operatingConfiguration.getForReadOnly()
           : this.operatingConfiguration.get())
       : resolveOperatingVehicle(await this.repository.list());
-    const operatingVehicleId = operating.vehicleId;
-    if (input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
-    const vehicle = await this.vehicles.getById(operatingVehicleId);
+    const operatingVehicleId = operating?.vehicleId ?? input.data.vehicleId;
+    if (!trustedImport && input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
+    const vehicle = await this.vehicles.getById(input.data.vehicleId);
     if (!vehicle) throw new Error("compliance_vehicle_not_found");
     const id = recordId(input.uuid);
     if (input.data.renewedFromRecordId) {
@@ -102,7 +103,9 @@ export class ComplianceService {
       // Do not compare validity dates here: early renewal may create a legitimate
       // overlap, and late renewal must preserve the actual historical gap.
     }
-    if (this.operatingConfiguration) {
+    if (trustedImport) {
+      // Trusted first-run imports are Vehicle-owned and may precede Work driver selection.
+    } else if (this.operatingConfiguration && operating) {
       if ("vehicleRevision" in operating && this.operatingConfiguration.assertVehicleCurrentForReadOnly) {
         await this.operatingConfiguration.assertVehicleCurrentForReadOnly(operating as OperatingVehicleV1);
       } else if (this.operatingConfiguration.assertCurrentForReadOnly && "driverId" in operating) {
@@ -110,7 +113,7 @@ export class ComplianceService {
       } else if ("driverId" in operating) {
         await this.operatingConfiguration.assertCurrent(operating as OperatingConfigurationV1);
       }
-    } else {
+    } else if (!trustedImport) {
       const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
       if (currentOperatingVehicle.vehicleId !== operating.vehicleId ||
           currentOperatingVehicle.vehicleRevision !== operating.vehicleRevision) {

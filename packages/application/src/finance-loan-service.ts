@@ -97,8 +97,12 @@ export class FinanceLoanService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
-    const configuration = expectedConfiguration ?? await this.operatingConfiguration?.get();
+  private async requireVehicle(
+    vehicleId: string,
+    expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>,
+    allowUnselectedImport = false,
+  ) {
+    const configuration = expectedConfiguration ?? (allowUnselectedImport ? undefined : await this.operatingConfiguration?.get());
     if (configuration && configuration.vehicleId !== vehicleId) throw new Error("finance_loan_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
@@ -115,7 +119,7 @@ export class FinanceLoanService {
     operation?: FeatureRecordOperationIdentityV1;
     now?: string;
   }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
-    const operating = await this.requireVehicle(input.details.vehicleId);
+    const operating = await this.requireVehicle(input.details.vehicleId, undefined, input.source === "import");
     const createdAt = input.now ?? this.now();
     const data: FinanceLoanRecordV1 = {
       schemaVersion: 1,
