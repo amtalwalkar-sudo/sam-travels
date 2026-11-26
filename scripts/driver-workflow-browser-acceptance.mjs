@@ -135,7 +135,7 @@ try {
   const backfillReference = "workflow-missing-trip-" + Date.now();
   const backfillPanel = page.getByRole("region", { name: "Historical trip backfill" });
   await backfillPanel.getByRole("button", { name: "Add missing historical trip", exact: true }).click();
-  await backfillPanel.getByLabel("Driver").selectOption(configuredDriver.data.driverId);
+  await backfillPanel.locator("select").first().selectOption(configuredDriver.data.driverId);
   await backfillPanel.getByLabel("Vehicle").selectOption(vehicleId);
   await backfillPanel.getByLabel("Trip started (India time)").fill("2026-11-10T08:00");
   await backfillPanel.getByLabel("Trip ended (India time)").fill("2026-11-10T08:30");
