@@ -65,7 +65,7 @@ describe("Fuel Entry form definition v1", () => {
       type: "number",
       required: true,
     });
-    expect(FUEL_ENTRY_FORM_V1.fields.some((field) => /quantity|kilograms|fuelKg/i.test(field.id))).toBe(false);
+    expect(FUEL_ENTRY_FORM_V1.fields.some((field) => /quantity|kilograms|fuelKg|location|gps/i.test(field.id))).toBe(false);
     expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "partialRefill")).toMatchObject({
       type: "checkbox",
       required: true,
