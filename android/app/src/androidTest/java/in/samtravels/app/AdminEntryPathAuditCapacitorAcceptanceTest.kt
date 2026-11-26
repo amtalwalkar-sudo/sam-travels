@@ -29,6 +29,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
     val financeRecordIds = mutableListOf<String>()
     var assignmentRecordId: String? = null
     val previousWorkSelection = db.records().get("work:selected-driver")
+    val previousDriverState = db.records().get("driver-state")
+    AdminTestUiControlSupport.resetDriverStateToIdle(db, java.time.Instant.now().toString())
     var activity = instrumentation.startActivitySync(
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     ) as MainActivity
