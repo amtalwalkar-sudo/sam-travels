@@ -105,7 +105,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     activity = instrumentation.startActivitySync(
       Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     ) as MainActivity
-    assertTrue("Drive",
+    assertTrue("Drive; page=" + awaitMaintenanceJavascriptValue(activity, "document.body.innerText"),
         awaitMaintenanceJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
     assertTrue("Admin nav", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
