@@ -64,7 +64,7 @@ export class FullCostBreakevenService {
       throw error;
     });
     const operatingVehicle = operating
-      ? { vehicleId: operating.vehicleId, vehicleRevision: operating.vehicleRevision }
+      ? { schemaVersion: 1 as const, vehicleId: operating.vehicleId, vehicleRevision: operating.vehicleRevision }
       : await this.operatingConfiguration?.getVehicleForReadOnly();
 
     const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
