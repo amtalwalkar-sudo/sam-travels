@@ -38,6 +38,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
   val visitChainId = "historical-correction-chain:" + java.net.URLEncoder.encode(visitId, "UTF-8")
   val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
   val correctionPrefix = "historical-correction:"
+  val assignmentId = "feature:driver-records:assignment:driver-one"
   val now = Instant.now().toString()
   val vehicle = maintenanceEnvelope(vehicleId, now, JSONObject()
     .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
@@ -84,7 +85,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val secondDriverEnvelope = JSONObject(secondDriverRow.json)
     secondDriverEnvelope.getJSONObject("data").put("lifecycleState", "inactive")
     database.records().put(StoredRecord(secondDriverRow.id, secondDriverEnvelope.toString(), secondDriverRow.schemaVersion, secondDriverRow.updatedAt))
-    val assignmentId = "feature:driver-records:assignment:driver-one"
     val assignmentData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
         .put("assignments", JSONArray().put(JSONObject()
             .put("assignmentId", "maintenance-correction-assignment")

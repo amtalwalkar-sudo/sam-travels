@@ -21,7 +21,6 @@ internal object AdminTestUiControlSupport {
     private fun assertTrue(message: String, condition: Boolean) {
         if (!condition) throw AssertionError(message)
     }
-}
 
     /** Retires the one seeded demo vehicle so a test can configure its own active vehicle. */
     fun retireProfileVehicle(
@@ -45,3 +44,4 @@ internal object AdminTestUiControlSupport {
         }
         evaluate("document.getElementById('admin-section-trigger-vehicle')?.click()")
     }
+}
