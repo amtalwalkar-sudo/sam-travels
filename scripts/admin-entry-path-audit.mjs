@@ -209,7 +209,7 @@ export async function exerciseWorkTripEntryPaths(page, { adminName, adminPin } =
     const eventsBeforeCorrection = (await readBrowserDriverEvents(page))
       .map(event => ({ eventId: event.eventId, revision: event.revision, command: event.command, gps: event.gps }));
     await page.getByRole("button", { name: "Admin", exact: true }).click();
-    await page.getByLabel("Select person").selectOption({ label: adminName });
+    await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: adminName });
     await page.getByLabel("Active role").selectOption("admin");
     await page.getByLabel("Admin PIN").fill(adminPin);
     await page.getByRole("button", { name: "Activate role", exact: true }).click();
