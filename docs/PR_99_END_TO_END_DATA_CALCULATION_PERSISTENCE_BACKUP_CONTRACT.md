@@ -728,3 +728,27 @@ Physical OEM/device certification, non-deterministic full OS reboot persistence,
 **Dependency advisory gate — initial classification complete; remediation in progress.** Run 4921 identified three advisories in the development test toolchain only: moderate `@vitest/mocker`, critical `tinypool`, and critical direct `vitest`; the production-only audit reported zero vulnerabilities. The available fix is Vitest 5.1.2, now selected in `package.json`. Web CI is strengthened to fail on any moderate-or-higher advisory across the full dependency graph. Exact-head re-audit must confirm zero remaining advisories.
 
 The above code and workflow changes are not accepted until the required five CI jobs pass on the final exact PR #99 head. Stage 6 and whole-contract acceptance remain **INCOMPLETE** until the dependency report is classified, remaining backup performance evidence is dispositioned, the four project records and PR body agree, and exact-head CI is green. PR #99 remains open, draft and unmerged; no new PR is authorized.
+
+
+## 1C. Current whole-contract checkpoint — 2026-11-27 (superseding §1B)
+
+This checkpoint supersedes the status table in §1B where later implementation, owner decision or CI evidence has changed the disposition. The eight conditions in §1A remain authoritative.
+
+- **Owner decision:** Trip Financial correction UX/schema approved 2026-11-27: preserve original fare and linked Work/GPS event; append before/after, reason, target/chain revisions and Admin actor; refresh corrected fare projection. This closes the owner-ratification dependency only.
+- **Backup record count:** raw Room export, native package creation manifest totals and raw Room restore pre-mutation caps are implemented with focused Browser/Android boundary tests. Exact-head CI remains pending.
+- **Plaintext preflight:** TypeScript snapshot serialization now counts exact UTF-8 bytes and checks encrypted envelope size before allocating TextEncoder bytes. Android scheduled Dropbox export performs the same UTF-8 count before byte-array creation and native package creation repeats the check. Multibyte and first-over regression coverage is added. Representative peak-memory/time acceptance remains open.
+- **Dependency audit:** previous report found three development-toolchain advisories and zero production advisories. Vitest 5.1.2 and the full-graph moderate-or-higher audit gate are committed; final artifact inspection is still required.
+- **Android acceptance:** previous exact-head run #4933 on becec6809276d2a9af40af324b5b9088b478ca23 failed 8/181 tests: seven rendered Work workspace startup assertions and one missing overlay action. A retryable startup failure surface and diagnostic page/accessibility output are now added. These are diagnostic changes, not passing acceptance evidence; root causes remain open.
+
+| §1A condition | Current status |
+|---|---|
+| 1. Normative entry-path mapping | **INCOMPLETE** — Android acceptance failures remain unresolved. |
+| 2. Independent PWA/Dexie and Android/Room compliance | **SCOPED CORE PROVEN; STAGE 6 ANDROID ACCEPTANCE PENDING**. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **SCOPED CORE PROVEN; FINAL EXACT-HEAD REGRESSION PENDING**. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction approved; dependency re-audit and backup performance evidence remain open. |
+| 5. Negative/boundary/interruption/recovery | **STAGE 5 ACCEPTED; NEW BACKUP BOUNDARY TESTS PENDING EXACT-HEAD CI**. |
+| 6. Four project records and PR description agree | **RECONCILED AT THIS CHECKPOINT**; verify again after final documentation commit. |
+| 7. Five required CI jobs on exact final head | **PENDING** — Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+**Whole-contract disposition: INCOMPLETE.** No whole-contract completion or merge is authorized. Physical OEM/device certification, nondeterministic full OS reboot, live Dropbox account operations, owner visual approval and branch-protection/ruleset verification remain explicit manual/administrative gates and are not CI passes.
