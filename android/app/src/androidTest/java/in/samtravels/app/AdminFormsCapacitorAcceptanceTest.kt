@@ -26,6 +26,7 @@ class AdminFormsCapacitorAcceptanceTest {
         var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+        AdminTestUiControlSupport.resetDriverStateToIdle(db, java.time.Instant.now().toString())
         val marker = "Admin Android " + UUID.randomUUID().toString().take(8)
         var activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
