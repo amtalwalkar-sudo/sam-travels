@@ -20,22 +20,117 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
     private class FakeLocationSource : DriverLocationSource {
         @Volatile var listener: LocationListener? = null
         @Volatile var removed = false
+        @Volatile var requestCount = 0
+        @Volatile var removeCount = 0
 
         override fun bestProvider(): String = "gps"
 
         override fun requestLocationUpdates(provider: String, listener: LocationListener, looper: Looper) {
             assertEquals("Overlay GPS callbacks must be delivered on the main looper", Looper.getMainLooper(), looper)
+            requestCount += 1
             this.listener = listener
         }
 
         override fun removeUpdates(listener: LocationListener) {
             if (this.listener === listener) this.listener = null
+            removeCount += 1
             removed = true
         }
 
         fun deliver(location: Location) {
             val active = listener ?: error("overlay_location_listener_not_registered")
             active.onLocationChanged(location)
+        }
+    }
+
+    @Test fun eachRequiredNativeOverlayTransitionAcquiresAndReleasesItsOwnGpsFix() {
+        val tripId = "overlay-six-event-gps-matrix"
+        val locationSource = FakeLocationSource()
+        DriverLocationSourceFactory.overrideForTests = locationSource
+        val expected = listOf(
+            "trip_create" to "going_to_pickup",
+            "start_ride" to "trip_active",
+            "end_ride" to "shift_active",
+            "trip_create" to "going_to_pickup",
+            "cancel_ride" to "shift_active",
+            "shift_end" to "idle",
+        )
+        try {
+            withAttachedOverlay(
+                tripId,
+                { _, _ -> },
+                databaseName = "overlay-six-event-gps-matrix.db",
+                expectedFormLabel = null,
+            ) { ui, db ->
+                val initialEventCount = DriverWorkflowStore.listEvents(db).size
+                val eventIds = mutableListOf<String>()
+                val fixTimes = mutableSetOf<String>()
+                val latitudes = mutableSetOf<Double>()
+                expected.forEachIndexed { index, (eventType, nextState) ->
+                    assertTrue("Overlay exposes the next action for $eventType", waitUntil(10_000) {
+                        findNode(ui) {
+                            it.className?.toString() == "android.widget.SeekBar" &&
+                                it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
+                        } != null
+                    })
+                    val slider = findNode(ui) {
+                        it.className?.toString() == "android.widget.SeekBar" &&
+                            it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
+                    } ?: error("overlay_action_missing:$eventType")
+                    val bounds = android.graphics.Rect().also { slider.getBoundsInScreen(it) }
+                    val requestsBefore = locationSource.requestCount
+                    val removalsBefore = locationSource.removeCount
+                    swipeAt(ui, bounds.left + 6, bounds.centerY(), bounds.right - 6, bounds.centerY())
+
+                    assertTrue("Each $eventType transition starts a fresh native GPS request", waitUntil(10_000) {
+                        locationSource.requestCount == requestsBefore + 1 &&
+                            locationSource.listener != null &&
+                            DriverWorkflowStore.listIntents(db).any { intent ->
+                                intent.optJSONObject("command")?.optString("eventType") == eventType &&
+                                    intent.optString("status") == "pending_location"
+                            }
+                    })
+                    val intent = DriverWorkflowStore.listIntents(db).last { row ->
+                        row.optJSONObject("command")?.optString("eventType") == eventType &&
+                            row.optString("status") == "pending_location"
+                    }
+                    val command = intent.getJSONObject("command")
+                    val eventId = command.getString("eventId")
+                    assertTrue("Each transition has a stable unique event ID", eventIds.add(eventId))
+                    val transitionAt = Instant.parse(command.getString("transitionAt"))
+                    val fix = Location("gps").apply {
+                        latitude = 19.076 + (index + 1) * 0.0001
+                        longitude = 72.8777 + (index + 1) * 0.0001
+                        accuracy = 8f
+                        time = transitionAt.toEpochMilli()
+                        elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                    }
+                    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        locationSource.deliver(fix)
+                    }
+                    assertTrue("$eventType commits only after its own GPS fix", waitUntil(10_000) {
+                        DriverWorkflowStore.snapshot(db).optString("state") == nextState &&
+                            DriverWorkflowStore.listEvents(db).size == initialEventCount + index + 1
+                    })
+                    val event = DriverWorkflowStore.listEvents(db).single { it.optString("eventId") == eventId }
+                    val gps = event.getJSONObject("gps")
+                    assertEquals(eventType, event.getJSONObject("command").getString("eventType"))
+                    assertTrue("Each accepted event has a distinct fix timestamp", fixTimes.add(gps.getString("fixAt")))
+                    assertTrue("Each accepted event has a distinct location", latitudes.add(gps.getDouble("latitude")))
+                    assertEquals(fix.latitude, gps.getDouble("latitude"), 0.000001)
+                    assertTrue("$eventType releases its GPS listener", waitUntil(5_000) {
+                        locationSource.removeCount == removalsBefore + 1 && locationSource.listener == null
+                    })
+                }
+                assertEquals("Six required Work transitions each acquire GPS independently", 6, locationSource.requestCount)
+                assertEquals("Every completed acquisition releases its listener", 6, locationSource.removeCount)
+                assertEquals("Six unique event-scoped GPS fixes", 6, fixTimes.size)
+                assertEquals("Six unique event-scoped locations", 6, latitudes.size)
+                assertEquals("All six transitions committed", initialEventCount + 6, DriverWorkflowStore.listEvents(db).size)
+            }
+        } finally {
+            DriverLocationSourceFactory.overrideForTests = null
+            DriverOverlayDatabaseFactory.databaseNameOverrideForTests = null
         }
     }
 
