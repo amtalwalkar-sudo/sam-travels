@@ -886,7 +886,7 @@ Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/b
 
 **Eight-condition reconciliation and acceptance**
 - Conditions 1–5 now have named implementation/test evidence in §9.54 and the earlier accepted Stage 1–5 records, subject to any feature-specific owner ratification required by the normative contracts.
-- Condition 6 is being reconciled across the four PR #99 project records and PR description.
+- Condition 6 is reconciled across the four PR #99 project records and the updated PR description; final exact-head review remains pending.
 - Condition 7 remains pending until all five required jobs pass on the final documentation-updated PR #99 head.
 - Condition 8 is verified: PR #99 remains open, draft and unmerged. No new PR is opened and no merge is authorized.
 
