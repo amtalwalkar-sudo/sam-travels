@@ -130,12 +130,16 @@ describe("authoritative record-backed form working copies", () => {
       status: "in_progress", values: {}, operationId: "op-3", updatedAt: new Date().toISOString(),
     };
     await copies.put(copy);
-    await records.put({ id: "unrelated", schemaVersion: 1, createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(), source: "web", revision: 1, data: { retained: true } });
+    const now = new Date().toISOString();
+    await records.put({ id: "unrelated", schemaVersion: 1, createdAt: now,
+      updatedAt: now, source: "web", revision: 1, data: { retained: true } });
+    const protectedLoan = { id: "feature:finance:loan:protected", schemaVersion: 1 as const,
+      createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { retained: true } };
+    await records.put(protectedLoan);
     await copies.remove(copy.formId, copy.instanceId);
     expect(await copies.get(copy.formId, copy.instanceId)).toBeUndefined();
     expect(await records.get("unrelated")).toBeDefined();
-    await expect(records.remove("feature:finance:loan:protected")).rejects.toThrow("record_delete_forbidden");
-    expect(await records.get("feature:finance:loan:protected")).toBeUndefined();
+    await expect(records.remove(protectedLoan.id)).rejects.toThrow("record_delete_forbidden");
+    expect(await records.get(protectedLoan.id)).toEqual(protectedLoan);
   });
 });
