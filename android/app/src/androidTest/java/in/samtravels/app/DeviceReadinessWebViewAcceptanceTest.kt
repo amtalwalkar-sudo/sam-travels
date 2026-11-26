@@ -84,11 +84,11 @@ class DeviceReadinessWebViewAcceptanceTest {
             """.trimIndent())
             val checksBeforeSettings = evaluate(view, "window.__readinessChecks || 0").trim('"').toInt()
             assertTrue("Location settings action must be rendered",
-                evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].some(n => n.innerText.includes('Location services'))") == "true")
-            evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].find(n => n.innerText.includes('Location services'))?.click()")
+                evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].some(n => n.innerText.includes('Precise location access'))") == "true")
+            evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].find(n => n.innerText.includes('Precise location access'))?.click()")
             val settingsDeadline = System.currentTimeMillis() + 10_000
             while (System.currentTimeMillis() < settingsDeadline && activity.hasWindowFocus()) Thread.sleep(100)
-            assertTrue("Selecting Location services must hand off to Android Settings", !activity.hasWindowFocus())
+            assertTrue("Selecting Precise location access must hand off to Android Settings", !activity.hasWindowFocus())
             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             val returnDeadline = System.currentTimeMillis() + 10_000
             while (System.currentTimeMillis() < returnDeadline && !activity.hasWindowFocus()) Thread.sleep(100)
