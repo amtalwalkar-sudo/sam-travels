@@ -49,6 +49,37 @@ describe("browser event GPS acquisition", () => {
     expect(clearWatch).toHaveBeenCalledWith(17);
   });
 
+  it("starts and releases a fresh GPS watch for each required Work event type", async () => {
+    const eventTypes = ["shift_start", "shift_end", "trip_create", "start_ride", "end_ride", "cancel_ride"] as const;
+    const callbacks: PositionCallback[] = [];
+    const clearWatch = vi.fn();
+    const watchPosition = vi.fn((success: PositionCallback) => {
+      callbacks.push(success);
+      return callbacks.length;
+    });
+    vi.stubGlobal("navigator", { geolocation: { watchPosition, clearWatch } });
+    const provider = new BrowserEventLocationProvider();
+    const accepted = [];
+
+    for (let index = 0; index < eventTypes.length; index += 1) {
+      const transitionAt = new Date().toISOString();
+      const pending = provider.capture(transitionAt);
+      const latitude = 19.076 + index * 0.001;
+      callbacks[index]({
+        coords: {
+          latitude, longitude: 72.8777, accuracy: 10, altitude: null,
+          altitudeAccuracy: null, heading: null, speed: null, toJSON: () => ({}),
+        },
+        timestamp: Date.now(), toJSON: () => ({}),
+      } as GeolocationPosition);
+      accepted.push(await pending);
+    }
+
+    expect(watchPosition).toHaveBeenCalledTimes(eventTypes.length);
+    expect(clearWatch.mock.calls.map(call => call[0])).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(new Set(accepted.map(fix => fix.latitude)).size).toBe(eventTypes.length);
+  });
+
   it("does not start acquisition after the original evidence window expires", async () => {
     const watchPosition = vi.fn();
     vi.stubGlobal("navigator", {
