@@ -26,79 +26,18 @@ import java.util.concurrent.atomic.AtomicReference
  * coordinator. This intentionally does not inject a fake calculation context.
  */
 @RunWith(AndroidJUnit4::class)
-class RestoredRoomPerformanceWebViewAcceptanceTest {
-    private fun envelope(
-        id: String,
-        data: JSONObject,
-        createdAt: String,
-        updatedAt: String = createdAt,
-        revision: Int = 1,
-        businessDate: String? = null,
-    ): JSONObject = JSONObject()
-        .put("id", id)
-        .put("schemaVersion", 1)
-        .put("createdAt", createdAt)
-        .put("updatedAt", updatedAt)
-        .put("source", "integration")
-        .put("revision", revision)
-        .apply { if (businessDate != null) put("businessDate", businessDate) }
-        .put("data", data)
-    private fun snapshot(database: LocalDatabase) =
-        NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "android-webview-acceptance")
-    private fun recordGraph(bundle: NativeSnapshotBundle): Map<String, String> {
-        val records = bundle.snapshot.getJSONArray("records")
-        return (0 until records.length()).associate { index ->
-            val row = records.getJSONObject(index)
-            row.getString("id") to row.getString("json")
-        }
-    }
-    private fun findWebView(view: View): WebView? {
-        if (view is WebView) return view
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) {
-                findWebView(view.getChildAt(index))?.let { return it }
-            }
-        }
-        return null
-    }
-    private fun evaluate(webView: WebView, script: String): String {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val latch = CountDownLatch(1)
-        val result = AtomicReference<String>()
-        instrumentation.runOnMainSync {
-            webView.evaluateJavascript(script) { value ->
-                result.set(value)
-                latch.countDown()
-            }
-        }
-        assertTrue("WebView JavaScript evaluation timed out", latch.await(15, TimeUnit.SECONDS))
-        return result.get() ?: error("WebView JavaScript returned no value")
-    }
-    private fun waitFor(webView: WebView, timeoutSeconds: Long = 60, predicate: (JSONObject) -> Boolean): JSONObject {
-        val deadline = SystemClock.elapsedRealtime() + TimeUnit.SECONDS.toMillis(timeoutSeconds)
-        var last = JSONObject()
-        while (SystemClock.elapsedRealtime() < deadline) {
-            val raw = evaluate(webView, """
-                (() => ({
-                  ready: document.readyState,
-                  body: document.body?.innerText || "",
-                  performance: document.querySelector("#performance-dashboard-title")?.innerText || "",
-                  lifetime: document.querySelector(".performance-lifetime-grid")?.innerText || "",
-                  error: document.querySelector(".performance-error")?.innerText || ""
-                }))()
-            """.trimIndent())
-            last = JSONObject(raw)
-            if (predicate(last)) return last
-            SystemClock.sleep(300)
-        }
-        throw AssertionError("Timed out waiting for WebView acceptance condition. Last DOM: ${last}")
-    }
+class RestoredRoomPerformanceWebViewAcceptanceTest : RestoredRoomPerformanceWebViewAcceptanceSupport() {
     @Test fun restoredRoomPoolDrivesTheActualAndroidPerformanceScreen() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val fixture = instrumentation.context.assets.open("performance-calculation-v1-parity.json")
             .bufferedReader().use { JSONObject(it.readText()) }
         val fixtureRecords = fixture.getJSONArray("records"); val expected = fixture.getJSONObject("expected")
+        val fixtureActiveVehicleIds = (0 until fixtureRecords.length()).map { fixtureRecords.getJSONObject(it) }
+            .filter { it.getString("id").startsWith("feature:vehicle:") &&
+                it.getJSONObject("data").optString("lifecycleState") == "active" }
+            .map { it.getString("id") }.sorted()
+        assertEquals("Performance fixture supplies exactly one active operating vehicle", listOf("feature:vehicle:MH01AB1234"), fixtureActiveVehicleIds)
         fun expectedRupees(key: String): String { val paise = expected.getInt(key); return "₹" + String.format(java.util.Locale.US, "%,d.%02d", paise / 100, paise % 100) }
         val vehicleId = "feature:vehicle:MH01AB1234"; val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
         val periodFrom = fixture.getJSONObject("input").getString("periodFrom")
@@ -122,15 +61,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         try {
             for (index in 0 until fixtureRecords.length()) {
                 val row = JSONObject(fixtureRecords.getJSONObject(index).toString())
-                // The broad semantic fixture contains several fleet examples. The
-                // restored Work/Performance acceptance must model the app's
-                // current single-vehicle operating contract, so retain the
-                // designated operating vehicle as active and keep historical
-                // fleet examples present but inactive.
-                if (row.getString("id").startsWith("feature:vehicle:") &&
-                    row.getString("id") != vehicleId) {
-                    row.getJSONObject("data").put("lifecycleState", "inactive")
-                }
                 sourceDb.records().put(StoredRecord(
                     row.getString("id"), row.toString(),
                     row.getInt("schemaVersion"), row.getString("updatedAt"),
@@ -214,6 +144,11 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             .allowMainThreadQueries().build()
         try {
             assertEquals("Verified restore leaves no pending startup recovery", emptyList<String>(), NativeStartupRecovery.ensure(reopened))
+            val restoredActiveVehicleIds = reopened.records().list().filter { row ->
+                row.id.startsWith("feature:vehicle:") &&
+                    JSONObject(row.json).optJSONObject("data")?.optString("lifecycleState") == "active"
+            }.map { it.id }.sorted()
+            assertEquals("Restored Room must contain exactly the designated active vehicle", listOf(vehicleId), restoredActiveVehicleIds)
             val reexported = snapshot(reopened)
             val graph = recordGraph(reexported)
             assertTrue("Business Start Date settings survive Room reopen", graph.containsKey("feature:business-settings:business"))
@@ -230,6 +165,18 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         try {
             val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             activity = instrumentation.startActivitySync(intent) as MainActivity
+            val liveRoom = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+                .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+                .allowMainThreadQueries().build()
+            try {
+                val liveActiveVehicleIds = liveRoom.records().list().filter { row ->
+                    row.id.startsWith("feature:vehicle:") &&
+                        JSONObject(row.json).optJSONObject("data")?.optString("lifecycleState") == "active"
+                }.map { it.id }.sorted()
+                assertEquals("MainActivity must read the same single-active-vehicle Room snapshot", listOf(vehicleId), liveActiveVehicleIds)
+            } finally {
+                liveRoom.close()
+            }
             val webViewRef = AtomicReference<WebView>()
             instrumentation.runOnMainSync {
                 webViewRef.set(findWebView(activity!!.window.decorView))
