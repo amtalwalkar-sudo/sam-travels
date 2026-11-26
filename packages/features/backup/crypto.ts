@@ -67,21 +67,63 @@ export const MAX_BACKUP_PACKAGE_BYTES = 512 * 1024 * 1024;
  */
 export const BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES = 1024 * 1024;
 
-export function estimateEncryptedPackageBytes(plaintextBytes: number): number {
-  if (!Number.isSafeInteger(plaintextBytes) || plaintextBytes < 0) {
+export function estimateEncryptedPackageBytes(
+  plaintextBytes: number,
+  envelopeReserveBytes = BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES,
+): number {
+  if (!Number.isSafeInteger(plaintextBytes) || plaintextBytes < 0 ||
+      !Number.isSafeInteger(envelopeReserveBytes) || envelopeReserveBytes < 0) {
     throw new Error("backup_invalid_plaintext_size");
   }
   const ciphertextBytes = plaintextBytes + 16;
   const base64Bytes = Math.ceil(ciphertextBytes / 3) * 4;
-  return base64Bytes + BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES;
+  return base64Bytes + envelopeReserveBytes;
 }
 
-export function assertBackupPlaintextPreflight(plaintextBytes: number): number {
-  const estimatedPackageBytes = estimateEncryptedPackageBytes(plaintextBytes);
-  if (estimatedPackageBytes > MAX_BACKUP_PACKAGE_BYTES) {
+export function assertBackupPlaintextPreflight(
+  plaintextBytes: number,
+  maxPackageBytes = MAX_BACKUP_PACKAGE_BYTES,
+  envelopeReserveBytes = BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES,
+): number {
+  if (!Number.isSafeInteger(maxPackageBytes) || maxPackageBytes < 0) {
+    throw new Error("backup_invalid_package_size");
+  }
+  const estimatedPackageBytes = estimateEncryptedPackageBytes(plaintextBytes, envelopeReserveBytes);
+  if (estimatedPackageBytes > maxPackageBytes) {
     throw new Error("backup_plaintext_preflight_exceeded");
   }
   return estimatedPackageBytes;
+}
+
+/** Count UTF-8 bytes from UTF-16 without allocating the encoded payload. */
+export function utf8ByteLength(value: string): number {
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x7f) bytes += 1;
+    else if (code <= 0x7ff) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) throw new Error("backup_invalid_plaintext_encoding");
+      bytes += 4;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      throw new Error("backup_invalid_plaintext_encoding");
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+/** Serialize only after checking exact UTF-8 and encrypted-envelope size bounds. */
+export function encodeBackupSnapshot(
+  snapshot: unknown,
+  maxPackageBytes = MAX_BACKUP_PACKAGE_BYTES,
+  envelopeReserveBytes = BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES,
+): Uint8Array {
+  const serialized = JSON.stringify(snapshot);
+  if (typeof serialized !== "string") throw new Error("backup_invalid_snapshot");
+  assertBackupPlaintextPreflight(utf8ByteLength(serialized), maxPackageBytes, envelopeReserveBytes);
+  return encoder.encode(serialized);
 }
 
 export function assertBackupPackageByteLength(byteLength: number): void {
