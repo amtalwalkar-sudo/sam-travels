@@ -44,7 +44,6 @@ const EXPENSE_PREFIX = PREFIX + "expense:";
 const RATE_PREFIX = PREFIX + "rate:";
 const DEFAULT_RATE = 250;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function recordId(kind: "visit" | "expense", uuid: string): string {
   if (typeof uuid !== "string" || !UUID.test(uuid)) throw new Error("maintenance_record_uuid_invalid");
   return (kind === "visit" ? VISIT_PREFIX : EXPENSE_PREFIX) + uuid.toLowerCase();
@@ -65,7 +64,6 @@ function isValidDate(value: string): boolean {
 export class MaintenanceService {
   private readonly records: FeatureRecordService<MaintenanceRecordV1>;
   private readonly repository: AtomicRecordRepository;
-
   constructor(
     repository: AtomicRecordRepository,
     validate: MaintenanceRecordValidator,
@@ -351,7 +349,6 @@ export class MaintenanceService {
       return next;
     }, 0);
   }
-
   async getServiceReminderStates(vehicleId: string, asOf: string): Promise<readonly Readonly<{
     visit: RecordEnvelope<MaintenanceVisitV1>;
     dateDue: boolean;
