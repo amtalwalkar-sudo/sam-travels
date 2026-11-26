@@ -238,58 +238,11 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertEquals(renewalTo, renewalData.getString("validTo"))
       assertEquals(81000L, renewalData.getLong("totalCostPaise"))
 
-      // Exercise the rendered Room-backed overlap-review path after the linked renewal.
-      assertTrue("Linked renewal overlap is rendered", awaitMaintenanceJavascript(page,
-        "Array.from(document.querySelectorAll('.compliance-overlap-card')).some(node => node.textContent.includes('Acceptance insurance'))",
-        15_000))
-      assertTrue("Overlap date selector is available", evaluateMaintenanceWebView(page, """
-        (() => {
-          const input = [...document.querySelectorAll('.compliance-daily-heading label input[type=date]')][0];
-          if (!input) return false;
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '$renewalFrom');
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          return true;
-        })()
-      """))
-      assertTrue("Unreviewed overlap withholds combined cost", awaitMaintenanceJavascript(page,
-        "Array.from(document.querySelectorAll('.compliance-daily-cost .compliance-daily-withheld')).some(node => node.textContent.includes('withheld'))",
-        15_000))
-      val reviewRationale = "Renewal overlap checked against the linked policy documents."
-      assertTrue("Overlap review reason and confirmation submitted", evaluateMaintenanceWebView(page, """
-        (() => {
-          const card = [...document.querySelectorAll('.compliance-overlap-card')]
-            .find(node => node.textContent.includes('Acceptance insurance'));
-          const reason = card?.querySelector('textarea');
-          const confirm = [...(card?.querySelectorAll('button') ?? [])]
-            .find(node => node.textContent.trim() === 'Confirm overlap');
-          if (!reason || !confirm) return false;
-          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(reason, '$reviewRationale');
-          reason.dispatchEvent(new Event('input', { bubbles: true }));
-          confirm.click();
-          return true;
-        })()
-      """))
-      assertTrue("Confirmed overlap readback refreshes", awaitMaintenanceJavascript(page,
-        "Array.from(document.querySelectorAll('.compliance-overlap-card')).some(node => node.textContent.includes('Confirmed for these exact source revisions. Dates and overlap are retained.'))",
-        20_000))
-      assertTrue("Confirmed overlap releases daily allocation", awaitMaintenanceJavascript(page,
-        "Array.from(document.querySelectorAll('.compliance-daily-cost .compliance-daily-total')).some(node => node.textContent.includes('Combined daily allocation'))",
-        20_000))
-      val reviewEvents = database.records().list().filter { it.id.startsWith("compliance-overlap-review:") }
-        .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("rationale") == reviewRationale }.getOrDefault(false) }
-      assertEquals("One append-only Room overlap review", 1, reviewEvents.size)
-      val reviewData = JSONObject(reviewEvents.single().json).getJSONObject("data")
-      assertEquals("confirmed", reviewData.getString("decision"))
-      assertEquals("admin", reviewData.getJSONObject("actor").getString("role"))
-      assertEquals(reviewRationale, reviewData.getString("rationale"))
-      assertEquals(2, reviewData.getJSONArray("sourceRecords").length())
-      assertTrue("Review binds original source revision", (0 until reviewData.getJSONArray("sourceRecords").length()).any {
-        reviewData.getJSONArray("sourceRecords").getJSONObject(it).getString("recordId") == complianceId &&
-          reviewData.getJSONArray("sourceRecords").getJSONObject(it).getInt("recordRevision") == 1
-      })
-      assertEquals("Original Compliance dates remain unchanged", validFrom, JSONObject(database.records().get(complianceId)!!.json).getJSONObject("data").getString("validFrom"))
-      assertEquals("Original Compliance end date remains unchanged", validTo, JSONObject(database.records().get(complianceId)!!.json).getJSONObject("data").getString("validTo"))
+      ComplianceOverlapReviewAcceptanceSupport.assertRoomBackedOverlapReview(
+        page, database, complianceId, validFrom, validTo, renewalFrom,
+        evaluate = { target, script -> evaluateMaintenanceWebView(target, script) },
+        await = { target, expression, timeout -> awaitMaintenanceJavascript(target, expression, timeout) },
+      )
 
       val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
       NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
