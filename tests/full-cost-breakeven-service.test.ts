@@ -309,14 +309,18 @@ describe("FullCostBreakevenService source integration", () => {
       selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1,
     };
     const operatingVehicle = { vehicleId, vehicleRevision: 1 };
+    let contextCaptured = false;
     const configuration = {
-      getForReadOnly: async () => operating,
+      getForReadOnly: async () => { contextCaptured = true; return operating; },
       getVehicleForReadOnly: async () => operatingVehicle,
       assertCurrentForReadOnly: async () => { throw new Error("operating_configuration_stale"); },
       assertVehicleCurrentForReadOnly: async () => { throw new Error("operating_configuration_stale"); },
     };
     const service = new FullCostBreakevenService(
-      { list: async () => [{ id: vehicleId, revision: 1, data: { lifecycleState: "active" } }] } as never,
+      { list: async () => {
+        expect(contextCaptured).toBe(true);
+        return [{ id: vehicleId, revision: 1, data: { lifecycleState: "active" } }];
+      } } as never,
       { listVehicleRecords: async () => ({ accruals: [], visits: [], expenses: [], rateHistory: [] }) } as never,
       {
         listExpenseEntries: async () => [], listDailyExpenseOutputs: async () => [],
