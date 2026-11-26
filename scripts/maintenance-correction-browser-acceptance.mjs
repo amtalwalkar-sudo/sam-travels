@@ -2,7 +2,8 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
-const vehicleId = "feature:vehicle:MH01AB1234";
+let vehicleId;
+let vehicleRegistration;
 const expenseId = "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174013";
 const visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174012";
 const timestamp = "2026-10-10T09:00:00.000Z";
@@ -28,7 +29,7 @@ try {
   const page = await browser.newPage();
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
-  await page.evaluate(async ({ vehicleId, expenseId, visitId, timestamp }) => {
+  const seededVehicle = await page.evaluate(async ({ expenseId, visitId, timestamp }) => {
     const request = indexedDB.open("sam-travels-browser");
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -51,13 +52,20 @@ try {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const vehicle = {
-      id: vehicleId, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
-      source: "web", revision: 1,
-      data: { schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Tata", model: "Ace",
-        vehicleType: "LCV", fuelType: "Diesel", yearOfManufacture: 2022,
-        ownership: "Owned", lifecycleState: "active" },
-    };
+    const existingRecords = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    const vehicle = existingRecords.find(row => typeof row.id === "string" &&
+      row.id.startsWith("feature:vehicle:") && row.data?.lifecycleState === "active");
+    if (!vehicle) throw new Error("initial_profile_vehicle_not_seeded");
+    const vehicleId = vehicle.id;
+    const vehicleRegistration = vehicle.data.registrationNumber;
+    if (typeof vehicleRegistration !== "string" || !vehicleRegistration.trim()) {
+      throw new Error("initial_profile_vehicle_registration_missing");
+    }
     const expense = {
       id: expenseId, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
       source: "web", revision: 1, businessDate: "2026-10-10",
@@ -95,7 +103,6 @@ try {
     };
     await new Promise((resolve, reject) => {
       const tx = db.transaction("records", "readwrite");
-      tx.objectStore("records").put(vehicle);
       tx.objectStore("records").put(driver);
       tx.objectStore("records").put(selection);
       tx.objectStore("records").put(assignment);
@@ -106,7 +113,10 @@ try {
       tx.onabort = () => reject(tx.error);
     });
     db.close();
-  }, { vehicleId, expenseId, visitId, timestamp });
+    return { vehicleId, vehicleRegistration };
+  }, { expenseId, visitId, timestamp });
+  vehicleId = seededVehicle.vehicleId;
+  vehicleRegistration = seededVehicle.vehicleRegistration;
 
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
@@ -128,7 +138,7 @@ try {
   await maintenanceSection.locator(".admin-replacement-section-content").waitFor();
   const maintenancePanel = maintenanceSection.locator(".admin-capability-panel").filter({ hasText: "Record actual service visits" });
   await maintenancePanel.waitFor();
-  await maintenancePanel.locator(".admin-vehicle-context").filter({ hasText: "MH01AB1234" }).waitFor();
+  await maintenancePanel.locator(".admin-vehicle-context").filter({ hasText: vehicleRegistration }).waitFor();
   await maintenancePanel.locator("details.loan-schedule > summary").click();
   await page.getByText("Browser acceptance repair", { exact: false }).waitFor();
   const expenseCard = page.locator(".admin-capability-record").filter({ hasText: "Browser acceptance repair" });
