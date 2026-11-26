@@ -51,7 +51,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
             correctionChainRevision: projection.correctionChainRevision,
             correctionRefs: projection.correctionRefs };
         }))
-      : sourceBackfills;
+      : sourceBackfills.map(record => ({ ...record, correctionRefs: [] as const }));
     return { tripRecords, backfills };
   }
 
