@@ -34,7 +34,7 @@ export function validateFormValues(definition: FormDefinition, values: Readonly<
     else if (field.type === "text" && field.maxLength !== undefined && (value as string).length > field.maxLength) issues.push({ fieldId: field.id, code: "max_length", message: field.label + " is too long." });
     else if (field.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) issues.push({ fieldId: field.id, code: "type", message: field.label + " must be a valid number." });
     else if (field.type === "date" && !validDate(value)) issues.push({ fieldId: field.id, code: "date", message: field.label + " must be a valid date." });
-    else if (field.type === "time" && (typeof value !== "string" || !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value))) issues.push({ fieldId: field.id, code: "time", message: field.label + " must be a valid time." });
+    else if (field.type === "time" && (typeof value !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))) issues.push({ fieldId: field.id, code: "time", message: field.label + " must be a valid time." });
     else if (field.type === "select" && (typeof value !== "string" || !field.options?.includes(value))) issues.push({ fieldId: field.id, code: "option", message: "Choose a valid " + field.label.toLowerCase() + "." });
     else if (field.type === "checkbox" && typeof value !== "boolean") issues.push({ fieldId: field.id, code: "type", message: field.label + " must be selected or cleared." });
   }
