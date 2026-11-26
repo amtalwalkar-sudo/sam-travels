@@ -245,10 +245,12 @@ internal object NativeBackupRestoreCoordinator {
         maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
         beforeCheckpoint: () -> Unit = {},
     ): RestoreResult {
-        BackupSnapshotContract.validateSnapshot(snapshot)
-        BackupSnapshotContract.validateManifest(manifest)
+        // Read and cap the raw record array before manifest/snapshot validation
+        // or participant traversal can walk an attacker-controlled oversized graph.
         val rawRecords = snapshot.optJSONArray("records") ?: error("backup_records_missing")
         requireBackupRecordCountWithinLimit(rawRecords.length(), maxRecordCount)
+        BackupSnapshotContract.validateSnapshot(snapshot)
+        BackupSnapshotContract.validateManifest(manifest)
         NativeBackupCoverage.validateParticipantManifest(snapshot.optJSONArray("participants"), rawRecords)
         NativeBackupCoverage.validateParticipantManifest(manifest.optJSONArray("participants"), rawRecords)
         val records = if (snapshot.optJSONArray("participants") == null)
