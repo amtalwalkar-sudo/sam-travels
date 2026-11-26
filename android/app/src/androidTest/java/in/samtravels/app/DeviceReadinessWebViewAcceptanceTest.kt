@@ -57,7 +57,7 @@ class DeviceReadinessWebViewAcceptanceTest {
                 if (ready == "true") break
                 Thread.sleep(200)
             }
-            assertTrue("Driver workspace must load before settings are reviewed",
+            assertTrue("Driver workspace must load before settings are reviewed; page=" + evaluate(view, "document.body.innerText"),
                 evaluate(view, "!!document.querySelector('.driver-card')") == "true")
             assertTrue("Phone settings entry point must render",
                 evaluate(view, "!!document.querySelector('.device-readiness-trigger')") == "true")
