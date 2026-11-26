@@ -16,6 +16,31 @@ internal object DriverWorkflowIdentityTestFixtures {
         seedLink(db, driverId, personId)
     }
 
+    fun seedOperatingPair(
+        db: LocalDatabase,
+        driverId: String,
+        personId: String,
+        registrationNumber: String,
+        assignmentId: String,
+        now: String = Instant.now().toString(),
+    ) {
+        seed(db, driverId, personId)
+        val vehicleId = "feature:vehicle:$registrationNumber"
+        fun put(id: String, data: JSONObject) {
+            val envelope = JSONObject().put("id", id).put("schemaVersion", 1).put("createdAt", now)
+                .put("updatedAt", now).put("source", "android").put("revision", 1).put("data", data)
+            db.records().put(StoredRecord(id, envelope.toString(), 1, now))
+        }
+        put(vehicleId, JSONObject().put("schemaVersion", 1).put("registrationNumber", registrationNumber)
+            .put("make", "Acceptance").put("model", "Fixture").put("vehicleType", "Car")
+            .put("fuelType", "CNG").put("yearOfManufacture", 2024)
+            .put("ownership", "Owned").put("lifecycleState", "active"))
+        val assignmentRecordId = "feature:driver-records:assignment:$driverId"
+        put(assignmentRecordId, JSONObject().put("schemaVersion", 1).put("driverId", driverId)
+            .put("assignments", JSONArray().put(JSONObject().put("assignmentId", assignmentId)
+                .put("vehicleId", vehicleId).put("assignedAt", now))))
+    }
+
     fun seedLink(db: LocalDatabase, driverId: String, personId: String) {
         val now = Instant.now().toString()
         fun put(id: String, data: JSONObject) {
