@@ -20,6 +20,19 @@ internal object NativeBackupV2Package {
         recoveryKey: String,
         random: SecureRandom = SecureRandom(),
     ): JSONObject {
+        // Reject oversized plaintext and invalid record totals before digesting
+        // or encrypting; callers must not pay crypto/memory cost for an invalid export.
+        requireBackupPlaintextWithinPackageLimit(plaintext.size.toLong())
+        val sourceCounts = sourceManifest.optJSONObject("recordCounts")
+            ?: error("backup_invalid_record_count")
+        var totalRecords = 0L
+        val countKeys = sourceCounts.keys()
+        while (countKeys.hasNext()) {
+            val count = sourceCounts.getLong(countKeys.next())
+            require(count >= 0L) { "backup_invalid_record_count" }
+            totalRecords = Math.addExact(totalRecords, count)
+        }
+        require(totalRecords <= MAX_BACKUP_RECORD_COUNT.toLong()) { "backup_record_count_limit" }
         val recoveryBytes = Base64.decode(recoveryKey, Base64.NO_WRAP)
         require(recoveryBytes.size == 32) { "backup_invalid_recovery_key" }
         val dek = ByteArray(32).also(random::nextBytes)
