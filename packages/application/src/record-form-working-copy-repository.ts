@@ -1,8 +1,8 @@
-import type { AtomicRecordRepository, RecordRepository } from "../../core/src/repositories";
+import { FORM_WORKING_COPY_RECORD_PREFIX, type AtomicRecordRepository, type RecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import type { FormWorkingCopy, FormWorkingCopyRepository } from "./shared-form-runtime";
 
-const PREFIX = "__sam_travels_form_working_copy__:";
+const PREFIX = FORM_WORKING_COPY_RECORD_PREFIX;
 function recordId(formId: string, instanceId: string) {
   return PREFIX + encodeURIComponent(formId) + ":" + encodeURIComponent(instanceId);
 }
