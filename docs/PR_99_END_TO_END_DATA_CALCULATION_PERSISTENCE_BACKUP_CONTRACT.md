@@ -40,6 +40,23 @@ PR #99 may be declared **WHOLE CONTRACT COMPLETE** only when all of the followin
 **Status vocabulary:** `WHOLE CONTRACT COMPLETE` is reserved for all eight conditions above. `STAGES 1–4 COMPLETE` means only that the subordinate four-stage tracker is complete. Neither stage completion nor green CI by itself establishes whole-contract completion. If any applicable critical item remains partial, open, unproven or pending owner acceptance, the whole contract remains **INCOMPLETE**.
 
 
+## 1B. PR #99 current closeout status — 2026-11-27
+
+PR #99 remains the single implementation, evidence and acceptance vehicle for this contract. All Stage 6 slices (Fuel, Maintenance, Compliance, trip/fare correction, operating-context wiring, historical integrity, device/GPS and form assertions) are consolidated on the existing branch. Earlier standalone slice PRs and their CI runs are historical context only; they are not the merge plan or final validation of this PR. Do not open another PR.
+
+| Whole-contract condition | Current evidence/status |
+|---|---|
+| 1. Normative requirement-to-evidence mapping | Mapped in the implementation evidence matrix §9.54 and owning contracts. Stage 6 rendered Browser/Android evidence has been added; final exact-head execution remains pending. |
+| 2. Independent Dexie and Room authority | Stage 1–5 accepted evidence remains in force; Stage 6 Android Room/WebView acceptance has been added for correction, overlap review, native GPS and device readiness. Final Android execution remains pending. |
+| 3. Populated cross-runtime backup/restore/recovery parity | Existing Stage 1–5 lifecycle evidence remains in force. The current final documentation-updated five-job run is still required; open backup-boundary gaps are listed in the gap register §§9.37 and 9.39. |
+| 4. Critical gaps closed or explicitly owner-accepted | **OPEN.** The Trip Financial correction UX/schema still requires explicit owner ratification under the Driver Workflow owner contract. Dependency advisory classification/remediation (§9.35), backup record-count/export enforcement (§9.37), and plaintext-size preflight (§9.39) remain open. Finance payment allocation policy is no longer open: its owner-approved v1 contract was ratified 2026-11-22. |
+| 5. Negative, boundary, interruption and recovery evidence | Focused Stage 6 negative/boundary tests and rendered paths have been added; physical OEM, full OS reboot and real Dropbox account checks remain explicit external/manual gates. |
+| 6. Four project records and PR description agree | Reconciled in the implementation evidence matrix §9.54, whole-contract execution plan, this contract, architecture gap register §9.53 and PR #99 description. Final exact-head status review remains pending. |
+| 7. Required CI green on final exact head | **PENDING.** The complete five-job workflow must pass after the final code and documentation commit. Earlier runs on other heads are not substitutes. |
+| 8. PR metadata | **VERIFIED:** PR #99 remains open, draft and unmerged. No merge is authorized. |
+
+The current code head has passed Architecture and Web regression/rendered-PWA gates in the ongoing workflow; Android Room instrumentation, Cross-platform encrypted backup restore and Integrated regression must still pass on the final documentation-updated head. Do not label the whole contract complete while conditions 4, 6 or 7 remain open.
+
 ## 2. Normative ownership and precedence
 
 This document adds PR #99 acceptance and evidence requirements; it does not replace domain policy or duplicate implementation rules owned elsewhere.
