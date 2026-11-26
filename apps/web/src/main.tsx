@@ -179,7 +179,25 @@ async function bootstrap(): Promise<void> {
     </React.StrictMode>,
   );
 }
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  console.error("Sam Travels application bootstrap failed", error);
+  const root = document.getElementById("root");
+  if (!root) return;
+  const panel = document.createElement("main");
+  panel.className = "application-startup-failure";
+  panel.setAttribute("role", "alert");
+  const heading = document.createElement("h1");
+  heading.textContent = "Sam Travels could not start";
+  const detail = document.createElement("p");
+  const reason = error instanceof Error ? error.message : String(error);
+  detail.textContent = "The local workspace could not be initialized. " + reason;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.textContent = "Retry";
+  retry.addEventListener("click", () => window.location.reload());
+  panel.append(heading, detail, retry);
+  root.replaceChildren(panel);
+});
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js")
