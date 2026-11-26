@@ -243,4 +243,29 @@ describe("operating-context command guards", () => {
     expect(await repository.list()).toEqual(before);
   });
 
+  it("rejects stale operating configuration before Maintenance rate and daily-accrual writes", async () => {
+    const { repository, maintenance } = await setup(base => ({
+      get: () => base.get(),
+      assertCurrent: async () => { throw new Error("operating_configuration_stale"); },
+    }));
+    const beforeRate = await repository.list();
+    await expect(maintenance.setRate({
+      vehicleId, ratePaisePerKm: 125, commandId: "123e4567-e89b-42d3-a456-426614174052",
+      source: "web", now: at,
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(beforeRate);
+
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-20";
+    await repository.put(row(dailyId, {
+      schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-20",
+      entries: [{ businessKm: 12, personalKm: 3, allocationStatus: "allocated" }],
+      totalBusinessKm: 12, unallocatedBusinessKm: 0,
+    }));
+    const beforeAccrual = await repository.list();
+    await expect(maintenance.accrueDailyBusinessKilometres({
+      vehicleId, operationalDate: "2026-11-20", source: "web",
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(beforeAccrual);
+  });
+
 });
