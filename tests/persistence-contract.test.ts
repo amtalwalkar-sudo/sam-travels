@@ -34,8 +34,12 @@ describe("formal persistence contracts and historical fixtures", () => {
     expect(() => assertRecordEnvelope({ ...validRecord, source: "unknown" })).toThrow("record_invalid_source");
     expect(() => assertRecordEnvelope({ ...validRecord, updatedAt: "2025-04-02T00:00:00.000Z" })).toThrow("record_invalid_timestamps");
     expect(() => assertRecordEnvelope({ ...validRecord, createdBy: { personId: "person-1", role: "driver" } })).not.toThrow();
+    expect(() => assertRecordEnvelope({ ...validRecord, updatedBy: { personId: "person-admin", role: "admin" } })).not.toThrow();
+    expect(() => assertRecordEnvelope({ ...validRecord, deletedAt: "2025-04-03T08:00:00.000Z" })).not.toThrow();
     expect(() => assertRecordEnvelope({ ...validRecord, createdBy: { personId: "", role: "admin" } })).toThrow("record_invalid_author_provenance");
     expect(() => assertRecordEnvelope({ ...validRecord, createdBy: { personId: "person-1", role: "owner" } })).toThrow("record_invalid_author_provenance");
+    expect(() => assertRecordEnvelope({ ...validRecord, updatedBy: { personId: "", role: "admin" } })).toThrow("record_invalid_update_author_provenance");
+    expect(() => assertRecordEnvelope({ ...validRecord, deletedAt: "not-an-instant" })).toThrow("record_invalid_deleted_at");
   });
 
   it("rejects malformed records at the browser persistence adapter", async () => {
