@@ -59,7 +59,6 @@ try {
   await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
   console.log("Business Setup form saved and authoritative setting rendered.");
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
-  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   const initialProfileVehicle = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -85,6 +84,7 @@ try {
   });
   vehicleId = initialProfileVehicle.id;
   registration = initialProfileVehicle.registrationNumber;
+  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   console.log("Initial Admin vehicle profile rendered and verified:", vehicleId);
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
