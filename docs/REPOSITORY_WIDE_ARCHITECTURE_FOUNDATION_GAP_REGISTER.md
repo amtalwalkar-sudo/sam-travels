@@ -483,13 +483,13 @@ The Architecture Foundation Contract requires architecture, web and Android chec
 
 **Required closure:** complete the remove/deletedAt call-site and data compatibility audit; map actor provenance per record family, reusing the existing FeatureRecordService resolver and identifying direct-write exceptions; keep unavailable actor identity explicit; and list domain-specific correction/reversal owner contracts and tests. Historical deletion prevention and correction original-retention must be proven before end-to-end acceptance.
 
-### 9.29 — Finance payment allocation policy is implemented but its owner contract remains unratified
+### 9.29 — Finance payment allocation policy owner ratified
 
-**Status:** Contract governance blocker identified in B0a.
+**Status: CLOSED by explicit owner ratification on 2026-11-22.**
 
-FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md explicitly labels v1 allocation policy as proposed/not ratified. It proposes oldest-due-first, manual override, partial EMI allocations, unallocated credit treatment, schedule-version binding and reversal rules. The Finance service and UI have implementation/tests, but code and tests do not ratify a business policy. The Finance Loan Calculation Contract, Reduce Tenure Prepayment Contract and Settlement/Closure Contract are approved; the payment allocation proposal is not.
+The Finance Loan Payment Workflow Contract now labels v1 allocation policy as owner-approved normative policy and records the approval date and owner. The ratified rules cover oldest-due-first allocation, user-reviewed manual adjustment, partial EMI coverage, visible unallocated credit, immutable schedule-version/installment binding, and explicit reversal/correction semantics.
 
-**Required closure:** obtain explicit owner ratification or revise the payment contract to the owner's approved policy before claiming the complete Finance payment path is contractually proven. Existing mechanical invariants (stable IDs, atomicity, idempotency, bounds, reversal integrity and backup lineage) should remain tested regardless. Do not silently change payment allocation behaviour or infer approval from implementation.
+The contract is the approval evidence; implementation/tests remain responsible for mechanical correctness. This supersedes the unratified blocker wording in the earlier B0a audit. No additional policy inference or change is authorized.
 
 ### 9.30 — Historical Business Event Reliability Audit has stale Fuel scope
 
@@ -499,32 +499,21 @@ BUSINESS_EVENT_RELIABILITY_AUDIT.md section 4.11 and section 5 state that no Fue
 
 **Required closure:** a dated supersession note has been added to the historical audit pointing to the current Fuel contract and PR #99 B0 evidence matrix. Retain the old baseline as history; current Fuel acceptance covers purchase capture, offline submission, draft recovery and IndexedDB persistence only, with no GPS or location enrichment.
 
-### 9.31 — Generic Room/Dexie deletion capability is not namespace-scoped
+### 9.31 — Generic Room/Dexie deletion capability is scope-restricted
 
-**Status:** Source-confirmed capability gap; no current feature service deletion call was found in the scanned application/feature code, but the underlying plugin/upgrade boundary remains unrestricted.
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE ADDED; FINAL EXACT-HEAD CI PENDING.**
 
-Source scan of all 55 packages/application/src files and all 72 apps/web/src plus 76 packages/features production TypeScript/TSX files found direct RecordRepository.remove usage only for form working-copy cleanup and initial Admin bootstrap rollback. PersonIdentityAdapters uses the same generic remove for the newly created initial Admin person if PIN setup fails. No feature service exposes a delete operation; FeatureRecordService itself has no delete method. However:
-- RecordRepository still exposes generic remove(id).
-- RoomRecordRepository forwards it to the public RoomStorePlugin.remove method, which accepts any nonblank record ID and deletes it from Room.
-- DexieRecordRepository exposes equivalent unrestricted remove.
-- FeatureExtensionUpgradeTransaction passes a generic RecordRepository to migration handlers; RoomFeatureExtensionUpgradeTransaction stages arbitrary remove IDs and sends them to commitFeatureUpgradeBatch, whose native transaction validates revisions but does not validate feature ownership/namespace of delete IDs.
-- No current production migration handler was found deleting business records, but the migration capability would permit it.
+The production call-site audit found generic repository hard-delete was needed only for transient form working copies. Core now defines a shared transient-working-copy ID boundary; Dexie and Room enforce it at their generic delete adapters. Failed first-Admin bootstrap rollback no longer calls generic delete: it writes a revision-checked deletedAt tombstone. Browser and Room feature-extension migration adapters restrict staged deletes to feature:<featureId>:, and the native Room batch transaction independently validates the declared namespace before mutation.
 
-**Required closure:** replace generic deletion with capability-scoped operations (e.g. remove a form working copy by form/instance identity; rollback a newly bootstrapped identity by exact expected revision; delete only records in an explicitly declared feature migration namespace). Enforce ownership in both Dexie and Room, not only in UI/application callers. Add tests proving Finance, Compliance, Maintenance, Work/Driver Workflow, Log Book, historical correction and backup checkpoint records cannot be deleted by an unrelated feature migration or generic plugin call. Preserve atomic rollback and migration semantics.
+Regression evidence: tests/record-form-working-copy.test.ts proves a protected Finance record survives a rejected generic delete; tests/person-identity-adapters.test.ts proves tombstone retention and projection exclusion; tests/feature-extension-upgrade-coordinator.test.ts and Android FeatureExtensionUpgradeTransactionTest.rejectsMigrationDeletionOutsideTheOwningFeatureNamespace prove feature ownership; Android RecordDeletionPolicyTest.onlyTransientFormWorkingCopiesCanUseGenericHardDelete covers protected domain ID classes. See implementation evidence matrix §9.54. Final required CI on PR #99 must pass before this item is marked verified.
 
+### 9.32 — Specialized identity/correction/review entry flows have rendered acceptance coverage
 
-### 9.32 — Specialized identity/correction/review entry flows sit outside the 19-form inventory
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE ADDED; FINAL EXACT-HEAD CI PENDING.**
 
-**Status:** Source-confirmed scope gap from the rendered-component inventory.
+The ordinary ALL_FORM_DEFINITIONS inventory is supplemented by narrow owning-contract evidence for specialized identity, correction and review workflows. Person Identity enrollment/activation is exercised in Android Admin WebView acceptance. Maintenance expense/visit correction is exercised in rendered Browser and Room-backed Android paths. Compliance historical correction and overlap review are exercised in rendered Browser acceptance; Android ComplianceCorrectionCapacitorAcceptanceTest now drives correction, linked renewal and the rendered overlap reason→confirm→Room persistence path through ComplianceOverlapReviewAcceptanceSupport. Trip Financial correction is exercised in the rendered PWA Work journey and Android Room-backed WebView acceptance through TripFinancialCorrectionAcceptanceSupport.
 
-The 19-entry `ALL_FORM_DEFINITIONS` inventory covers the ordinary Admin, Performance and Work/Fuel forms. A source scan also found persisted entry/decision workflows outside that registry:
-- `PersonIdentityPanel.tsx` has separate person enrollment and role-activation forms, plus driver↔person linking. These are security/identity workflows with `PersonIdentityService` and identity adapter tests; Android Admin WebView acceptance exercises enrollment and activation.
-- `MaintenanceExpenseCorrection.tsx` is a specialized append-only correction form. The Maintenance correction pilot has strong PWA and Android WebView/Room acceptance; reuse that evidence and do not duplicate it.
-- `ComplianceHistoricalCorrection.tsx` is a specialized field/reason correction editor with stable correction ID and chain-revision guards. Service-level correction tests and a presentation test for the entry point exist, but no rendered submit/readback acceptance was found.
-- `AdminComplianceOverview.tsx` collects a reason and submits overlap-review decisions. Domain/service tests exist; the exact rendered reason→decision→persisted review path must be classified and evidenced.
-
-These workflows may legitimately need specialized UX and must not be forced into an ordinary Save/Submit form if that would weaken security or correction semantics. However, the Form Architecture Contract requires every implemented form to be discoverable through the shared registry or an equivalent authoritative contract. B0 must record a narrow exception/owner contract for each specialized flow, covering field schema, actor/role, stable operation identity, validation, interruption/retry, immutable history and supported surfaces. PWA rendered acceptance already exercises Person Identity enrollment/activation, Compliance overlap review/correction and Maintenance correction; Android acceptance exercises Person Identity and Maintenance correction. Add only missing Android Compliance correction/overlap-review acceptance where supported; preserve the existing green PWA and Maintenance correction evidence.
-
+These are intentional specialized workflows, not omissions from the ordinary form registry. Their field/actor/operation identity, validation, retry, immutable history and supported-surface rules remain owned by the feature and shared correction contracts. Exact-head CI is pending; do not mark the evidence green until the final PR #99 run succeeds.
 
 ### 9.33 — Shared form submission must survive commit/completion interruption
 
@@ -556,16 +545,11 @@ The `npm install` step in CI reported **3 vulnerabilities: 1 moderate and 2 crit
 
 **Required closure:** capture `npm audit --json` (or the repository's equivalent supported advisory report), identify direct/transitive package paths and whether each is bundled into production or only used in development/test tooling, remediate critical production dependencies, and record a time-bounded owner-approved exception for any unavoidable dev-only advisory. Add a repeatable CI check/report so newly introduced critical advisories are visible and cannot be silently treated as a green security posture.
 
-### 9.36 — Current PR CI failure: Admin acceptance script size and incorrect navigation selector
+### 9.36 — Earlier Admin acceptance script-size and navigation failures resolved
 
-**Status:** Confirmed from PR #99 CI run `44359614885` (merge commit `b15749ba40dd94241791c2ad327edcc948aafcc7`); not yet fixed.
+**Status: RESOLVED IN THE CURRENT PR #99 BRANCH; FINAL EXACT-HEAD CI PENDING.**
 
-- Architecture job failed because `scripts/admin-form-browser-acceptance.mjs` is 428 lines / 28,684 bytes, exceeding the enforced 400-line / 24,576-byte limit. The Fuel UI acceptance block was added to this already-large Admin acceptance script. Split Fuel acceptance into its own focused script rather than weakening the architecture gate.
-- Web job failed in `scripts/admin-form-browser-acceptance.mjs:107`: it waits for a button named `Work`, but `ApplicationShell.tsx` defines the primary navigation label as `Drive` (screen identity `Drive`). The test should navigate using the actual accessible label `Drive`; do not rename the app navigation merely to satisfy the test.
-- The Admin acceptance passed identity enrollment/activation, Business Setup and Vehicle creation before the selector timeout. The Fuel submit portion did not execute, and the separate Fuel script did not run because the workflow stops at the failed Admin script.
-- Android was skipped by the integrated gate because architecture and web failed. Do not infer an Android regression or pass.
-
-**Required closure:** extract the Fuel entry path into a separate rendered PWA acceptance script, keep the real vehicle prerequisite created through the Admin UI, correct the navigation selector to `Drive`, and add the focused script to CI. Run the new script and the full required CI; only then update the entry-path evidence status.
+The earlier run 44359614885 identified the oversized Admin browser acceptance script and the stale Work navigation selector. The Fuel journey is isolated in its own rendered acceptance script, the Admin navigation uses the actual accessible Drive label, and the Architecture/Web gates passed on PR #99 head 8a169bcee7c3fde4439e603ba3973d39cd587a91 in run 45897420220. Android and the remaining required gates were still running at the time of this record update; that run is not final evidence.
 
 ### 9.37 — Android record-count guard is late on restore and absent on export/package creation
 
@@ -575,13 +559,11 @@ NativeBackupRestoreCoordinator.restore() calls requireBackupRecordCountWithinLim
 
 **Required closure:** add a total-record-count assertion to the shared encrypted-package manifest validator used by both createEncryptedBackup and parseBackupPackage; guard NativeSnapshotBuilder export; move the actual Room record-array guard to immediately after reading the raw array and before participant/per-record validation; retain the existing pre-checkpoint restore guard. Add tests proving package creation rejects over-limit manifest totals, native export rejects over-limit snapshots, and native restore rejects an over-limit actual record array before checkpoint creation/destination mutation. Use an injectable lower test limit if constructing 1,000,001 real records would make instrumentation unsafe; separately retain the exact 1,000,000 helper boundary test.
 
-### 9.38 — Android device-readiness prompt lacks rendered WebView/settings acceptance
+### 9.38 — Android device-readiness prompt rendered acceptance added
 
-**Status:** Source-confirmed UI integration gap.
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE ADDED; FINAL EXACT-HEAD CI PENDING.**
 
-`DeviceReadinessPolicyTest` covers the pure permission policy: precise location, overlay enablement, API-gated background location and notifications, and modern/legacy location-service checks. `DeviceReadinessPrompt.tsx` adds a user-facing Android WebView flow that auto-opens when required settings are missing, supports dismissal and re-check on focus/visibility return, distinguishes recommended settings, and opens the closest Android Settings screen through the native plugin. No rendered Android WebView acceptance was found for that prompt/plugin journey.
-
-**Required closure:** add focused Android WebView acceptance for required permission missing→prompt, opening the relevant setting, returning/resume re-check, dismissal and re-open, recommended settings, and native settings-open failure messaging. Confirm optional settings do not block local Work data entry, while required precise location/overlay gates are enforced exactly as the device-readiness contract specifies. Reuse the existing pure policy tests.
+Android DeviceReadinessWebViewAcceptanceTest now exercises the rendered Settings handoff, return to the app and fresh native readiness re-check. tests/device-readiness-prompt-behavior.test.ts covers focus/visibility refresh behaviour, and DeviceReadinessPolicyTest retains capability/API-level policy coverage. The user-facing flow remains non-blocking for optional settings and fail-closed only for required device capabilities. See matrix §9.54; final Android CI is pending.
 
 ### 9.39 — Backup creation has no plaintext-size preflight before hashing/encryption
 
@@ -593,33 +575,11 @@ MAX_BACKUP_PACKAGE_BYTES (512 MiB) is checked by serializeBackupPackage() after 
 
 ### 9.40 — Approved current operating scope: one configured vehicle and one configured driver
 
-**Status:** Product-scope decision and authoritative resolver are implemented. The Admin-only operating-pair setup path removes routine Driver selection from Work. The first dependent workflow, Compliance, resolves exactly one active Vehicle from a repository snapshot at the application service boundary; it does not require Work Driver selection or a Driver–Vehicle assignment because Compliance is Vehicle-owned. It rejects a caller-supplied different Vehicle and exposes no routine Vehicle selector. Browser rendered acceptance asserts the configured Vehicle is displayed with no selector; Android Room acceptance verifies the persisted Compliance Vehicle ID. Compliance CI/integration verification is pending; Maintenance, Fuel, Finance, Business Expenses and Performance remain open.
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE INTEGRATED INTO PR #99; FINAL EXACT-HEAD CI PENDING.**
 
-**Source audit against the clarified resolver contract:** The current browser `resolveWorkDriverContext` in `packages/domain/src/work-driver-context.ts` uses first-match `find` lookups for selected Driver, assignment history and Vehicle. It validates the selected Driver and exactly one active assignment within that Driver's history, but it does not count all active Driver profiles, all active Vehicle profiles, or all current assignments globally. The Android `WorkDriverContextResolver` similarly validates the selected Driver, that driver's active assignment and referenced Vehicle, but does not enforce global one-active-Driver/one-active-Vehicle cardinality. The browser `WorkDriverSelectionService.selectDriver` remains a callable selection operation and is not yet constrained to one-time Admin setup/repair. These are source-inspected implementation gaps, not passing evidence. Do not treat the existing Work shift-start context check as the full operating-configuration resolver.
-**B0b resolver implementation update:** The browser `resolveWorkDriverContext` and Android `WorkDriverContextResolver` enforce global active Vehicle/Driver cardinality, one global current assignment, selected-driver/pair matching, locked-shift rejection, assignment effective-time checks, and source revisions. Focused TypeScript and Android instrumentation coverage exists. The Admin setup path now refuses multiple active Drivers or Vehicles, assigns the sole active Vehicle automatically, closes stale current assignments while retaining their history, and writes the authoritative `work:selected-driver` record. The Work panel no longer offers a Driver selector; it blocks shift start when that canonical selection is absent. Admin configuration/lifecycle changes are guarded against active shifts. Browser acceptance verifies missing-config fail-closed behaviour, canonical selection, and selector-free Work; Android Room acceptance verifies the canonical selection and assignment records. This remains a partial B0b close. Compliance is now wired at the service command boundary and its routine Vehicle selector is removed; see the Compliance evidence below. Fuel, Maintenance, Finance, Business Expenses and Performance command boundaries and routine Vehicle selectors remain open. Final CI and the remaining dependent-workflow acceptance are still required.
+The authoritative resolver enforces global active Vehicle/Driver cardinality, one global current assignment, selected-driver/pair matching, locked-shift rejection, assignment effective-time checks and source revisions. Admin setup establishes the sole configured pair; routine Work no longer exposes a Driver selector. Compliance resolves the active Vehicle independently and does not require Work Driver selection or a Driver–Vehicle assignment. Finance, Business Expenses, Maintenance, Fuel and Performance production command boundaries revalidate operating context and reject stale context before write/read completion.
 
-
-The PR #99 end-to-end contract defines exactly one active business Vehicle and exactly one active Driver selected for Work. Work and workflows that are genuinely Driver–Vehicle-pair dependent resolve that pair automatically. Compliance is Vehicle-owned and resolves the active Vehicle independently; it must not require Work Driver selection or a Driver–Vehicle assignment. Routine flows must not ask the user to select a vehicle or driver, manage assignments, or reassign a driver to another vehicle.
-
-**Preserve:** stable Vehicle/Driver record IDs, feature ownership, revisions, explicit foreign references, backup validation and migration compatibility. Existing assignment-history schemas/readers may remain so older data is not discarded. They are not current workflow requirements and multi-entity assignment/reassignment scenarios are not required in the current semantic fixture.
-
-**Contract/test changes committed:**
-- PR #99 end-to-end contract Section 3.0 defines the one-vehicle/one-driver runtime rule, missing/ambiguous configuration behaviour, stable-reference policy and future fleet expansion boundary.
-- The shared semantic fixture declares one configured Vehicle ID and one configured selected Driver ID; Work and Business Expense lineage explicitly carries those configured references.
-- Browser fixture contract tests assert the exact cardinality, stable IDs, consistent reference requirements and deferred fleet status.
-- Android shared-fixture instrumentation asserts the same configuration metadata.
-- Browser Driver Records backup coverage proves a single active selected Work Driver is exported and retains the negative case rejecting multiple selected Work Drivers.
-
-**Production corrections still required:**
-1. **Implemented:** the normative resolver in contract Section 3.0.1 now validates global cardinality (one active Vehicle, one active Driver, one Work selection naming that Driver, and one current assignment connecting the pair) from an authoritative snapshot on Dexie and Room. It returns the versioned pair and source revisions and uses stable fail-closed categories. Focused browser/Android negative cases cover missing, ambiguous, mismatch, locked and effective-time states.
-2. **Still required:** wire the appropriate operating-context resolver into application command boundaries for Work, Fuel, Compliance, Maintenance, Finance, Business Expenses and Performance. Work now consumes the canonical Admin-configured selection and no longer renders a routine Driver selector. Compliance uses the Vehicle-only resolver and must not depend on Work Driver selection or assignment. Fuel, Maintenance, Finance, Business Expenses and Performance still require their contract-defined automatic context binding and removal of routine vehicle selectors. Admin remains the only setup/repair surface; no daily reassignment UI is retained.
-3. Ensure all new and corrected vehicle-bound records, Work events, allocations and calculations reference the same resolved IDs and carry the resolved configuration revision through commit. Preserve historical references; never rewrite old records to the current pair.
-4. **Partly implemented:** browser rendered acceptance now creates one Vehicle and Driver, verifies that Work blocks without the canonical selection, configures the operating pair in Admin, and asserts selector-free Work rendering. Android Room acceptance verifies that the Admin WebView writes the canonical selection and one current assignment. Still required: exercise all dependent vehicle-bound forms and Android overlay/Work read-after-write and reopen identity consistency, including absence of extra active profiles or assignments.
-5. Add resolver negative cases for every missing/ambiguous/mismatched/locked/stale state, assert no partial business write, and prove equivalent stable result/error categories between Dexie and Room. Keep legacy assignment validator/backup tests as compatibility coverage only; do not interpret multi-entity histories as current product acceptance.
-
-**Acceptance status:** Not closed by the fixture metadata tests alone. The live runtime/UI path and rendered PWA/Android assertions must pass before this requirement is marked implemented. Do not claim multi-fleet support; it requires a separate reviewed contract, explicit migration and dedicated acceptance.
-
-
+Browser and Android Room tests cover resolver success, missing/ambiguous/mismatched/locked/stale states, no-write behaviour and rendered setup/readback. This closes the earlier partial B0b operating-context wiring statements for the current one-Vehicle/one-Driver scope. Multi-vehicle/multi-driver/fleet workflows remain deferred and require a separate reviewed contract. See §9.52 and matrix §9.54.
 
 ### 9.41 — Six-layer business-rule evidence audit and Business Start Date contract conflict
 
@@ -795,67 +755,56 @@ Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/b
 
 ### 9.50 — PR #99 Stage 6 focused slice 2: Maintenance correction and daily accrual evidence — 2026-11-26
 
-**Status: MAINTENANCE CORRECTION / DAILY ACCRUAL SLICE CLOSED ON THE EVIDENCE BELOW.** This closes the Maintenance item carried in §9.48 for correction propagation and confirms the already-wired authoritative daily accrual path. It does not close the separate repository-wide operating-pair context audit or the whole Stage 6 contract.
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE ADDED; FINAL EXACT-HEAD CI PENDING.** Maintenance correction, actual-expense projection and authoritative daily accrual are implemented and covered by Browser/Android tests on the single PR #99 branch. The earlier run 45819697235 validated an earlier standalone slice head and is historical only; it is not final validation of the current PR #99 head.
 
 **Correction and actual-expense readback**
-- \`MaintenanceService.listVehicleRecords()\` and \`getActualExpenseTotal()\` now consume the feature-owned correction projection for both Maintenance expenses (\`amountPaise\`) and service visits (\`totalPaise\`). The original record and itemised visit evidence remain immutable.
-- The Admin/Driver Maintenance presentation exposes append-only correction history for expense amounts and visit totals. Correction authority remains feature-policy-controlled; another Driver's record is rejected.
-- \`tests/maintenance-service.test.ts\` proves corrected expense and visit values flow into the actual-expense total while original source records remain unchanged.
-- \`scripts/maintenance-correction-browser-acceptance.mjs\` exercises both corrections through the rendered PWA and asserts the corrected actual-cost summary, original source values, Admin attribution, correction records and chain heads.
-- Android \`MaintenanceCorrectionCapacitorAcceptanceTest\` / \`MaintenanceCorrectionAcceptanceFlow\` exercises the same correction forms over the live Capacitor WebView backed by Room, including Driver ownership restrictions, expense and visit corrections, immutable originals and Room backup/restore.
+- MaintenanceService.listVehicleRecords() and getActualExpenseTotal() consume the feature-owned correction projection for Maintenance expenses (amountPaise) and service visits (totalPaise). Original records and itemised visit evidence remain immutable.
+- Admin/Driver Maintenance presentation exposes append-only correction history for expense amounts and visit totals. Correction authority remains feature-policy-controlled; another Driver's record is rejected.
+- tests/maintenance-service.test.ts proves corrected expense and visit values flow into actual-expense totals while original source records remain unchanged.
+- scripts/maintenance-correction-browser-acceptance.mjs exercises both corrections through rendered PWA and asserts corrected actual-cost summary, original source values, Admin attribution, correction records and chain heads.
+- Android MaintenanceCorrectionCapacitorAcceptanceTest / MaintenanceCorrectionAcceptanceFlow exercises the same correction forms over the Room-backed WebView, including Driver ownership restrictions, expense and visit corrections, immutable originals and Room backup/restore.
 
 **Authoritative daily accrual**
-- \`WorkApplicationCoordinatorV1\` delivers committed Work events to \`accrueMaintenanceForCompletedWorkDay\`. Accrual is attempted only for a committed Workflow v2 \`shift_rotate\` event (the 04:00 operational boundary), not an ordinary shift end.
-- The integration requires exactly one daily-business-kilometre record matching the outgoing shift and rotation event, an allocated contribution and zero unallocated business km. \`MaintenanceService.accrueDailyBusinessKilometres\` independently validates the full daily record before persisting an accrual.
-- The immutable daily accrual snapshots the daily-distance record ID/revision, confirmed business km, separate personal km/personal amount, and the maintenance rate effective on that operational date. Its vehicle/date key and source-snapshot check make outbox replay idempotent; a changed source snapshot fails closed rather than rewriting history.
-- \`tests/maintenance-service.test.ts\` covers rate-history idempotency/effective dates, daily accrual idempotency and rate snapshot retention after a later rate change, automatic 04:00 rotation accrual, ordinary-shift-end exclusion, and deferral while any daily km remains unallocated.
-- Browser backup coverage is in \`tests/maintenance-backup.test.ts\`. Android Room coverage is in \`NativeMaintenanceBackupRoomTest\`, including the daily-km source revision, rate history, business/personal km split and immutable accrual.
+- WorkApplicationCoordinatorV1 delivers committed Work events to accrueMaintenanceForCompletedWorkDay. Accrual is attempted only for a committed Workflow v2 shift_rotate event (the 04:00 operational boundary), not an ordinary shift end.
+- Integration requires exactly one daily-business-kilometre record matching the outgoing shift and rotation event, an allocated contribution and zero unallocated business km. MaintenanceService independently validates the full daily record before persisting an accrual.
+- Immutable daily accrual snapshots the daily-distance record ID/revision, confirmed business km, separate personal km/personal amount, and maintenance rate effective on that operational date. Its vehicle/date key and source-snapshot check make outbox replay idempotent.
+- tests/maintenance-service.test.ts covers rate-history idempotency/effective dates, daily accrual idempotency, rate snapshot retention, automatic 04:00 rotation accrual, ordinary-shift-end exclusion and deferral while daily km remains unallocated.
+- Browser backup coverage is in tests/maintenance-backup.test.ts. Android Room coverage is in NativeMaintenanceBackupRoomTest, including daily-km source revision, rate history, business/personal km split and immutable accrual.
 
-**Exact-head verification:** PR #102 head \`655d7ef55acd81ab9e9c50e993fed32e4a11a7fc\`; required CI [run #45819697235](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45819697235) passed Architecture, Web (including Maintenance and Work rendered PWA acceptance), Android (including Room instrumentation), Cross-platform encrypted backup restore and Integrated regression gate. Optional Production geocoder verification was skipped by the PR workflow condition.
+All Maintenance changes and tests are consolidated in PR #99. The earlier standalone PR run is not evidence for the final PR #99 head; all five required CI gates must pass after the final documentation update.
 
-**Remaining outside this slice:** full §3.0.1 operating-pair context binding for Maintenance and the other dependent features remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates, not CI passes. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
+### 9.51 — PR #99 Stage 6 focused slice 3: Compliance correction, renewal, overlap review and allocation readback — 2026-11-26
 
-### 9.51 — PR #99 Stage 6 focused slice 3: Compliance correction, renewal and allocation readback — 2026-11-26
-
-**Status: COMPLIANCE CORRECTION / RENEWAL SLICE CLOSED ON THE EVIDENCE BELOW.** The implementation already present in the Stage 6 stack is now supplemented with an explicit late-renewal and date-scoped daily-cost regression. This does not close the separate repository-wide operating-pair context audit or the whole Stage 6 contract.
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE ADDED; FINAL EXACT-HEAD CI PENDING.** Compliance correction, linked renewal, overlap review and date-scoped daily-cost readback have Browser and Room-backed Android acceptance. This does not by itself close the whole Stage 6 contract.
 
 **Immutable renewal and correction policy**
-- ComplianceService creates immutable Vehicle-owned validity records. A renewal must link to an existing predecessor for the same vehicle and compliance item; early renewal preserves the actual overlap and late renewal preserves the actual uncovered gap. It does not silently extend or rewrite the previous validity.
-- The normal change path for a new premium/amount is a new linked renewal record. Historical corrections use a separate append-only chain and cannot change vehicle identity or renewedFromRecordId.
-- ComplianceHistoricalCorrectionAdapter and ComplianceHistoricalCorrection allow only approved historical fields such as totalCostPaise, validFrom and validTo. Source envelopes remain immutable and correction history retains Admin authority, reason, stale-chain checks and provenance.
-- ComplianceAnalysisService projects valid correction chains into Admin overview and Performance allocation reads. Its daily-cost path uses the same corrected records and exact rational per-record allocation. Unconfirmed/stale same-item overlaps withhold aggregate cost; confirmed reviews are tied to exact source revisions.
+- ComplianceService creates immutable Vehicle-owned validity records. A renewal links to an existing predecessor for the same vehicle and compliance item; early renewal preserves actual overlap and late renewal preserves actual uncovered gap. It never rewrites previous validity.
+- New premium/amount changes use a linked renewal record. Historical corrections use a separate append-only chain and cannot change vehicle identity or renewedFromRecordId.
+- ComplianceHistoricalCorrectionAdapter allows only approved historical fields such as totalCostPaise, validFrom and validTo. Source envelopes remain immutable and correction history retains Admin authority, reason, stale-chain checks and provenance.
+- ComplianceAnalysisService projects valid correction chains into Admin overview and Performance allocation reads. Unconfirmed/stale same-item overlaps withhold aggregate cost; confirmed reviews are tied to exact source revisions.
 
 **Readback and verification coverage**
-- tests/compliance-service.test.ts now verifies a late linked renewal: the prior record remains unchanged, the uncovered January interval remains a gap, the old amount applies only through its own validity, and the renewed amount applies from the new validity start.
+- tests/compliance-service.test.ts verifies late linked renewal and preserved gap/validity.
 - tests/compliance-domain.test.ts covers inclusive validity, gap/overlap analysis, exact rational daily allocation, overlap withholding, explicit confirmation and stale review revisions.
-- tests/compliance-analysis-correction-projection.test.ts verifies corrected dates and premium amounts feed overview and Performance allocation reads and fails closed on a corrupt correction chain.
-- scripts/compliance-overview-browser-acceptance.mjs exercises the rendered Admin PWA: fleet coverage gaps/overlaps, vehicle filtering, source-revision review decisions, append-only date and premium corrections, immediate daily-cost refresh, linked renewal creation and readback after reload.
-- Android ComplianceCorrectionCapacitorAcceptanceTest repeats correction and renewal workflows through the Room-backed Capacitor WebView, checks original immutability and verifies the correction/renewal lineage survives Room backup/restore.
+- tests/compliance-analysis-correction-projection.test.ts verifies corrected dates/premiums feed overview and Performance allocation reads and fails closed on corrupt correction chains.
+- scripts/compliance-overview-browser-acceptance.mjs exercises rendered Admin PWA fleet coverage, vehicle filtering, source-revision review decisions, append-only corrections, daily-cost refresh, linked renewal and reload readback.
+- Android ComplianceCorrectionCapacitorAcceptanceTest drives correction, linked renewal and the rendered Room-backed overlap reason→confirm→persist path, verifies original immutability, exact source-revision provenance, daily allocation release and backup/restore lineage.
 
-**Exact-head verification:** this focused slice is stacked after Maintenance evidence PR #103 and trip/fare PR #102. Full CI must pass on the final PR head before this slice is marked green. The required gates are Architecture, Web/PWA, Android Room instrumentation, Cross-platform encrypted backup restore and Integrated regression gate; optional post-deployment geocoder verification is not a PR gate.
-
-**Remaining outside this slice:** full §3.0.1 operating-pair context binding across Compliance and dependent cost consumers remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
-
+All Compliance, Maintenance and trip/fare changes are consolidated on the existing PR #99 branch. No separate PR is the integration or merge plan. Final Architecture, Web/PWA, Android Room instrumentation, Cross-platform encrypted backup restore and Integrated regression jobs must pass on the final documentation-updated PR #99 head.
 
 ### 9.52 — Stage 6 operating-context audit closeout — 2026-11-26
 
-**Status: TARGETED OPERATING-CONTEXT AUDIT CLOSED ON EXACT-HEAD CI EVIDENCE.** This closes the focused production-resolver wiring and stale-context protection audit requested for Finance, Business Expenses, Maintenance and Performance. It does not certify the entire Stage 6 contract or close unrelated repository-wide architecture/recovery gaps.
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE INTEGRATED INTO PR #99; FINAL EXACT-HEAD CI PENDING.**
 
 **Production composition and resolver wiring**
-- Inspected the production Web bootstrap in apps/web/src/main.tsx: the operating-configuration resolver is passed to Finance loan, Business Expenses, Maintenance, Compliance and Full-Cost Breakeven services. Performance is composed with its calculation runtime and Full-Cost Breakeven/cost-allocation dependencies.
-- Android uses the same PWA bootstrap through Capacitor; no separate Android application composition root or resolver-wiring divergence was found.
-- Finance already validates vehicle/operating context and revalidates stale context before command commits. No additional change was required.
-- Business Expenses fuel and expense writes already revalidate operating context before commit. No additional change was required.
+- Browser production composition passes the operating-configuration resolver to Finance loan, Business Expenses, Maintenance, Compliance and Full-Cost Breakeven services. Performance is composed with its calculation runtime and Full-Cost Breakeven/cost-allocation dependencies.
+- Android uses the same PWA bootstrap through Capacitor; the installed app has no separate divergent business composition root.
+- Finance and Business Expenses revalidate operating context before command commits.
+- Maintenance rate-history writes and daily-business-kilometre accrual writes revalidate operating context before creating records.
+- The independent Full-Cost Breakeven distance projection captures operating/vehicle context before source reads and revalidates it before returning. A regression verifies capture ordering and rejection when context changes during the read.
+- Compliance resolves the active Vehicle independently and does not require Work Driver selection or assignment.
 
-**Concrete defects fixed in PR #105**
-- Maintenance rate-history writes (setRate) and daily-business-kilometre accrual writes now revalidate the operating context before creating records. Regression tests prove stale context rejects writes without repository mutation.
-- The independent Full-Cost Breakeven distance projection used by the Performance screen now captures operating/vehicle context before source reads and revalidates it before returning. This closes a stale-read window not covered by the broader Performance calculation snapshot fence. A regression verifies capture ordering and rejection when context changes during the read.
-- No Performance UI redesign or unrelated feature-stage reopening was performed.
-
-**Exact-head verification:** PR #105 head bade1b25be18a0705d2ed45ee4f4f182097d4b97; required workflow [run #45839459288, attempt 2](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45839459288) completed successfully on that exact SHA. Architecture, Web, Android (Gradle build, unit tests and emulator-backed Room/workflow/backup reliability gate), Cross-platform encrypted backup restore (Android-produced package restored through production Browser/Dexie), and Integrated regression gate all succeeded. Optional Production geocoder verification was skipped by the PR workflow condition.
-
-**Disposition and remaining acceptance:** the targeted operating-context audit is closed. PR #105 remains OPEN · DRAFT · UNMERGED, stacked on PR #104; PRs #99, #102, #103 and #104 remain open/draft/unmerged. Physical phone/OEM acceptance, live Dropbox account delivery and final owner visual/usability approval remain separate manual gates. The whole Stage 6 contract remains active; this addendum does not reopen completed Stages 1–5 or alter the Performance UI.
-
+These changes and tests are part of PR #99. The earlier run 45839459288 validated a prior operating-context slice head and is historical only, not final validation of the current PR #99 head. The final exact-head CI run remains pending. No separate PR is the integration/merge vehicle.
 
 ### 9.53 — PR #99 Stage 6 historical integrity, device/GPS and form audit closeout — 2026-11-26
 
@@ -875,7 +824,7 @@ Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/b
 
 **Device readiness, GPS and forms — focused contract assertions added**
 - The Android WebView acceptance now follows the Location settings handoff, returns to the app, and verifies a fresh readiness query. The prompt's focus/visibility recheck behavior has a pure regression test; existing policy tests continue to cover optional/non-blocking capabilities.
-- Browser GPS provider tests independently acquire/release a fresh fix for each required event type. Android workflow persistence tests assert unique GPS fix timestamps and coordinates for each event. The rendered PWA acceptance asserts seven separate GPS requests for the seven committed events in its complete journey.
+- Browser GPS provider tests independently acquire/release a fresh fix for each of the six required Work event types. Android DriverWorkflowNativeGpsBridgeAcceptanceTest.sixSequentialCapacitorGpsCapturesUseIndependentNativeFixes verifies six independent native bridge requests and listener releases; DriverOverlayWorkflowAcceptanceTest.eachNativeOverlaySupportedTransitionAcquiresAndReleasesItsOwnGpsFix covers every action actually exposed by the overlay; DriverWorkflowV2Test verifies distinct persisted fixes across the complete six-event state transition matrix. The rendered PWA acceptance asserts seven independent GPS requests for its seven committed events.
 - Fuel's obsolete location-evidence form field was removed; Fuel definition tests assert no quantity/location/GPS form field. Shared form definitions now reject malformed Select options and validate time values. Admin rendered acceptance checks 390px viewport fit, visible-control label association and keyboard focusability for every Admin section.
 
 **Previously closed Stage 6 slices retained**
