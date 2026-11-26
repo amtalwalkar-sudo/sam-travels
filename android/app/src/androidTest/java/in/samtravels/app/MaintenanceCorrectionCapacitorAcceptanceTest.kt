@@ -105,17 +105,17 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     activity = instrumentation.startActivitySync(
       Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     ) as MainActivity
-    assertTrue("Drive; page=" + evaluateMaintenanceWebView(activity, "document.body.innerText"),
+    assertTrue("Drive; page=" + readMaintenanceWebViewText(activity, "document.body.innerText"),
         awaitMaintenanceJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
     assertTrue("Admin nav", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
         10_000))
-    evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
+    readMaintenanceWebViewText(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
     assertTrue("Admin", awaitMaintenanceJavascript(activity,
         "document.querySelector('.admin-replacement-shell') !== null", 15_000))
     assertTrue("Name", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-    assertTrue("Role", evaluateMaintenanceWebView(activity, """
+    assertTrue("Role", readMaintenanceWebViewText(activity, """
         (() => {
           const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
           const input = label?.querySelector('input[type=checkbox]');
@@ -127,7 +127,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
-    assertTrue("Fields", evaluateMaintenanceWebView(activity, """
+    assertTrue("Fields", readMaintenanceWebViewText(activity, """
         (() => {
           const set = (labelText, value) => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -144,7 +144,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     """))
     assertTrue("Enroll", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
-    evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
+    readMaintenanceWebViewText(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
     assertTrue("Enrolled", awaitMaintenanceJavascript(activity,
         "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
     assertTrue("Ready", awaitMaintenanceJavascript(activity, """
@@ -152,7 +152,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
         Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
     """, 15_000))
-    assertTrue("Activate", evaluateMaintenanceWebView(activity, """
+    assertTrue("Activate", readMaintenanceWebViewText(activity, """
         (() => {
           const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
           const person = personLabel?.querySelector('select');
@@ -173,7 +173,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     assertTrue("PIN", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
         5_000))
-    assertTrue("PIN accept", evaluateMaintenanceWebView(activity, """
+    assertTrue("PIN accept", readMaintenanceWebViewText(activity, """
         (() => {
           const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
           const pin = label?.querySelector('input');
@@ -189,13 +189,13 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
     val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
     adminSections.forEach { (id, expected) ->
-      evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
+      readMaintenanceWebViewText(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
       assertTrue("$id", awaitMaintenanceJavascript(activity,
         "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
     }
-    assertTrue("Maintenance load; panel=" + evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-panel-maintenance')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(activity,
+    assertTrue("Maintenance load; panel=" + readMaintenanceWebViewText(activity, "document.getElementById('admin-section-panel-maintenance')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(activity,
         "document.body.textContent.includes('Accept tyre repair')", 15_000))
-    evaluateMaintenanceWebView(activity, """
+    readMaintenanceWebViewText(activity, """
         (() => {
           document.querySelector('details.loan-schedule')?.setAttribute('open','');
           const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
@@ -205,7 +205,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     """)
     assertTrue("Correction opens", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
-    assertTrue("Inputs", evaluateMaintenanceWebView(activity, """
+    assertTrue("Inputs", readMaintenanceWebViewText(activity, """
         (() => {
           const set = (labelText, value) => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -219,7 +219,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           return set('Corrected amount', '150.00') && set('Reason for correction', 'Receipt verified');
         })()
     """))
-    evaluateMaintenanceWebView(activity, """
+    readMaintenanceWebViewText(activity, """
         (() => {
           const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'));
           if (!button) return false;
