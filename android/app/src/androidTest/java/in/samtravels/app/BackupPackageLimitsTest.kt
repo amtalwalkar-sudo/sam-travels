@@ -17,6 +17,13 @@ class BackupPackageLimitsTest {
             runCatching { requireBackupPackageByteLength(-1) }.exceptionOrNull()?.message)
     }
 
+    @Test fun utf8PreflightCountsMultibyteTextWithoutEncodingAllocation() {
+        assertEquals(8L, utf8ByteLength("a€😀"))
+        assertEquals(0L, utf8ByteLength(""))
+        assertEquals("backup_invalid_plaintext_encoding",
+            runCatching { utf8ByteLength("\uD800") }.exceptionOrNull()?.message)
+    }
+
     @Test fun plaintextPreflightAccountsForGcmTagBase64AndEnvelopeReserve() {
         val limit = 1_024L
         val reserve = 10L
