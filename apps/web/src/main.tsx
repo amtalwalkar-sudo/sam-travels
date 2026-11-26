@@ -13,7 +13,7 @@ import {
   
   
   PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
-  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1, OperatingConfigurationServiceV1
+  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1, HistoricalTripBackfillCorrectionServiceV1, OperatingConfigurationServiceV1
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -123,10 +123,13 @@ async function bootstrap(): Promise<void> {
       return { role: actor.role, actorId: actor.actorId };
     },
   }, getApplicationRecordSource());
+  const historicalTripBackfillCorrections = new HistoricalTripBackfillCorrectionServiceV1(
+    repository, getPersonIdentityService(), getApplicationRecordSource(),
+  );
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository, operatingConfiguration,
-    historicalTripBackfills,
+    historicalTripBackfills, historicalTripBackfillCorrections,
   );
   const performanceCalculation = createPerformanceCalculationServiceV1({
     businessSettings: getApplicationBusinessSettingsService(),
@@ -135,6 +138,7 @@ async function bootstrap(): Promise<void> {
     allocation: costAllocation,
     tripFinancials,
     historicalTripBackfills,
+    historicalTripBackfillCorrections,
     recordRepository: repository,
   });
   const adminServices = Object.freeze({
