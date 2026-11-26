@@ -59,6 +59,14 @@ export class FullCostBreakevenService {
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
+    const operating = await this.operatingConfiguration?.getForReadOnly().catch(error => {
+      if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
+      throw error;
+    });
+    const operatingVehicle = operating
+      ? { vehicleId: operating.vehicleId, vehicleRevision: operating.vehicleRevision }
+      : await this.operatingConfiguration?.getVehicleForReadOnly();
+
     const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
@@ -79,15 +87,6 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    const operating = await this.operatingConfiguration?.getForReadOnly().catch(error => {
-      if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
-      throw error;
-    });
-    const operatingVehicle = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getVehicleForReadOnly
-        ? this.operatingConfiguration.getVehicleForReadOnly()
-        : operating)
-      : undefined;
     const operatingVehicles = operatingVehicle
       ? vehicles.filter(vehicle => vehicle.id === operatingVehicle.vehicleId &&
           vehicle.data?.lifecycleState === "active" && vehicle.revision === operatingVehicle.vehicleRevision)
