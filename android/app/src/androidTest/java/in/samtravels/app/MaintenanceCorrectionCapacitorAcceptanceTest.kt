@@ -25,6 +25,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     .build()
   val suffix = UUID.randomUUID().toString()
   val previousSelectedDriver = database.records().get("work:selected-driver")
+  val previousDriverState = database.records().get("driver-state")
   val previousDriverRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:driver:") }
   val previousComplianceRecords = database.records().list().filter { it.id.startsWith("feature:compliance:") }
   val previousFinanceRecords = database.records().list().filter { it.id.startsWith("feature:finance:") }
@@ -93,6 +94,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val selectedDriverData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
     database.records().put(StoredRecord("work:selected-driver",
         maintenanceEnvelope("work:selected-driver", now, selectedDriverData).toString(), 1, now))
+    AdminTestUiControlSupport.resetDriverStateToIdle(database, now)
     listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
         val row = database.records().get("identity:person:$personId")!!
         val payload = JSONObject(row.json)
@@ -270,6 +272,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     listOf("person-driver-one", "person-driver-two").forEach { database.records().remove("identity:person:$it") }
     if (previousSelectedDriver != null) database.records().put(previousSelectedDriver)
     else database.records().remove("work:selected-driver")
+    if (previousDriverState != null) database.records().put(previousDriverState)
+    else database.records().remove("driver-state")
     database.records().list().filter { it.id.startsWith(correctionPrefix) }
         .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId || target == visitId }.getOrDefault(false) }
         .forEach { database.records().remove(it.id) }
