@@ -25,6 +25,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     .build()
   val suffix = UUID.randomUUID().toString()
   val previousSelectedDriver = database.records().get("work:selected-driver")
+  val previousDriverRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:driver:") }
+  val previousComplianceRecords = database.records().list().filter { it.id.startsWith("feature:compliance:") }
+  val previousFinanceRecords = database.records().list().filter { it.id.startsWith("feature:finance:") }
   val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
   val previousBusinessExpenseRecords = database.records().list().filter { it.id.startsWith("feature:business-expenses:") }
   val previousAssignmentRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
@@ -63,6 +66,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
   lateinit var activity: MainActivity
   try {
     previousAssignmentRecords.forEach { database.records().remove(it.id) }
+    previousDriverRecords.forEach { database.records().remove(it.id) }
+    previousComplianceRecords.forEach { database.records().remove(it.id) }
+    previousFinanceRecords.forEach { database.records().remove(it.id) }
     previousMaintenanceRecords.forEach { database.records().remove(it.id) }
     previousBusinessExpenseRecords.forEach { database.records().remove(it.id) }
     previousVehicleRecords.forEach { database.records().remove(it.id) }
@@ -246,10 +252,14 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     database.records().remove(otherExpenseId)
     database.records().remove(visitId)
     database.records().remove(vehicleId)
+    database.records().remove(assignmentId)
     previousVehicleRecords.forEach { database.records().put(it) }
     previousBusinessExpenseRecords.forEach { database.records().put(it) }
     previousMaintenanceRecords.forEach { database.records().put(it) }
     previousAssignmentRecords.forEach { database.records().put(it) }
+    previousDriverRecords.forEach { database.records().put(it) }
+    previousComplianceRecords.forEach { database.records().put(it) }
+    previousFinanceRecords.forEach { database.records().put(it) }
     database.records().remove(chainId)
     database.records().remove(visitChainId)
     listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",

@@ -29,6 +29,8 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
     val complianceId = "feature:compliance:$suffix"
     val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(complianceId, "UTF-8")
     val previousSelectedDriver = database.records().get("work:selected-driver")
+    val previousDriverRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:driver:") }
+    val previousFinanceRecords = database.records().list().filter { it.id.startsWith("feature:finance:") }
     val previousVehicles = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
     val previousCompliance = database.records().list().filter { it.id.startsWith("feature:compliance:") }
     val previousMaintenance = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
@@ -44,6 +46,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         runCatching { JSONObject(row.json).getJSONObject("data").optString("targetRecordId") in previousBusinessExpenseIds }.getOrDefault(false)
     }
     val previousAssignments = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
+    val assignmentId = "feature:driver-records:assignment:driver-one"
     val now = Instant.now().toString()
     val today = LocalDate.now(ZoneId.of("Asia/Kolkata"))
     val validFrom = today.toString()
@@ -60,6 +63,8 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
     var activity: MainActivity? = null
     try {
       previousAssignments.forEach { database.records().remove(it.id) }
+      previousDriverRecords.forEach { database.records().remove(it.id) }
+      previousFinanceRecords.forEach { database.records().remove(it.id) }
       previousCompliance.forEach { database.records().remove(it.id) }
       previousMaintenanceCorrections.forEach { database.records().remove(it.id) }
       previousMaintenance.forEach { database.records().remove(it.id) }
@@ -70,6 +75,10 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       database.records().put(compliance)
       DriverWorkflowIdentityTestFixtures.seed(database, "driver-one", "person-driver-one")
       DriverWorkflowIdentityTestFixtures.seedLink(database, "driver-one", "person-driver-one")
+      val assignmentData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
+        .put("assignments", JSONArray().put(JSONObject().put("assignmentId", "compliance-correction-assignment")
+          .put("vehicleId", vehicleId).put("assignedAt", now)))
+      database.records().put(StoredRecord(assignmentId, maintenanceEnvelope(assignmentId, now, assignmentData).toString(), 1, now))
       NativeStartupRecovery.invalidate(database)
       activity = instrumentation.startActivitySync(
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -250,8 +259,11 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       previousBusinessExpenses.forEach { database.records().put(it) }
       previousBusinessExpenseCorrections.forEach { database.records().put(it) }
       database.records().remove(vehicleId)
+      database.records().remove(assignmentId)
       previousVehicles.forEach { database.records().put(it) }
       previousAssignments.forEach { database.records().put(it) }
+      previousDriverRecords.forEach { database.records().put(it) }
+      previousFinanceRecords.forEach { database.records().put(it) }
       listOf("identity:driver-person-link:driver-one", "feature:driver-records:driver:driver-one")
         .forEach { database.records().remove(it) }
       database.records().remove("identity:person:person-driver-one")
