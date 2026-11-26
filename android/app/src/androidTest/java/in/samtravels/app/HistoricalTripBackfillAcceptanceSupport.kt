@@ -26,13 +26,18 @@ internal object HistoricalTripBackfillAcceptanceSupport {
         support.set(activity, "Parking paid by", "customer")
         support.set(activity, "Backfill reference (optional)", backfillReference)
         support.set(activity, "Reason / source of historical information", marker + " reconciled paper trip")
+        val invalidFields = support.javascriptValue(activity,
+            "Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill')?.querySelector('form')?.querySelectorAll(':invalid') ? Array.from(Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill').querySelector('form').querySelectorAll(':invalid')).map(e=>e.closest('label')?.textContent||e.name||e.type).join(',') : 'form-not-open'")
+        assertTrue("Historical trip form has no invalid fields: $invalidFields", invalidFields.isBlank())
+        val saveEnabled = support.javascriptValue(activity,
+            "Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill')?.querySelector('button[type=submit]')?.disabled===false")
+        assertTrue("Historical trip Save button is enabled", saveEnabled == "true")
         support.click(activity, "Save historical trip")
         val saved = support.await(activity,
             "document.body.innerText.includes('Historical trip recorded as an Admin-declared entry')", 15000)
         if (!saved) {
-            val status = support.javascriptValue(activity,
-                "Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill')?.querySelector('[role=status]')?.textContent || 'no status message'")
-            throw AssertionError("Historical trip is saved through the Room-backed Admin form; status=$status")
+            val body = support.javascriptValue(activity, "document.body.innerText.slice(-2000)")
+            throw AssertionError("Historical trip is saved through the Room-backed Admin form; body=$body")
         }
         val backfillRows = db.records().list().filter { row ->
             row.id == "historical-trip-backfill:" + backfillReference

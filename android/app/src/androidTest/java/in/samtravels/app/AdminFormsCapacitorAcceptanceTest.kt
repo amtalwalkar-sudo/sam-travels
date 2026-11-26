@@ -85,12 +85,13 @@ class AdminFormsCapacitorAcceptanceTest {
             click(activity, "Save driver")
             assertTrue("Driver saved", await(activity, "document.body.innerText.includes('Driver created')", 15000))
             val configuredVehicleRows = db.records().list().filter { row ->
-                val data = org.json.JSONObject(row.json).getJSONObject("data")
-                row.id == vehicleRecordId && data.optString("lifecycleState") == "active"
+                if (row.id != vehicleRecordId) return@filter false
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@filter false
+                data.optString("lifecycleState") == "active"
             }
             assertEquals("One active vehicle", 1, configuredVehicleRows.size)
             val configuredDriverRows = db.records().list().filter { row ->
-                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@filter false
                 data.optString("name") == marker + " Driver" &&
                     data.optString("lifecycleState") == "active"
             }
@@ -133,7 +134,7 @@ class AdminFormsCapacitorAcceptanceTest {
             click(activity, "Save record")
             assertTrue("Compliance saved", await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
             val savedCompliance = db.records().list().singleOrNull { row ->
-                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@singleOrNull false
                 row.id.startsWith("feature:compliance:") && data.optString("complianceName") == marker + " Insurance"
             }
             assertNotNull("Compliance record persisted after form submit", savedCompliance)
@@ -157,7 +158,7 @@ class AdminFormsCapacitorAcceptanceTest {
             click(activity, "Save loan details")
             assertTrue("Loan saved", await(activity, "document.body.innerText.includes('$marker Loan')", 15000))
             val loanRecord = db.records().list().singleOrNull { row ->
-                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@singleOrNull false
                 row.id.startsWith("feature:finance:loan:") &&
                     data.optJSONObject("details")?.optString("loanName") == marker + " Loan"
             }
