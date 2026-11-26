@@ -121,7 +121,16 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             .allowMainThreadQueries().build()
         try {
             for (index in 0 until fixtureRecords.length()) {
-                val row = fixtureRecords.getJSONObject(index)
+                val row = JSONObject(fixtureRecords.getJSONObject(index).toString())
+                // The broad semantic fixture contains several fleet examples. The
+                // restored Work/Performance acceptance must model the app's
+                // current single-vehicle operating contract, so retain the
+                // designated operating vehicle as active and keep historical
+                // fleet examples present but inactive.
+                if (row.getString("id").startsWith("feature:vehicle:") &&
+                    row.getString("id") != vehicleId) {
+                    row.getJSONObject("data").put("lifecycleState", "inactive")
+                }
                 sourceDb.records().put(StoredRecord(
                     row.getString("id"), row.toString(),
                     row.getInt("schemaVersion"), row.getString("updatedAt"),
