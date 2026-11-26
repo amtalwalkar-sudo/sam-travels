@@ -25,6 +25,27 @@ class NativeBackupRestoreCoordinatorTest {
     private fun snapshot(database: LocalDatabase) =
         NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "test")
 
+    @Test fun rawRecordLimitRejectsBeforeSnapshotValidationOrCheckpointCreation() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "restore-record-limit.db"
+        context.deleteDatabase(name)
+        val db = Room.databaseBuilder(context, LocalDatabase::class.java, name)
+            .allowMainThreadQueries().build()
+        try {
+            val oversized = JSONObject().put("records", org.json.JSONArray().put(JSONObject()))
+            val failure = runCatching {
+                NativeBackupRestoreCoordinator.restore(
+                    db, oversized, JSONObject(), { snapshot(db) }, maxRecordCount = 0,
+                )
+            }.exceptionOrNull()
+            assertEquals("backup_record_count_limit", failure?.message)
+            assertTrue(db.records().list().isEmpty())
+        } finally {
+            db.close()
+            context.deleteDatabase(name)
+        }
+    }
+
     @Test fun productionRestoreReopenRecoveryAndReexportPreservePreRestoreGraph() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "restore-coordinator-integrated.db"
