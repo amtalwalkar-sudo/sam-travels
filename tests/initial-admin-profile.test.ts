@@ -34,7 +34,7 @@ describe("initial Admin profile import", () => {
       "compliance:Permit",
       "compliance:Fitness",
       "compliance:Road tax",
-      "loan:Varsha Sharma:2026-09-30",
+      "loan:Varsha Sharma:2026-10-01",
     ]);
   });
 
