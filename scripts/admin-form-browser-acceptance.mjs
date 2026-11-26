@@ -90,7 +90,6 @@ try {
   registration = initialProfileVehicle.registrationNumber;
   console.log("Initial Admin vehicle profile rendered and verified:", vehicleId);
 
-
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
   const activeDriverName = await page.evaluate(async () => {
