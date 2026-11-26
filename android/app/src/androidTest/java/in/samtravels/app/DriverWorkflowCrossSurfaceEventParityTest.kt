@@ -47,7 +47,7 @@ class DriverWorkflowCrossSurfaceEventParityTest : DriverOverlayServicePresentati
                 expectedFormLabel = null,
                 exerciseWebView = { activity, db ->
                     webActivity = activity
-                    assertTrue("PWA Drive workspace must render", awaitJavascript(
+                    assertTrue("PWA Drive workspace must render; page=" + javascriptValue(webActivity!!, "document.body.innerText"), awaitJavascript(
                         activity, "document.querySelector('.driver-card') !== null", 30_000,
                     ))
                     assertTrue("PWA must observe the seeded authoritative shift", awaitJavascript(
