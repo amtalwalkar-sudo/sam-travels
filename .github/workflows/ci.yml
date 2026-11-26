@@ -58,10 +58,10 @@ jobs:
           };
           summary("all-dependencies", full);
           summary("production-dependencies", production);
-          const criticalProduction = Object.entries(production.vulnerabilities ?? {})
-            .filter(([, item]) => item.severity === "critical");
-          if (criticalProduction.length) {
-            console.error("Critical production dependency advisories must be remediated before merge.");
+          const actionable = Object.entries(full.vulnerabilities ?? {})
+            .filter(([, item]) => ["moderate", "high", "critical"].includes(item.severity));
+          if (actionable.length) {
+            console.error("Moderate-or-higher dependency advisories must be remediated before merge.");
             process.exit(1);
           }
           NODE

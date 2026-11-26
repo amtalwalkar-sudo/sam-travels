@@ -852,7 +852,8 @@ This addendum supersedes the earlier open implementation descriptions in §§9.3
 - Required Web CI now captures `npm audit --json` and `npm audit --omit=dev --json` reports separately.
 - The report prints package name, severity, direct/transitive status, affected range, dependency nodes, advisory details and fix availability; both JSON files are uploaded as a 30-day artifact.
 - Critical production advisories fail the Web gate.
-- **Disposition: reporting/classification mechanism added; actual report inspection and any required remediation remain pending the final exact-head CI run.** Dev-only advisories must be explicitly identified and bounded; they are not silently treated as resolved.
+- Initial exact-head report classified three development-toolchain advisories: `@vitest/mocker` moderate, `tinypool` critical, and direct `vitest` critical. The production-only audit reported zero vulnerabilities. Vitest is upgraded to 5.1.2, and the Web gate now fails on moderate-or-higher advisories across the full dependency graph.
+- **Disposition: remediation committed; exact-head re-audit pending.** The final report must confirm zero remaining advisories; no dev-only exception is being requested.
 
 **§9.37 — Record-count enforcement**
 - Browser manifest validation already totals participant counts against the shared one-million-record ceiling.
