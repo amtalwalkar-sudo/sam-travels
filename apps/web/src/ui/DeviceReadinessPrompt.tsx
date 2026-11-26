@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createDeviceReadinessResumeHandler } from "./device-readiness-prompt-behavior";
 import { getDeviceReadinessStatus, isAndroidRuntime, openDeviceReadinessSetting, type ReadinessItem } from "../platform/device-readiness";
 
 export function DeviceReadinessPrompt() {
@@ -35,7 +36,7 @@ export function DeviceReadinessPrompt() {
   useEffect(() => {
     if (!isAndroidRuntime()) return;
     void refresh();
-    const onResume = () => { if (document.visibilityState === "visible") void refresh(); };
+    const onResume = createDeviceReadinessResumeHandler(refresh, () => document.visibilityState);
     window.addEventListener("focus", onResume);
     document.addEventListener("visibilitychange", onResume);
     return () => {
