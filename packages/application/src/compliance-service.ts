@@ -114,6 +114,7 @@ export class ComplianceService {
         await this.operatingConfiguration.assertCurrent(operating as OperatingConfigurationV1);
       }
     } else if (!trustedImport) {
+      if (!operating) throw new Error("operating_configuration_unavailable");
       const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
       if (currentOperatingVehicle.vehicleId !== operating.vehicleId ||
           currentOperatingVehicle.vehicleRevision !== operating.vehicleRevision) {
