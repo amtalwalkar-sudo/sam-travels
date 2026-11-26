@@ -221,7 +221,7 @@ describe("ComplianceService", () => {
       { async list() { return []; }, async recordDecision() { throw new Error("not_used"); } },
       { async currentActor() {
         return { role: "admin" as const, actorId: "admin-1", adminPinVerifiedAt: "2026-11-19T08:00:00.000Z" };
-      } },
+      } } as never,
       {
         analyzeCoverage: analyzeComplianceCoverage,
         resolveOverlap: () => "unreviewed" as const,
