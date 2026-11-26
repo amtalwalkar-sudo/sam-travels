@@ -71,7 +71,10 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             val token = accessToken(clientId) ?: return defer("dropbox_authentication_required")
             if (!internetAllowed()) return defer("internet_access_disabled")
             val snapshot = makeSnapshot()
-            val plaintext = snapshot.first.toString().toByteArray(Charsets.UTF_8)
+            val plaintextJson = snapshot.first.toString()
+            // Check exact UTF-8 size without allocating the encoded byte array.
+            requireBackupPlaintextWithinPackageLimit(utf8ByteLength(plaintextJson))
+            val plaintext = plaintextJson.toByteArray(Charsets.UTF_8)
             val manifest = snapshot.second
             val backup = NativeBackupV2Package.create(plaintext, manifest, recoveryKey)
             val bytes = backup.toString().toByteArray(Charsets.UTF_8)
