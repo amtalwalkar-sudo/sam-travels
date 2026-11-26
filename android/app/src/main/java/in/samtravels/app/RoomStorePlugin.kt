@@ -102,11 +102,26 @@ class RoomStorePlugin : Plugin() {
         failNextWorkingCopyCompletion = true
         call.resolve()
     }
-    private val db by lazy {
+    private val database = lazy {
         Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation()
             .build()
+    }
+    private val db by database
+
+    /** Release the Room connection before a later Activity/test can replace the database file. */
+    override fun handleOnDestroy() {
+        if (database.isInitialized()) {
+            // Drain queued repository operations before closing the shared database.
+            executor.execute {
+                runCatching { db.close() }
+                executor.shutdown()
+            }
+        } else {
+            executor.shutdown()
+        }
+        super.handleOnDestroy()
     }
 
     // Reads preserve historical rows; application services validate typed records before use.
