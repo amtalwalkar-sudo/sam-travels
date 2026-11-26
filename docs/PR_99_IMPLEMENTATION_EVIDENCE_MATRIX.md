@@ -696,3 +696,40 @@ These are not represented as passed by CI. Stage 6 remains **ACTIVE / NOT ACCEPT
 The implementation exposes correction history values, actor role, reason and timestamp; a successful correction refreshes the fuel source projection, fuel interval/rate history and daily expense outputs. The UI preserves the initial target revision and correction-chain revision while retrying an ambiguous submission.
 
 **Important:** This is not yet an accepted Stage 6 closure. Wait for all required jobs on the final exact PR head and inspect any failing Browser/Android evidence. Stage 6 remains active; trip/fare, Maintenance, Compliance, operating-context, historical-integrity and remaining device/form gaps remain open.
+
+
+## 9.54 — Stage 6 historical integrity, device/GPS and form acceptance — 2026-11-26
+
+This addendum supersedes the corresponding *open* status statements in §9.52 and earlier first-pass audits only where the same requirement is covered below. Stages 1–5 and the accepted Maintenance, Compliance and operating-context slices remain closed; they are not reopened.
+
+### Historical integrity, deletion authority and actor provenance
+
+| Requirement | Implementation boundary | Regression evidence |
+|---|---|---|
+| Generic hard delete cannot erase submitted business history | Core `RecordRepository` exposes a shared transient-working-copy deletion policy. Browser/Dexie and Android/Room reject generic deletes outside `__sam_travels_form_working_copy__:`. | `tests/record-form-working-copy.test.ts`, `tests/storage.test.ts`, Android `RecordDeletionPolicyTest.onlyTransientFormWorkingCopiesCanUseGenericHardDelete` |
+| Failed first-Admin identity bootstrap preserves historical identity | `PersistentBusinessPersonRepository.remove()` writes a revision-checked `deletedAt` tombstone rather than physically deleting the person record. | `tests/person-identity-adapters.test.ts` — retained soft-deleted identity and invisible active projection |
+| Feature-extension migration deletes are feature-owned | Dexie and Room staged migration repositories restrict deletes to `feature:<featureId>:`; the native Room batch boundary validates the declared namespace before mutation. | `tests/feature-extension-upgrade-coordinator.test.ts`; Android `FeatureExtensionUpgradeTransactionTest.rejectsMigrationDeletionOutsideTheOwningFeatureNamespace` |
+| Update actor and legacy tombstone envelope compatibility | `RecordEnvelope` retains validated `updatedBy` and ISO `deletedAt` metadata; legacy records without actor/tombstone metadata remain readable. | `tests/persistence-contract.test.ts`; `tests/feature-record-service.test.ts` update-actor and soft-delete projections |
+| Submitted trip financial correction is append-only | Rendered PWA and Room-backed WebView correction paths preserve the original fare and Work/GPS event, append one correction with before/after, reason, target/chain revisions and Admin actor, then refresh the current fare projection. | `scripts/admin-entry-path-audit.mjs` via `driver-workflow-browser-acceptance.mjs`; Android `AdminEntryPathAuditCapacitorAcceptanceTest` via `TripFinancialCorrectionAcceptanceSupport`; service invariants in `tests/trip-financial-correction-service.test.ts` |
+| Fuel, Maintenance and Compliance correction lineage | Fuel correction/retry and immediate rate/daily readback: §9.53 and `FuelCorrectionCapacitorAcceptanceTest`. Maintenance expense/visit correction and actual-expense readback: §9.50. Compliance correction, linked renewal and allocation readback: §9.51. | Named Browser and Android tests in the cited stage sections |
+
+### Device readiness and GPS evidence
+
+| Requirement | Evidence |
+|---|---|
+| Android settings handoff, return and fresh readiness check | `DeviceReadinessWebViewAcceptanceTest` opens the Location settings destination from the rendered prompt, returns to the app, verifies a new native readiness status call, and confirms the driver workspace remains usable. `tests/device-readiness-prompt-behavior.test.ts` verifies visible focus/visibility signals trigger recheck and hidden state does not. Existing `DeviceReadinessPolicyTest` covers capability and API-level policy. |
+| Event-scoped GPS for all six required Work event types | `tests/browser-event-location-provider.test.ts` verifies an independent watch/fix/release for shift start, shift end, trip creation, Start ride, End ride and Cancel ride. Android `DriverWorkflowV2Test` now persists a distinct fix timestamp and coordinate for every event in its complete transition matrix. |
+| Rendered PWA Work journey | `driver-workflow-browser-acceptance.mjs` now drives shift start, trip creation, Start ride, End ride, second trip creation, Cancel ride and shift end; it checks seven committed Work events, seven independent GPS requests, and the append-only fare correction/readback without mutation of the Work/GPS event records. Existing Android overlay and cross-surface tests remain in force. |
+
+### Form definition, validation and accessibility evidence
+
+- `FUEL_ENTRY_FORM_V1` no longer declares the obsolete location-evidence field; `tests/driver-form-definitions.test.ts` asserts Fuel does not expose quantity, location or GPS form fields. Fuel purchase location is not inferred from a form field.
+- `SharedFormRuntime.assertDefinition` rejects empty/duplicate fields, unsupported field types, invalid requiredness/maxLength, and missing/blank/duplicate Select options. `validateFormValues` now validates declared time fields as 24-hour `HH:MM`. `tests/shared-form-runtime.test.ts` covers malformed Select definitions and valid/invalid time values.
+- `admin-workspace-browser-acceptance.mjs` revisits each Admin section at a 390px viewport and checks no page-level horizontal overflow, accessible labels for visible inputs/selects/textareas, and keyboard focusability.
+- Existing rendered PWA Admin/Fuel/Work journeys and Android `AdminFormsCapacitorAcceptanceTest` / `AdminEntryPathAuditCapacitorAcceptanceTest` remain the UI-to-command/Room evidence.
+
+### Stage 6 disposition and remaining gates
+
+**Implementation and focused regression evidence added; final exact-head acceptance pending.** The evidence above closes the historical delete/provenance audit and adds the missing device/GPS/form assertions. The focused trip financial correction implementation is now exercised through rendered Browser and Room-backed WebView paths; its detailed correction policy remains governed by the shared historical-correction contract and the Driver Workflow owner contract. Do not claim whole-contract acceptance until any required owner ratification is explicit, all four project records agree, and all five required CI jobs pass on the final documentation-updated PR head.
+
+Physical OEM/device certification, full OS reboot persistence where emulator proof is not deterministic, live Dropbox account delivery, owner visual/usability approval, and branch-protection/ruleset verification remain separate manual or repository-administration gates. They are not CI passes.
