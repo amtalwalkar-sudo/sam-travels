@@ -27,7 +27,7 @@ internal object AdminTestUiControlSupport {
         val ready = """(() => {
             const ownText = n => [...n.childNodes]
                 .filter(c => c.nodeType === Node.TEXT_NODE)
-                .map(c => c.textContent || '').join(' ').replace(/\\s+/g, ' ').trim();
+                .map(c => c.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
             const labels = [...document.querySelectorAll('label')]
                 .filter(n => ownText(n).includes('$name'));
             return labels.some(n => {
@@ -41,7 +41,7 @@ internal object AdminTestUiControlSupport {
         val js = """(() => {
             const ownText = n => [...n.childNodes]
                 .filter(c => c.nodeType === Node.TEXT_NODE)
-                .map(c => c.textContent || '').join(' ').replace(/\\s+/g, ' ').trim();
+                .map(c => c.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
             let labels = [...document.querySelectorAll('label')]
                 .filter(n => ownText(n).trim() === '$name');
             if (!labels.length) labels = [...document.querySelectorAll('label')]
