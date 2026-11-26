@@ -135,5 +135,7 @@ describe("authoritative record-backed form working copies", () => {
     await copies.remove(copy.formId, copy.instanceId);
     expect(await copies.get(copy.formId, copy.instanceId)).toBeUndefined();
     expect(await records.get("unrelated")).toBeDefined();
+    await expect(records.remove("feature:finance:loan:protected")).rejects.toThrow("record_delete_forbidden");
+    expect(await records.get("feature:finance:loan:protected")).toBeUndefined();
   });
 });
