@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+
 export async function exerciseWorkShiftEntryPath(page) {
   await page.getByLabel("Shift-start odometer (km)").fill("1000");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
