@@ -1,6 +1,7 @@
 package `in`.samtravels.app
 
 import android.content.Intent
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -63,6 +64,45 @@ class DeviceReadinessWebViewAcceptanceTest {
             evaluate(view, "document.querySelector('.device-readiness-trigger')?.click()")
             assertTrue("Rendered readiness dialog must expose settings and a continue action",
                 evaluate(view, "!!document.querySelector('[role=dialog]') && !!document.querySelector('.device-readiness-footer button')") == "true")
+            evaluate(view, """
+                (() => {
+                  const plugin = window.Capacitor?.Plugins?.DeviceReadiness;
+                  if (!plugin) return false;
+                  window.__readinessChecks = 0;
+                  const getStatus = plugin.getStatus.bind(plugin);
+                  plugin.getStatus = (...args) => {
+                    window.__readinessChecks += 1;
+                    return getStatus(...args);
+                  };
+                  const openSetting = plugin.openSetting.bind(plugin);
+                  plugin.openSetting = options => openSetting(options).then(result => {
+                    window.__settingResult = result;
+                    return result;
+                  });
+                  return true;
+                })()
+            """.trimIndent())
+            val checksBeforeSettings = evaluate(view, "window.__readinessChecks || 0").trim('"').toInt()
+            assertTrue("Location settings action must be rendered",
+                evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].some(n => n.innerText.includes('Location services'))") == "true")
+            evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].find(n => n.innerText.includes('Location services'))?.click()")
+            val settingsDeadline = System.currentTimeMillis() + 10_000
+            while (System.currentTimeMillis() < settingsDeadline && activity.hasWindowFocus()) Thread.sleep(100)
+            assertTrue("Selecting Location services must hand off to Android Settings", !activity.hasWindowFocus())
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            val returnDeadline = System.currentTimeMillis() + 10_000
+            while (System.currentTimeMillis() < returnDeadline && !activity.hasWindowFocus()) Thread.sleep(100)
+            assertTrue("App must regain focus after returning from Android Settings", activity.hasWindowFocus())
+            val recheckDeadline = System.currentTimeMillis() + 10_000
+            var checksAfterReturn = checksBeforeSettings
+            while (System.currentTimeMillis() < recheckDeadline && checksAfterReturn <= checksBeforeSettings) {
+                checksAfterReturn = evaluate(view, "window.__readinessChecks || 0").trim('"').toInt()
+                Thread.sleep(100)
+            }
+            assertTrue("Returning from Settings must trigger a fresh readiness check",
+                checksAfterReturn > checksBeforeSettings)
+            assertTrue("Native Settings handoff must report success",
+                evaluate(view, "window.__settingResult?.opened === true") == "true")
             evaluate(view, "document.querySelector('.device-readiness-footer button')?.click()")
             assertTrue("Continuing must close the prompt without blocking driver entry",
                 evaluate(view, "!document.querySelector('[role=dialog]') && !!document.querySelector('.driver-card')") == "true")
