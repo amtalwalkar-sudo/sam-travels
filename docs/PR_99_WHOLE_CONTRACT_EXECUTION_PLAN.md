@@ -353,3 +353,18 @@ This checkpoint supersedes the initial Stage 6 gap list where the same requireme
 | Verify all eight §1A conditions; preserve draft/unmerged status | The §1A table is reconciled in the end-to-end contract addendum. Owner ratification remains required for the feature-specific Trip Financial correction UX/schema. Dependency advisory classification (§9.35), backup record-count/export boundary (§9.37) and plaintext-size preflight (§9.39) remain open critical contract gaps; external OEM/reboot/Dropbox/visual and branch-protection gates remain explicitly separate. PR #99 must remain open, draft and unmerged. | **WHOLE-CONTRACT ACCEPTANCE PENDING** |
 
 **Execution controls:** no new PRs; no merge; no unrelated feature work; do not reopen accepted Stages 1–5; do not call intermediate CI green for the final head; do not convert external/manual gates into automated passes. Continue only on the existing `docs/repository-foundation-audit-gap-register` branch.
+
+
+### Stage 6 closeout execution checkpoint — 2026-11-27
+
+The owner has explicitly approved the existing append-only Trip Financial correction UX/schema: preserve original fare and linked Work/GPS event; append before/after, reason, target/chain revisions and Admin actor; refresh the current fare projection. This resolves the trip-correction owner-ratification blocker. It does not authorize mutation of Work/GPS/odometer events.
+
+| Remaining gate | Implementation/test action on the existing PR #99 branch | Disposition |
+|---|---|---|
+| Trip Financial correction policy ratification | Explicit owner approval received 2026-11-27; approval recorded in the end-to-end contract and evidence matrix. | **OWNER APPROVED** |
+| Backup record-count export/create/restore boundary | Count raw Room export before canonicalization; validate native package manifest totals before crypto; cap raw Room restore records before snapshot/participant validation; add lower-limit pre-mutation regression. | **IMPLEMENTATION + FOCUSED TESTS ADDED; EXACT-HEAD CI PENDING** |
+| Plaintext-size preflight | Preserve TypeScript preflight; add Android exact UTF-8 byte counting before byte-array allocation and native package preflight; add boundary tests. | **ENFORCEMENT ADDED; PEAK-MEMORY/TIME ACCEPTANCE STILL OPEN** |
+| Dependency advisory classification | Add repeatable full and production-only npm audit reports to required Web CI; upload reports and fail on critical production advisories. | **CI REPORTING ADDED; CLASSIFICATION/REMEDIATION PENDING RUN RESULTS** |
+| Final validation | Run Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate on the exact final PR head; inspect all job logs and audit artifacts, fix failures, rerun. | **PENDING** |
+
+Do not mark §1A condition 4 or whole-contract completion as accepted solely from authored tests. The dependency audit must be read, any critical production advisory fixed, and representative backup performance evidence must be recorded or explicitly dispositioned. Continue only on `docs/repository-foundation-audit-gap-register`; no new PR, no merge, and keep PR #99 draft/open/unmerged.
