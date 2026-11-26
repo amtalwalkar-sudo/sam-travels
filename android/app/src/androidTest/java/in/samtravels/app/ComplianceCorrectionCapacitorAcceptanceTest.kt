@@ -244,14 +244,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         await = { target, expression, timeout -> awaitMaintenanceJavascript(target, expression, timeout) },
       )
 
-      val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
-      NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
-      NativeBackupCoverage.replaceBusinessRecords(database, backup)
-      assertEquals(36500L, JSONObject(database.records().get(complianceId)!!.json).getJSONObject("data").getLong("totalCostPaise"))
-      assertEquals(73000L, JSONObject(database.records().get("historical-correction:" + corrections.single().getString("correctionId"))!!.json)
-        .getJSONObject("data").getLong("afterValue"))
-      assertEquals("Renewal lineage survives Room backup/restore", complianceId,
-        JSONObject(database.records().get(renewal.id)!!.json).getJSONObject("data").getString("renewedFromRecordId"))
+      ComplianceCorrectionBackupAcceptanceSupport.assertBackupRestore(
+        database, complianceId, corrections.single().getString("correctionId"), renewal.id,
+      )
     } finally {
       database.records().list().filter { row ->
         row.id.startsWith("compliance-overlap-review:") || row.id.startsWith("compliance-overlap-review-head:")
