@@ -835,3 +835,23 @@ Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/b
 **Exact-head verification:** this focused slice is stacked after Maintenance evidence PR #103 and trip/fare PR #102. Full CI must pass on the final PR head before this slice is marked green. The required gates are Architecture, Web/PWA, Android Room instrumentation, Cross-platform encrypted backup restore and Integrated regression gate; optional post-deployment geocoder verification is not a PR gate.
 
 **Remaining outside this slice:** full §3.0.1 operating-pair context binding across Compliance and dependent cost consumers remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
+
+
+### 9.52 — Stage 6 operating-context audit closeout — 2026-11-26
+
+**Status: TARGETED OPERATING-CONTEXT AUDIT CLOSED ON EXACT-HEAD CI EVIDENCE.** This closes the focused production-resolver wiring and stale-context protection audit requested for Finance, Business Expenses, Maintenance and Performance. It does not certify the entire Stage 6 contract or close unrelated repository-wide architecture/recovery gaps.
+
+**Production composition and resolver wiring**
+- Inspected the production Web bootstrap in apps/web/src/main.tsx: the operating-configuration resolver is passed to Finance loan, Business Expenses, Maintenance, Compliance and Full-Cost Breakeven services. Performance is composed with its calculation runtime and Full-Cost Breakeven/cost-allocation dependencies.
+- Android uses the same PWA bootstrap through Capacitor; no separate Android application composition root or resolver-wiring divergence was found.
+- Finance already validates vehicle/operating context and revalidates stale context before command commits. No additional change was required.
+- Business Expenses fuel and expense writes already revalidate operating context before commit. No additional change was required.
+
+**Concrete defects fixed in PR #105**
+- Maintenance rate-history writes (setRate) and daily-business-kilometre accrual writes now revalidate the operating context before creating records. Regression tests prove stale context rejects writes without repository mutation.
+- The independent Full-Cost Breakeven distance projection used by the Performance screen now captures operating/vehicle context before source reads and revalidates it before returning. This closes a stale-read window not covered by the broader Performance calculation snapshot fence. A regression verifies capture ordering and rejection when context changes during the read.
+- No Performance UI redesign or unrelated feature-stage reopening was performed.
+
+**Exact-head verification:** PR #105 head bade1b25be18a0705d2ed45ee4f4f182097d4b97; required workflow [run #45839459288, attempt 2](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45839459288) completed successfully on that exact SHA. Architecture, Web, Android (Gradle build, unit tests and emulator-backed Room/workflow/backup reliability gate), Cross-platform encrypted backup restore (Android-produced package restored through production Browser/Dexie), and Integrated regression gate all succeeded. Optional Production geocoder verification was skipped by the PR workflow condition.
+
+**Disposition and remaining acceptance:** the targeted operating-context audit is closed. PR #105 remains OPEN · DRAFT · UNMERGED, stacked on PR #104; PRs #99, #102, #103 and #104 remain open/draft/unmerged. Physical phone/OEM acceptance, live Dropbox account delivery and final owner visual/usability approval remain separate manual gates. The whole Stage 6 contract remains active; this addendum does not reopen completed Stages 1–5 or alter the Performance UI.
