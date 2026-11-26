@@ -75,6 +75,24 @@ async function readBrowserRecords(page) {
   });
 }
 
+async function readBrowserDriverEvents(page) {
+  return page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("driverEvents", "readonly");
+      const get = tx.objectStore("driverEvents").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return rows;
+  });
+}
+
 async function readTripObligation(page, kind, status) {
   return page.evaluate(async ({ kind, status }) => {
     const request = indexedDB.open("sam-travels-browser");
@@ -188,9 +206,8 @@ export async function exerciseWorkTripEntryPaths(page, { adminName, adminPin } =
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
 
   if (adminName && adminPin) {
-    const eventsBeforeCorrection = (await readBrowserRecords(page))
-      .filter(row => row.id.startsWith("logbook:"))
-      .map(row => ({ id: row.id, revision: row.revision, data: row.data }));
+    const eventsBeforeCorrection = (await readBrowserDriverEvents(page))
+      .map(event => ({ eventId: event.eventId, revision: event.revision, command: event.command, gps: event.gps }));
     await page.getByRole("button", { name: "Admin", exact: true }).click();
     await page.getByLabel("Select person").selectOption({ label: adminName });
     await page.getByLabel("Active role").selectOption("admin");
@@ -221,8 +238,8 @@ export async function exerciseWorkTripEntryPaths(page, { adminName, adminPin } =
     assert.equal(correction?.data?.afterValue, 17500);
     assert.equal(correction?.data?.reason, "Verified against the original trip receipt");
     assert.equal(correction?.data?.actor?.role, "admin");
-    assert.deepEqual(afterCorrection.filter(row => row.id.startsWith("logbook:"))
-      .map(row => ({ id: row.id, revision: row.revision, data: row.data })), eventsBeforeCorrection,
+    assert.deepEqual((await readBrowserDriverEvents(page))
+      .map(event => ({ eventId: event.eventId, revision: event.revision, command: event.command, gps: event.gps })), eventsBeforeCorrection,
     "trip financial correction must not mutate committed Work/GPS events");
   }
 }
