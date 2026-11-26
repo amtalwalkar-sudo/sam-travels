@@ -17,6 +17,12 @@ import {
 } from "../../domain/src/full-cost-breakeven";
 
 type HistoricalTripBackfillCostReaderV1 = Readonly<{ list(): Promise<readonly RecordEnvelope<HistoricalTripBackfillV1>[]> }>;
+type HistoricalTripBackfillCostCorrectionReaderV1 = Readonly<{
+  project(record: RecordEnvelope<HistoricalTripBackfillV1>): Promise<Readonly<{
+    data: HistoricalTripBackfillV1;
+    correctionRefs: readonly Readonly<{ sourceId: string; revision: number; chainRevision: number }>[];
+  }>>;
+}>;
 
 export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV1 & {
   fuelSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
@@ -55,6 +61,7 @@ export class FullCostBreakevenService {
     private readonly recordRepository?: Pick<RecordRepository, "list">,
     private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">,
     private readonly historicalTripBackfills?: HistoricalTripBackfillCostReaderV1,
+    private readonly historicalTripBackfillCorrections?: HistoricalTripBackfillCostCorrectionReaderV1,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
@@ -65,6 +72,12 @@ export class FullCostBreakevenService {
       this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
       this.historicalTripBackfills?.list() ?? Promise.resolve([]),
     ]);
+    const projectedHistoricalBackfills = this.historicalTripBackfillCorrections
+      ? await Promise.all(historicalBackfills.map(async record => {
+          const projection = await this.historicalTripBackfillCorrections!.project(record);
+          return { ...record, data: projection.data, correctionRefs: projection.correctionRefs };
+        }))
+      : historicalBackfills.map(record => ({ ...record, correctionRefs: [] as const }));
     const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
     if (this.expenses.listCorrectionReferences) {
       const correctionTargets = [...new Set([
@@ -357,7 +370,7 @@ export class FullCostBreakevenService {
       });
     }
 
-    for (const record of historicalBackfills) {
+    for (const record of projectedHistoricalBackfills) {
       const data = record.data;
       if (record.deletedAt || data.vehicleId !== vehicleId || data.operationalDate < from || data.operationalDate > to) continue;
       const driverExpenses = (data.tollPayer === "driver" ? data.tollPaise ?? 0 : 0) +
@@ -365,7 +378,10 @@ export class FullCostBreakevenService {
       if (driverExpenses > 0) datedCosts.push({
         date: data.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
         sourceId: record.id, sourceRevision: record.revision,
-        sourceRefs: [{ sourceId: record.id, revision: record.revision }],
+        sourceRefs: [
+          { sourceId: record.id, revision: record.revision },
+          ...record.correctionRefs.map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
+        ],
       });
     }
 
