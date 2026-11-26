@@ -11,6 +11,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /** Shared transaction primitive used by the native repository and Room instrumentation tests. */
 internal suspend fun compareAndSetStoredRecord(
@@ -110,18 +111,32 @@ class RoomStorePlugin : Plugin() {
     }
     private val db by database
 
-    /** Release the Room connection before a later Activity/test can replace the database file. */
+    /**
+     * Drain repository operations and close Room before the Activity teardown returns.
+     *
+     * Tests and Android lifecycle transitions can immediately reopen or replace the
+     * database file. Merely enqueueing close here leaves a window in which the next
+     * Bridge can attach to a stale Room connection and observe a different database
+     * generation from the one its direct Room repository has opened.
+     */
     override fun handleOnDestroy() {
         if (database.isInitialized()) {
-            // Drain queued repository operations before closing the shared database.
-            executor.execute {
-                runCatching { db.close() }
-                executor.shutdown()
-            }
-        } else {
-            executor.shutdown()
+            // The single-thread executor preserves operation order: close runs after
+            // every accepted repository operation, and shutdown prevents new work.
+            executor.execute { runCatching { db.close() } }
         }
-        super.handleOnDestroy()
+        executor.shutdown()
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                executor.shutdownNow()
+                executor.awaitTermination(2, TimeUnit.SECONDS)
+            }
+        } catch (interrupted: InterruptedException) {
+            executor.shutdownNow()
+            Thread.currentThread().interrupt()
+        } finally {
+            super.handleOnDestroy()
+        }
     }
 
     // Reads preserve historical rows; application services validate typed records before use.
