@@ -173,7 +173,8 @@ export class MaintenanceService {
     vehicleId: string; ratePaisePerKm: number; commandId: string; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceRateHistoryV1>> {
-    const vehicle = await this.requireVehicle(input.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    const vehicle = await this.requireVehicle(input.vehicleId, operating);
     if (!Number.isSafeInteger(input.ratePaisePerKm) || input.ratePaisePerKm < 0) {
       throw new Error("maintenance_rate_invalid");
     }
@@ -217,6 +218,7 @@ export class MaintenanceService {
       schemaVersion: 1, kind: "rate_history", vehicleId: input.vehicleId,
       entries: Object.freeze(entries),
     };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     if (!current) {
       return this.records.create({
         id, data, source: input.source, businessDate: effectiveFrom, now: timestamp, operation: input.operation,
@@ -236,7 +238,8 @@ export class MaintenanceService {
   }
 
   async accrueDailyBusinessKilometres(input: { vehicleId: string; operationalDate: string; source: FeatureRecordSource }): Promise<RecordEnvelope<MaintenanceDailyAccrualV1>> {
-    await this.requireVehicle(input.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.vehicleId, operating);
     if (!isValidDate(input.operationalDate)) throw new Error("maintenance_business_date_invalid");
     const dailyBusinessKmRecordId = "work:daily-business-km:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
     const daily = await this.repository.get<{
@@ -295,6 +298,7 @@ export class MaintenanceService {
       throw new Error("maintenance_daily_accrual_amount_out_of_range");
     }
     try {
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       return await this.records.create({ id, data, source: input.source, businessDate: input.operationalDate }) as RecordEnvelope<MaintenanceDailyAccrualV1>;
     } catch (error) {
       const raced = await this.records.get(id);
