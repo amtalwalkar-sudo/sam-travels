@@ -308,7 +308,7 @@ describe("FullCostBreakevenService source integration", () => {
       driverId: "driver-1", vehicleId, assignmentId: "assignment-1",
       selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1,
     };
-    const operatingVehicle = { vehicleId, vehicleRevision: 1 };
+    const operatingVehicle = { schemaVersion: 1 as const, vehicleId, vehicleRevision: 1 };
     let contextCaptured = false;
     const configuration = {
       getForReadOnly: async () => { contextCaptured = true; return operating; },
