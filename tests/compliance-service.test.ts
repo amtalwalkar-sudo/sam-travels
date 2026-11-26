@@ -3,6 +3,8 @@ import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packa
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { assertComplianceRecordV1 } from "../packages/features/compliance";
 import { ComplianceService } from "../packages/application/src/compliance-service";
+import { ComplianceAnalysisService } from "../packages/application/src/compliance-analysis-service";
+import { analyzeComplianceCoverage, calculateDailyComplianceCost } from "../packages/features/compliance";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -198,4 +200,66 @@ describe("ComplianceService", () => {
     });
     await expect(service.list()).rejects.toThrow("compliance_renewal_source_not_found");
   });
+
+  it("preserves a late-renewal coverage gap and applies the renewed amount only within its new validity", async () => {
+    const { repository, service } = setup();
+    const previous = await service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174030",
+      data: { ...first, validFrom: "2025-01-01", validTo: "2025-12-31", totalCostPaise: 36500 },
+      source: "web", businessDate: "2025-01-01",
+    });
+    const renewal = await service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174031",
+      data: {
+        ...second, validFrom: "2026-02-01", validTo: "2027-01-31",
+        totalCostPaise: 73000, renewedFromRecordId: previous.id,
+      },
+      source: "android", businessDate: "2026-02-01",
+    });
+    const analysis = new ComplianceAnalysisService(
+      service,
+      { async list() { return []; }, async recordDecision() { throw new Error("not_used"); } },
+      { async currentActor() {
+        return { role: "admin" as const, actorId: "admin-1", adminPinVerifiedAt: "2026-11-19T08:00:00.000Z" };
+      } },
+      {
+        analyzeCoverage: analyzeComplianceCoverage,
+        resolveOverlap: () => "unreviewed" as const,
+        calculateDailyCost: calculateDailyComplianceCost,
+      },
+    );
+
+    const beforeRenewal = await analysis.getDailyCost(first.vehicleId, "2025-12-31");
+    expect(beforeRenewal).toMatchObject({
+      status: "available",
+      total: { numeratorPaise: "100", denominator: "1" },
+      breakdown: [{ recordId: previous.id, complianceName: "Insurance" }],
+    });
+
+    const uncovered = await analysis.getDailyCost(first.vehicleId, "2026-01-15");
+    expect(uncovered).toMatchObject({
+      status: "available",
+      total: { numeratorPaise: "0", denominator: "1" },
+      breakdown: [],
+    });
+
+    const afterRenewal = await analysis.getDailyCost(first.vehicleId, "2026-02-01");
+    expect(afterRenewal).toMatchObject({
+      status: "available",
+      total: { numeratorPaise: "200", denominator: "1" },
+      breakdown: [{ recordId: renewal.id, complianceName: "Insurance" }],
+    });
+    const overview = await analysis.getOverview();
+    expect(overview.gaps).toContainEqual(expect.objectContaining({
+      vehicleId: first.vehicleId, complianceName: "Insurance",
+      from: "2026-01-01", to: "2026-01-31", days: 31,
+    }));
+    expect((await service.get(previous.id))?.data.totalCostPaise).toBe(36500);
+    expect((await service.get(renewal.id))?.data).toMatchObject({
+      totalCostPaise: 73000, validFrom: "2026-02-01", validTo: "2027-01-31",
+      renewedFromRecordId: previous.id,
+    });
+    expect((await repository.list()).filter(row => row.id.startsWith("feature:compliance:"))).toHaveLength(2);
+  });
+
 });
