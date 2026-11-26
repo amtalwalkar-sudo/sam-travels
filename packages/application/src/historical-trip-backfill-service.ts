@@ -2,6 +2,7 @@ import type { AtomicRecordRepository, RecordRepository } from "../../core/src/re
 import { RECORD_ENVELOPE_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { RecordEnvelope } from "../../core/src/types";
 import { assertHistoricalTripBackfillV1, type HistoricalTripBackfillV1 } from "../../domain/src/historical-trip-backfill";
+import { validateCompletedTripFinancialSubmission } from "./driver-form-definitions";
 
 export const HISTORICAL_TRIP_BACKFILL_PREFIX = "historical-trip-backfill:";
 
@@ -24,6 +25,10 @@ export type SubmitHistoricalTripBackfillV1 = Readonly<{
   startedAt: string;
   endedAt: string;
   farePaise: number;
+  tollPaise?: number;
+  tollPayer?: "driver" | "customer";
+  parkingPaise?: number;
+  parkingPayer?: "driver" | "customer";
   reason: string;
 }>;
 
@@ -52,6 +57,12 @@ export class HistoricalTripBackfillServiceV1 {
         typeof input.reason !== "string" || !input.reason.trim() || input.reason.trim().length > 1000) {
       throw new Error("historical_trip_backfill_command_invalid");
     }
+    const financialIssues = validateCompletedTripFinancialSubmission({
+      tripId: input.backfillId, farePaise: input.farePaise,
+      tollPaise: input.tollPaise, tollPayer: input.tollPayer,
+      parkingPaise: input.parkingPaise, parkingPayer: input.parkingPayer,
+    });
+    if (financialIssues.length) throw new Error("historical_trip_backfill_financials_invalid:" + financialIssues[0]);
     const start = Date.parse(input.startedAt), end = Date.parse(input.endedAt);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
       throw new Error("historical_trip_backfill_interval_invalid");
@@ -70,7 +81,9 @@ export class HistoricalTripBackfillServiceV1 {
       value.backfillId === input.backfillId && value.driverId === input.driverId.trim() &&
       value.vehicleId === input.vehicleId.trim() && value.operationalDate === input.operationalDate &&
       value.startedAt === new Date(start).toISOString() && value.endedAt === new Date(end).toISOString() &&
-      value.farePaise === input.farePaise && value.reason === input.reason.trim() &&
+      value.farePaise === input.farePaise && value.tollPaise === input.tollPaise &&
+      value.tollPayer === input.tollPayer && value.parkingPaise === input.parkingPaise &&
+      value.parkingPayer === input.parkingPayer && value.reason === input.reason.trim() &&
       value.actor.role === actor.role && value.actor.actorId === actor.actorId;
     const data: HistoricalTripBackfillV1 = Object.freeze({
       schemaVersion: 1, kind: "historical_trip_backfill", backfillId: input.backfillId,
@@ -78,6 +91,8 @@ export class HistoricalTripBackfillServiceV1 {
       driverId: input.driverId.trim(), vehicleId: input.vehicleId.trim(),
       operationalDate: input.operationalDate, startedAt: new Date(start).toISOString(),
       endedAt: new Date(end).toISOString(), farePaise: input.farePaise,
+      ...(input.tollPaise !== undefined ? { tollPaise: input.tollPaise, tollPayer: input.tollPayer! } : {}),
+      ...(input.parkingPaise !== undefined ? { parkingPaise: input.parkingPaise, parkingPayer: input.parkingPayer! } : {}),
       reason: input.reason.trim(), recordedAt,
       actor: Object.freeze({ role: "admin", actorId: actor.actorId }),
     });

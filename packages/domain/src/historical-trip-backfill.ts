@@ -10,6 +10,10 @@ export type HistoricalTripBackfillV1 = Readonly<{
   startedAt: string;
   endedAt: string;
   farePaise: number;
+  tollPaise?: number;
+  tollPayer?: "driver" | "customer";
+  parkingPaise?: number;
+  parkingPayer?: "driver" | "customer";
   reason: string;
   recordedAt: string;
   actor: Readonly<{ role: "admin"; actorId: string }>;
@@ -30,6 +34,11 @@ export function assertHistoricalTripBackfillV1(value: unknown): asserts value is
       !Number.isFinite(start) || !Number.isFinite(end) || end <= start ||
       new Date(start + 90 * 60_000).toISOString().slice(0, 10) !== row.operationalDate ||
       !Number.isSafeInteger(row.farePaise) || (row.farePaise as number) < 0 ||
+      (["toll", "parking"] as const).some(kind => {
+        const amount = row[kind + "Paise"], payer = row[kind + "Payer"];
+        return (amount !== undefined && (!Number.isSafeInteger(amount) || (amount as number) < 0 ||
+          (payer !== "driver" && payer !== "customer"))) || (amount === undefined && payer !== undefined);
+      }) ||
       typeof row.reason !== "string" || !row.reason.trim() || row.reason.length > 1000 ||
       typeof row.recordedAt !== "string" || !Number.isFinite(Date.parse(row.recordedAt)) ||
       !actor || actor.role !== "admin" || typeof actor.actorId !== "string" || !actor.actorId.trim() ||

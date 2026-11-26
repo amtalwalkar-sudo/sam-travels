@@ -4,6 +4,10 @@ export type TripHistoryStatus = "active" | "completed" | "cancelled" | "needs_at
 export interface TripHistoryRecord {
  source?: "work_event" | "historical_backfill";
  farePaise?: number;
+ tollPaise?: number;
+ tollPayer?: "driver" | "customer";
+ parkingPaise?: number;
+ parkingPayer?: "driver" | "customer";
  driverId?: string;
  vehicleId?: string;
  operationalDate?: string;
@@ -72,6 +76,10 @@ export function buildTripHistoryWithBackfills(
   status: "completed" as const,
   reason: row.reason,
   farePaise: row.farePaise,
+  tollPaise: row.tollPaise,
+  tollPayer: row.tollPayer,
+  parkingPaise: row.parkingPaise,
+  parkingPayer: row.parkingPayer,
   driverId: row.driverId,
   vehicleId: row.vehicleId,
   operationalDate: row.operationalDate,

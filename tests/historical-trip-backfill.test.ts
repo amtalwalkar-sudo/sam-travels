@@ -20,6 +20,7 @@ const input = {
   backfillId: "legacy-trip-1", driverId: "driver-1", vehicleId: "vehicle-1",
   operationalDate: "2026-11-10", startedAt: "2026-11-10T08:00:00.000Z",
   endedAt: "2026-11-10T08:35:00.000Z", farePaise: 12500,
+  tollPaise: 500, tollPayer: "driver", parkingPaise: 300, parkingPayer: "customer",
   reason: "Trip was omitted during offline entry; reconciled from paper trip sheet",
 };
 
@@ -40,6 +41,7 @@ describe("separately attributed historical trip backfill", () => {
     expect(saved.data).toMatchObject({
       kind: "historical_trip_backfill", attribution: "admin_declared",
       driverId: "driver-1", vehicleId: "vehicle-1", farePaise: 12500,
+      tollPaise: 500, tollPayer: "driver", parkingPaise: 300, parkingPayer: "customer",
       actor: { role: "admin", actorId: "admin-person" },
     });
     expect(saved.data).not.toHaveProperty("eventId");
@@ -74,6 +76,8 @@ describe("separately attributed historical trip backfill", () => {
       recordedAt: "2026-11-11T10:00:00.000Z", actor: { role: "admin", actorId: "admin-1" },
     };
     expect(() => assertHistoricalTripBackfillV1({ ...valid, odometerKm: 550 })).toThrow("historical_trip_backfill_invalid");
+    expect(() => assertHistoricalTripBackfillV1({ ...valid, tollPaise: 500, tollPayer: "operator" })).toThrow("historical_trip_backfill_invalid");
+    expect(() => assertHistoricalTripBackfillV1({ ...valid, parkingPayer: "driver" })).toThrow("historical_trip_backfill_invalid");
     expect(() => assertHistoricalTripBackfillV1({ ...valid, tripContext: { shiftId: "made-up" } })).toThrow("historical_trip_backfill_invalid");
     expect(() => assertHistoricalTripBackfillV1({ ...valid, startGps: { latitude: 0, longitude: 0 } })).toThrow("historical_trip_backfill_invalid");
   });

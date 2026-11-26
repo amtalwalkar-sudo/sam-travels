@@ -216,4 +216,33 @@ describe("FullCostBreakevenService source integration", () => {
     expect(result.distanceSummary.complete).toBe(false);
   });
 
+  it("allocates Driver-paid toll/parking from an Admin-declared missing trip exactly once", async () => {
+    const vehicleId = "feature:vehicle:MH01AB1234";
+    const backfillId = "historical-trip-backfill:paper-trip-costs";
+    const backfill = {
+      id: backfillId, revision: 3,
+      data: { schemaVersion: 1, kind: "historical_trip_backfill", backfillId: "paper-trip-costs",
+        status: "submitted", attribution: "admin_declared", driverId: "driver-1", vehicleId,
+        operationalDate: "2026-11-10", startedAt: "2026-11-10T08:00:00.000Z",
+        endedAt: "2026-11-10T08:30:00.000Z", farePaise: 25000,
+        tollPaise: 700, tollPayer: "driver", parkingPaise: 300, parkingPayer: "customer",
+        reason: "Reconciled from trip sheet", recordedAt: "2026-11-11T00:00:00.000Z",
+        actor: { role: "admin", actorId: "admin-1" } },
+    };
+    const service = new FullCostBreakevenService(
+      { list: async () => [{ id: vehicleId, revision: 1, data: { lifecycleState: "active" } }] } as never,
+      { listVehicleRecords: async () => ({ accruals: [], visits: [], expenses: [], rateHistory: [] }) } as never,
+      { listExpenseEntries: async () => [], listDailyExpenseOutputs: async () => [],
+        listFuelPurchases: async () => [], listFuelCostRateHistory: async () => [] } as never,
+      { getReport: async () => ({ result: { sources: [] } }) } as never,
+      { submittedTripFinancialRecords: async () => [] } as never,
+      { list: async () => [] } as never,
+      undefined,
+      { list: async () => [backfill] } as never,
+    );
+    const result = await service.calculate("2026-11-10", "2026-11-10");
+    expect(result.totalCostPaise).toBe(700);
+    expect(result.daily[0].costs.miscellaneous).toBe(700);
+    expect(result.provenance.sourceIds).toContain(backfillId);
+  });
 });

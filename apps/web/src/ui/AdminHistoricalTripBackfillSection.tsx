@@ -34,7 +34,7 @@ export function AdminHistoricalTripBackfillSection() {
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
     backfillId: "", driverId: "", vehicleId: "", startedAt: localDateTime(),
-    endedAt: "", fare: "", reason: "",
+    endedAt: "", fare: "", toll: "", tollPayer: "", parking: "", parkingPayer: "", reason: "",
   });
   const refresh = useCallback(async () => {
     try {
@@ -52,13 +52,30 @@ export function AdminHistoricalTripBackfillSection() {
       const startedAt = toInstant(form.startedAt), endedAt = toInstant(form.endedAt);
       const farePaise = Math.round(Number(form.fare) * 100);
       if (!Number.isSafeInteger(farePaise) || farePaise < 0) throw new Error("Enter a valid fare amount.");
+      const optionalCharge = (amount: string, payer: string, label: string): { amountPaise?: number; payer?: string } => {
+        if (!amount.trim()) {
+          if (payer) throw new Error(label + " payer requires an amount.");
+          return {};
+        }
+        const parsed = Number(amount);
+        if (!Number.isFinite(parsed) || parsed < 0 || Math.round(parsed * 100) / 100 !== parsed) {
+          throw new Error("Enter a non-negative " + label.toLowerCase() + " amount with at most two decimal places.");
+        }
+        if (payer !== "driver" && payer !== "customer") throw new Error("Choose who paid the " + label.toLowerCase() + ".");
+        return { amountPaise: Math.round(parsed * 100), payer };
+      };
+      const toll = optionalCharge(form.toll, form.tollPayer, "Toll");
+      const parking = optionalCharge(form.parking, form.parkingPayer, "Parking");
       const operationalDate = operationalDateFor(form.startedAt);
       await service.submit({
         backfillId: form.backfillId.trim() || crypto.randomUUID(),
         driverId: form.driverId.trim(), vehicleId: form.vehicleId.trim(),
-        operationalDate, startedAt, endedAt, farePaise, reason: form.reason.trim(),
+        operationalDate, startedAt, endedAt, farePaise,
+        ...(toll.amountPaise !== undefined ? { tollPaise: toll.amountPaise, tollPayer: toll.payer as "driver" | "customer" } : {}),
+        ...(parking.amountPaise !== undefined ? { parkingPaise: parking.amountPaise, parkingPayer: parking.payer as "driver" | "customer" } : {}),
+        reason: form.reason.trim(),
       });
-      setForm({ backfillId: "", driverId: "", vehicleId: "", startedAt: localDateTime(), endedAt: "", fare: "", reason: "" });
+      setForm({ backfillId: "", driverId: "", vehicleId: "", startedAt: localDateTime(), endedAt: "", fare: "", toll: "", tollPayer: "", parking: "", parkingPayer: "", reason: "" });
       setOpen(false);
       setMessage("Historical trip recorded as an Admin-declared entry. No Work, GPS or odometer events were created.");
       await refresh();
@@ -82,6 +99,10 @@ export function AdminHistoricalTripBackfillSection() {
         <label>Trip started (India time)<input required type="datetime-local" value={form.startedAt} onChange={e => change("startedAt", e.target.value)} /></label>
         <label>Trip ended (India time)<input required type="datetime-local" min={form.startedAt} value={form.endedAt} onChange={e => change("endedAt", e.target.value)} /></label>
         <label>Fare (₹)<input required type="number" min="0" step="0.01" value={form.fare} onChange={e => change("fare", e.target.value)} /></label>
+        <label>Toll (₹, optional)<input type="number" min="0" step="0.01" value={form.toll} onChange={e => change("toll", e.target.value)} /></label>
+        <label>Toll paid by<select value={form.tollPayer} onChange={e => change("tollPayer", e.target.value)}><option value="">Not applicable</option><option value="driver">Driver</option><option value="customer">Customer</option></select></label>
+        <label>Parking (₹, optional)<input type="number" min="0" step="0.01" value={form.parking} onChange={e => change("parking", e.target.value)} /></label>
+        <label>Parking paid by<select value={form.parkingPayer} onChange={e => change("parkingPayer", e.target.value)}><option value="">Not applicable</option><option value="driver">Driver</option><option value="customer">Customer</option></select></label>
         <label>Backfill reference (optional)<input maxLength={128} value={form.backfillId} onChange={e => change("backfillId", e.target.value)} placeholder="Generated if blank" /></label>
         <label className="loan-form-grid-full">Reason / source of historical information<textarea required maxLength={1000} value={form.reason} onChange={e => change("reason", e.target.value)} placeholder="For example, reconciled from the paper trip sheet" /></label>
       </div>
@@ -91,6 +112,7 @@ export function AdminHistoricalTripBackfillSection() {
     {records.length > 0 && <div className="admin-record-list">{records.map(record => <article className="admin-capability-record" key={record.id}>
       <div><strong>{displayTime(record.data.startedAt)} · {rupees(record.data.farePaise)}</strong>
         <small>Driver {record.data.driverId} · Vehicle {record.data.vehicleId} · Operational date {record.data.operationalDate}</small>
+        {(record.data.tollPaise !== undefined || record.data.parkingPaise !== undefined) && <small>Toll {record.data.tollPaise === undefined ? "—" : rupees(record.data.tollPaise) + " · " + record.data.tollPayer} · Parking {record.data.parkingPaise === undefined ? "—" : rupees(record.data.parkingPaise) + " · " + record.data.parkingPayer}</small>}
         <small>Admin-declared by {record.data.actor.actorId} · entered {displayTime(record.data.recordedAt)}</small>
         <small>{record.data.reason}</small></div>
     </article>)}</div>}

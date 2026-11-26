@@ -1,5 +1,7 @@
 import type { VehicleService } from "./vehicle-service";
 import type { RecordRepository } from "../../core/src/repositories";
+import type { RecordEnvelope } from "../../core/src/types";
+import type { HistoricalTripBackfillV1 } from "../../domain/src/historical-trip-backfill";
 import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
@@ -13,6 +15,8 @@ import {
   type BreakevenCompletenessV1,
   type BreakevenPeriodResultV1,
 } from "../../domain/src/full-cost-breakeven";
+
+type HistoricalTripBackfillCostReaderV1 = Readonly<{ list(): Promise<readonly RecordEnvelope<HistoricalTripBackfillV1>[]> }>;
 
 export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV1 & {
   fuelSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
@@ -50,14 +54,16 @@ export class FullCostBreakevenService {
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
     private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">,
+    private readonly historicalTripBackfills?: HistoricalTripBackfillCostReaderV1,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
-    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
+    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords, historicalBackfills] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
       this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
+      this.historicalTripBackfills?.list() ?? Promise.resolve([]),
     ]);
     const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
     if (this.expenses.listCorrectionReferences) {
@@ -348,6 +354,18 @@ export class FullCostBreakevenService {
           { sourceId: record.id, revision: record.revision },
           ...(record.correctionRefs ?? []).map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
         ],
+      });
+    }
+
+    for (const record of historicalBackfills) {
+      const data = record.data;
+      if (record.deletedAt || data.vehicleId !== vehicleId || data.operationalDate < from || data.operationalDate > to) continue;
+      const driverExpenses = (data.tollPayer === "driver" ? data.tollPaise ?? 0 : 0) +
+        (data.parkingPayer === "driver" ? data.parkingPaise ?? 0 : 0);
+      if (driverExpenses > 0) datedCosts.push({
+        date: data.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
+        sourceId: record.id, sourceRevision: record.revision,
+        sourceRefs: [{ sourceId: record.id, revision: record.revision }],
       });
     }
 
