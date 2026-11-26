@@ -250,6 +250,60 @@ try {
           tripContext, feePaise: 5000,
         },
       },
+      {
+        id: "historical-trip-backfill:performance-screen-backfill",
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 1,
+        createdBy: { personId: "performance-screen-acceptance-admin", role: "admin" },
+        data: {
+          schemaVersion: 1, kind: "historical_trip_backfill",
+          backfillId: "performance-screen-backfill", status: "submitted",
+          attribution: "admin_declared", driverId: tripContext.driverId,
+          vehicleId: tripContext.vehicleId, operationalDate,
+          startedAt: operationalDate + "T08:00:00.000+05:30",
+          endedAt: operationalDate + "T08:30:00.000+05:30",
+          farePaise: 10000, tollPaise: 32000, tollPayer: "driver",
+          parkingPaise: 12000, parkingPayer: "customer",
+          reason: "Rendered PWA correction parity fixture", recordedAt: createdAt,
+          actor: { role: "admin", actorId: "performance-screen-acceptance-admin" },
+        },
+      },
+      ...[
+        { correctionId: "performance-backfill-fare-fix", fieldPath: "farePaise",
+          beforeValue: 10000, afterValue: 15000 },
+        { correctionId: "performance-backfill-toll-payer-fix", fieldPath: "tollPayer",
+          beforeValue: "driver", afterValue: "customer" },
+        { correctionId: "performance-backfill-parking-amount-fix", fieldPath: "parkingPaise",
+          beforeValue: 12000, afterValue: 15000 },
+        { correctionId: "performance-backfill-parking-payer-fix", fieldPath: "parkingPayer",
+          beforeValue: "customer", afterValue: "driver" },
+      ].map((correction, index, all) => ({
+        id: "historical-correction:" + correction.correctionId,
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 1,
+        createdBy: { personId: "performance-screen-acceptance-admin", role: "admin" },
+        data: {
+          schemaVersion: 1, ...correction,
+          targetRecordId: "historical-trip-backfill:performance-screen-backfill",
+          targetRecordRevision: 1, featureId: "historical-trip-backfill-finance",
+          chainRevision: index + 1,
+          ...(index > 0 ? { supersedesCorrectionId: all[index - 1].correctionId } : {}),
+          reason: "Rendered PWA verified correction fixture",
+          actor: { role: "admin", actorId: "performance-screen-acceptance-admin",
+            adminPinVerifiedAt: createdAt },
+          recordedAt: createdAt, businessEffectiveDate: operationalDate,
+        },
+      })),
+      {
+        id: "historical-correction-chain:" + encodeURIComponent("historical-trip-backfill:performance-screen-backfill"),
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 4,
+        data: {
+          schemaVersion: 1,
+          targetRecordId: "historical-trip-backfill:performance-screen-backfill",
+          chainRevision: 4, headCorrectionId: "performance-backfill-parking-payer-fix",
+        },
+      },
     ];
     await new Promise((resolve, reject) => {
       const transaction = db.transaction("records", "readwrite");
@@ -289,18 +343,18 @@ try {
   }
 
   const periodRevenue = page.getByRole("button", { name: "Explain Period revenue", exact: true });
-  if (!(await periodRevenue.innerText()).includes("₹2,570.00")) {
-    throw new Error("rendered_work_fare_and_cancellation_fee_not_combined_in_period_revenue");
+  if (!(await periodRevenue.innerText()).includes("₹2,720.00")) {
+    throw new Error("rendered_corrected_backfill_fare_and_work_revenue_not_combined_in_period_revenue");
   }
   const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
   if (!(await lifetimeRevenue.innerText()).includes("₹2,570.00")) {
-    throw new Error("rendered_work_fare_missing_from_lifetime_position");
+    throw new Error("rendered_corrected_backfill_fare_missing_from_lifetime_position");
   }
   const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
   const eligibleCostText = await eligibleCostsCard.innerText();
   const eligibleCostRupees = Number((eligibleCostText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
-  if (eligibleCostRupees < 570) {
-    throw new Error("driver_paid_toll_and_parking_not_reflected_in_full_performance_calculation:" + eligibleCostText);
+  if (eligibleCostRupees < 720) {
+    throw new Error("corrected_driver_paid_parking_or_customer_paid_toll_not_reflected_once_in_full_performance_calculation:" + eligibleCostText);
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
