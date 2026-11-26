@@ -302,4 +302,33 @@ describe("FullCostBreakevenService source integration", () => {
     }));
   });
 
+  it("rejects a stale operating pair before returning the independent Performance distance projection", async () => {
+    const vehicleId = "feature:vehicle:MH01AB1234";
+    const operating = {
+      driverId: "driver-1", vehicleId, assignmentId: "assignment-1",
+      selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1,
+    };
+    const operatingVehicle = { vehicleId, vehicleRevision: 1 };
+    const configuration = {
+      getForReadOnly: async () => operating,
+      getVehicleForReadOnly: async () => operatingVehicle,
+      assertCurrentForReadOnly: async () => { throw new Error("operating_configuration_stale"); },
+      assertVehicleCurrentForReadOnly: async () => { throw new Error("operating_configuration_stale"); },
+    };
+    const service = new FullCostBreakevenService(
+      { list: async () => [{ id: vehicleId, revision: 1, data: { lifecycleState: "active" } }] } as never,
+      { listVehicleRecords: async () => ({ accruals: [], visits: [], expenses: [], rateHistory: [] }) } as never,
+      {
+        listExpenseEntries: async () => [], listDailyExpenseOutputs: async () => [],
+        listFuelPurchases: async () => [], listFuelCostRateHistory: async () => [],
+      } as never,
+      { getReport: async () => ({ result: { sources: [] } }) } as never,
+      { submittedTripFinancialRecords: async () => [] } as never,
+      { list: async () => [] } as never,
+      configuration,
+    );
+    await expect(service.calculate("2026-11-01", "2026-11-01"))
+      .rejects.toThrow("operating_configuration_stale");
+  });
+
 });
