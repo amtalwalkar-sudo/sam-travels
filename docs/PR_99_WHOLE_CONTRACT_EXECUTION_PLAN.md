@@ -338,3 +338,18 @@ Stages 1–5 remain closed and accepted; Stage 6 is the only active stage. The f
 - Android FuelCorrectionCapacitorAcceptanceTest drives the rendered WebView correction flow against the Room-backed repository and asserts the immutable original, correction chain, actor and refreshed daily read model.
 
 **Disposition: IMPLEMENTATION ADDED — VERIFICATION PENDING.** The Android test and Browser tests are authored but are not accepted evidence until the required CI jobs complete successfully on the final exact head. The slice is not marked closed yet. Continue with this evidence before moving to Stage 6 slice 2 (trip/fare correction and missing-trip entry).
+
+
+### Stage 6 closeout execution checkpoint — 2026-11-26
+
+This checkpoint supersedes the initial Stage 6 gap list where the same requirement is closed by the later implementation/evidence matrix addenda. Stages 1–5 remain accepted.
+
+| User-requested sequence item | Work completed on PR #99 | Current disposition |
+|---|---|---|
+| Close historical integrity/provenance audit; add only missing tests | Restricted generic Browser/Dexie and Room hard-delete to transient form working copies; changed failed-Admin bootstrap rollback to a revision-checked tombstone; scoped extension-migration deletes to their feature namespace; added envelope/update-actor, tombstone, identity rollback and migration-boundary regression tests. Existing Finance, Work, Fuel, Maintenance and Compliance actor/correction tests remain the owning evidence. | **IMPLEMENTATION + FOCUSED TESTS ADDED** |
+| Close device/GPS/form assertions | Added rendered Android Settings handoff/return/recheck acceptance; pure focus/visibility recheck regression; six-event fresh GPS provider matrix; Android distinct-fix persistence assertions; full rendered PWA seven-event Work journey; Fuel form no-location-field assertion; strict Select/time definition validation; 390px Admin label/focus/overflow acceptance. | **IMPLEMENTATION + FOCUSED TESTS ADDED** |
+| Reconcile the four project records and PR description | Evidence matrix §9.54 now maps the exact source/test boundaries. This execution plan, the end-to-end contract, the architecture gap register and the PR description are being reconciled against that matrix. | **IN PROGRESS UNTIL ALL FOUR RECORDS AND PR BODY AGREE** |
+| Run full required CI on final PR #99 head and fix failures | Earlier intermediate runs are not final evidence. A complete required workflow must be run after the last code and documentation commit; failures must be fixed and the workflow repeated on the resulting head. | **PENDING FINAL EXACT-HEAD WORKFLOW** |
+| Verify all eight §1A conditions; preserve draft/unmerged status | The §1A table is reconciled in the end-to-end contract addendum. Owner acceptance is required for any feature-specific policy deferral; external OEM/reboot/Dropbox/visual gates remain explicitly separate. PR #99 must remain open, draft and unmerged. | **FINAL ACCEPTANCE PENDING** |
+
+**Execution controls:** no new PRs; no merge; no unrelated feature work; do not reopen accepted Stages 1–5; do not call intermediate CI green for the final head; do not convert external/manual gates into automated passes. Continue only on the existing `docs/repository-foundation-audit-gap-register` branch.
