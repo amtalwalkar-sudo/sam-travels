@@ -104,24 +104,38 @@ try {
     const active = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
       row.data?.lifecycleState === "active");
     if (active.length !== 1) throw new Error("initial_profile_active_driver_count_invalid:" + active.length);
-    return active[0].data.name;
+    return { name: active[0].data.name, driverId: active[0].data.driverId };
   });
+  const activeDriverName = activeDriver.name;
   const activeDriverCard = page.locator(".admin-capability-record").filter({ hasText: activeDriverName });
   await activeDriverCard.waitFor({ state: "visible" });
-  const selectForWork = activeDriverCard.getByRole("button", { name: "Select for Work", exact: true });
-  if (await selectForWork.count()) {
-    await selectForWork.click();
-    await page.getByRole("status").filter({ hasText: activeDriverName + " selected for Work." }).waitFor({ state: "visible" });
-  }
-  await activeDriverCard.getByLabel("Vehicle for " + activeDriverName).selectOption(vehicleId);
-  await activeDriverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
-  await activeDriverCard.getByRole("button", { name: "Unassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
-  const clearSelection = activeDriverCard.getByRole("button", { name: "Clear Work selection", exact: true });
-  if (await clearSelection.count()) {
-    await clearSelection.click();
-    await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
+  const configure = activeDriverCard.getByRole("button", { name: "Configure for Work", exact: true });
+  if (await configure.count()) await configure.click();
+  else await activeDriverCard.getByRole("button", { name: "Verify operating configuration", exact: true }).click();
+  await page.getByRole("status").filter({
+    hasText: activeDriverName + " is configured with " + registration + " for Work.",
+  }).waitFor({ state: "visible" });
+  const configuredPair = await page.evaluate(async ({ driverId, vehicleId }) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const selected = rows.find(row => row.id === "work:selected-driver");
+    const history = rows.find(row => row.id === "feature:driver-records:assignment:" + driverId);
+    const current = history?.data?.assignments?.find(item => !item.unassignedAt);
+    return { selectedDriverId: selected?.data?.driverId, assignedVehicleId: current?.vehicleId };
+  }, { driverId: activeDriver.driverId, vehicleId });
+  if (configuredPair.selectedDriverId !== activeDriver.driverId ||
+      configuredPair.assignedVehicleId !== vehicleId) {
+    throw new Error("admin_driver_operating_pair_not_persisted:" + JSON.stringify(configuredPair));
   }
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
   await page.getByLabel("Driver name").fill(driverName);
