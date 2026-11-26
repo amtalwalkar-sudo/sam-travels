@@ -45,6 +45,29 @@ describe("shared form runtime", () => {
     }
   });
 
+  it("rejects malformed field definitions and validates declared time inputs", async () => {
+    const runtime = new SharedFormRuntime(new MemoryCopies(), { submit: async () => undefined });
+    const invalidSelect = {
+      ...definition,
+      fields: [{ id: "payer", label: "Payer", type: "select", options: [] }],
+    } as FormDefinition;
+    await expect(runtime.open(invalidSelect, "invalid-select")).rejects.toThrow("invalid_form_definition");
+
+    const duplicateOptions = {
+      ...definition,
+      fields: [{ id: "payer", label: "Payer", type: "select", options: ["Driver", "Driver"] }],
+    } as FormDefinition;
+    await expect(runtime.open(duplicateOptions, "duplicate-options")).rejects.toThrow("invalid_form_definition");
+
+    const timeDefinition = {
+      ...definition,
+      fields: [{ id: "startTime", label: "Start time", type: "time", required: true }],
+    } as FormDefinition;
+    expect(validateFormValues(timeDefinition, { startTime: "25:60" }))
+      .toMatchObject([{ fieldId: "startTime", code: "time" }]);
+    expect(validateFormValues(timeDefinition, { startTime: "09:30" })).toEqual([]);
+  });
+
   it("validates the canonical Admin Business Setup definition", () => {
     expect(BUSINESS_SETUP_FORM_V1).toMatchObject({
       id: "admin.business-setup", version: 1, owner: "business-settings", primaryAction: "save",
