@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { indiaDateOffsetDays, proratedTargetPaise, moneyFromPaise, monthTargetPaise, previousMonthDate } from "./performance-acceptance-helpers.mjs";
 import { assertBrowserStage3GoldenJourney } from "./stage3-browser-golden-journey.mjs";
+import { buildPerformanceBackfillCorrectionFixtureV1 } from "./performance-backfill-correction-fixture.mjs";
 
 const baseUrl = "http://127.0.0.1:4173";
 const indiaHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).find(part => part.type === "hour")?.value ?? "0");
@@ -218,93 +219,15 @@ try {
   await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor();
   await page.getByText(note, { exact: true }).waitFor();
-  await page.evaluate(async ({ operationalDate, committedTripContext }) => {
+  const acceptanceRecords = buildPerformanceBackfillCorrectionFixtureV1(
+    today, committedTripFinancials.data.tripContext,
+  );
+  await page.evaluate(async (records) => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const createdAt = operationalDate + "T10:00:00.000Z";
-    const tripContext = committedTripContext;
-    const records = [
-      {
-        id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, kind: "daily_business_kilometres",
-          vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
-          totalBusinessKm: 42, unallocatedBusinessKm: 0,
-          entries: [{ shiftId: tripContext.shiftId, allocationStatus: "allocated",
-            businessKm: 42, personalKm: 7 }],
-        },
-      },
-      {
-        id: "work:trip-financial-obligation:performance-screen-cancellation",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, tripId: "performance-screen-cancellation",
-          kind: "cancellation_fee", status: "submitted",
-          cancellationEventId: "performance-screen-cancellation-event", createdAt,
-          tripContext, feePaise: 5000,
-        },
-      },
-      {
-        id: "historical-trip-backfill:performance-screen-backfill",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        createdBy: { personId: "performance-screen-acceptance-admin", role: "admin" },
-        data: {
-          schemaVersion: 1, kind: "historical_trip_backfill",
-          backfillId: "performance-screen-backfill", status: "submitted",
-          attribution: "admin_declared", driverId: tripContext.driverId,
-          vehicleId: tripContext.vehicleId, operationalDate,
-          startedAt: operationalDate + "T08:00:00.000+05:30",
-          endedAt: operationalDate + "T08:30:00.000+05:30",
-          farePaise: 10000, tollPaise: 32000, tollPayer: "driver",
-          parkingPaise: 12000, parkingPayer: "customer",
-          reason: "Rendered PWA correction parity fixture", recordedAt: createdAt,
-          actor: { role: "admin", actorId: "performance-screen-acceptance-admin" },
-        },
-      },
-      ...[
-        { correctionId: "performance-backfill-fare-fix", fieldPath: "farePaise",
-          beforeValue: 10000, afterValue: 15000 },
-        { correctionId: "performance-backfill-toll-payer-fix", fieldPath: "tollPayer",
-          beforeValue: "driver", afterValue: "customer" },
-        { correctionId: "performance-backfill-parking-amount-fix", fieldPath: "parkingPaise",
-          beforeValue: 12000, afterValue: 15000 },
-        { correctionId: "performance-backfill-parking-payer-fix", fieldPath: "parkingPayer",
-          beforeValue: "customer", afterValue: "driver" },
-      ].map((correction, index, all) => ({
-        id: "historical-correction:" + correction.correctionId,
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        createdBy: { personId: "performance-screen-acceptance-admin", role: "admin" },
-        data: {
-          schemaVersion: 1, ...correction,
-          targetRecordId: "historical-trip-backfill:performance-screen-backfill",
-          targetRecordRevision: 1, featureId: "historical-trip-backfill-finance",
-          chainRevision: index + 1,
-          ...(index > 0 ? { supersedesCorrectionId: all[index - 1].correctionId } : {}),
-          reason: "Rendered PWA verified correction fixture",
-          actor: { role: "admin", actorId: "performance-screen-acceptance-admin",
-            adminPinVerifiedAt: createdAt },
-          recordedAt: createdAt, businessEffectiveDate: operationalDate,
-        },
-      })),
-      {
-        id: "historical-correction-chain:" + encodeURIComponent("historical-trip-backfill:performance-screen-backfill"),
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 4,
-        data: {
-          schemaVersion: 1,
-          targetRecordId: "historical-trip-backfill:performance-screen-backfill",
-          chainRevision: 4, headCorrectionId: "performance-backfill-parking-payer-fix",
-        },
-      },
-    ];
     await new Promise((resolve, reject) => {
       const transaction = db.transaction("records", "readwrite");
       for (const record of records) transaction.objectStore("records").put(record);
@@ -313,7 +236,7 @@ try {
       transaction.onabort = () => reject(transaction.error);
     });
     db.close();
-  }, { operationalDate: today, committedTripContext: committedTripFinancials.data.tripContext });
+  }, acceptanceRecords);
   console.log("Verified fare and cancellation-fee source records seeded for the selected operational date.");
   console.log("Performance Admin inputs saved: actual business start date, fixed monthly target, and a separately noted pre-business cost.");
 
