@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createDeviceReadinessResumeHandler } from "./device-readiness-prompt-behavior";
-import { getDeviceReadinessStatus, isAndroidRuntime, openDeviceReadinessSetting, type ReadinessItem } from "../platform/device-readiness";
+import { addDeviceReadinessResumeListener, getDeviceReadinessStatus, isAndroidRuntime, openDeviceReadinessSetting, type ReadinessItem } from "../platform/device-readiness";
 
 export function DeviceReadinessPrompt() {
   const [items, setItems] = useState<ReadinessItem[]>([]);
@@ -39,9 +39,19 @@ export function DeviceReadinessPrompt() {
     const onResume = createDeviceReadinessResumeHandler(refresh, () => document.visibilityState);
     window.addEventListener("focus", onResume);
     document.addEventListener("visibilitychange", onResume);
+    let active = true;
+    let removeNativeResume: (() => Promise<void>) | undefined;
+    void addDeviceReadinessResumeListener(() => { void refresh(); }).then((handle) => {
+      if (active) removeNativeResume = () => handle.remove();
+      else void handle.remove();
+    }).catch(() => {
+      // Browser focus/visibility listeners remain as a fallback if native resume registration is unavailable.
+    });
     return () => {
+      active = false;
       window.removeEventListener("focus", onResume);
       document.removeEventListener("visibilitychange", onResume);
+      if (removeNativeResume) void removeNativeResume();
     };
   }, [refresh]);
 
