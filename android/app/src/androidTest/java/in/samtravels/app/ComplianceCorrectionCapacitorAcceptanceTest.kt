@@ -31,6 +31,12 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
     val previousSelectedDriver = database.records().get("work:selected-driver")
     val previousVehicles = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
     val previousCompliance = database.records().list().filter { it.id.startsWith("feature:compliance:") }
+    val previousMaintenance = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
+    val previousMaintenanceIds = previousMaintenance.map { it.id }.toSet()
+    val previousMaintenanceCorrections = database.records().list().filter { row ->
+      (row.id.startsWith("historical-correction:") || row.id.startsWith("historical-correction-chain:")) &&
+        runCatching { JSONObject(row.json).getJSONObject("data").optString("targetRecordId") in previousMaintenanceIds }.getOrDefault(false)
+    }
     val previousAssignments = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
     val now = Instant.now().toString()
     val today = LocalDate.now(ZoneId.of("Asia/Kolkata"))
@@ -49,6 +55,8 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
     try {
       previousAssignments.forEach { database.records().remove(it.id) }
       previousCompliance.forEach { database.records().remove(it.id) }
+      previousMaintenanceCorrections.forEach { database.records().remove(it.id) }
+      previousMaintenance.forEach { database.records().remove(it.id) }
       previousVehicles.forEach { database.records().remove(it.id) }
       database.records().put(vehicle)
       database.records().put(compliance)
@@ -229,6 +237,8 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == complianceId }.getOrDefault(false) }
         .forEach { database.records().remove(it.id) }
       previousCompliance.forEach { database.records().put(it) }
+      previousMaintenance.forEach { database.records().put(it) }
+      previousMaintenanceCorrections.forEach { database.records().put(it) }
       database.records().remove(vehicleId)
       previousVehicles.forEach { database.records().put(it) }
       previousAssignments.forEach { database.records().put(it) }
