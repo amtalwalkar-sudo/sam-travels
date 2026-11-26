@@ -260,8 +260,6 @@ try {
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
   console.log("Loan, payment, reversal, prepayment, settlement, Platform Fee and Miscellaneous Expense workflows submitted.");
   await page.getByRole("button", { name: "Maintenance", exact: true }).click();
-  const maintenanceVehicle = page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first();
-  await maintenanceVehicle.selectOption(vehicleId);
   await page.getByRole("button", { name: "Start service visit", exact: true }).click();
   await page.getByLabel("Maintenance type").fill("Scheduled service");
   await page.getByLabel("Date", { exact: true }).fill(today);
