@@ -225,7 +225,7 @@ internal object AdminEntryPathAuditTestSupport {
         activity = instrumentation.startActivitySync(
             Intent(activity.applicationContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
-        assertTrue("WebView restarts and restores navigation",
+        assertTrue("WebView restarts and restores navigation; page=" + support.javascriptValue(activity, "document.body.innerText"),
             support.await(activity, "!!document.querySelector('.bottom-navigation-item')", 30000))
         reactivateAdmin()
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
