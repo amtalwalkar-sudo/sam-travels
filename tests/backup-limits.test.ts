@@ -13,7 +13,7 @@ describe("backup snapshot UTF-8 preflight", () => {
     expect(byteLength).toBe(new TextEncoder().encode(serialized).byteLength);
     expect(() => encodeBackupSnapshot(snapshot, 47, 0)).toThrow("backup_plaintext_preflight_exceeded");
     expect(encodeBackupSnapshot(snapshot, 48, 0).byteLength).toBe(byteLength);
-    expect(() => utf8ByteLength("\\uD800")).toThrow("backup_invalid_plaintext_encoding");
+    expect(() => utf8ByteLength(String.fromCharCode(0xd800))).toThrow("backup_invalid_plaintext_encoding");
   });
 });
 
