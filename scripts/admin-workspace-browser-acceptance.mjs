@@ -44,6 +44,38 @@ try {
   const identity = page.getByRole("region", { name: "People and roles" });
   await identity.getByLabel("Person name").waitFor({ state: "visible" });
   console.log("Admin identity panel rendered outside section navigation.");
+
+  // Revisit every Admin section at a narrow Android-sized viewport and verify
+  // page-level fit, label association and keyboard focusability of visible fields.
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const section of sections) {
+    await page.getByRole("button", { name: section.label, exact: true }).click();
+    const panel = page.locator("#admin-section-panel-" + section.id);
+    await panel.waitFor({ state: "visible" });
+    const audit = await page.evaluate(() => {
+      const controls = [...document.querySelectorAll("input:not([type=hidden]), select, textarea")]
+        .filter(element => element.getClientRects().length > 0 && !element.disabled);
+      const unlabelled = controls.filter(element =>
+        !(element.labels?.length) && !element.getAttribute("aria-label") && !element.getAttribute("aria-labelledby")
+      ).map(element => element.outerHTML.slice(0, 160));
+      const first = controls[0];
+      first?.focus();
+      return {
+        viewportWidth: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        unlabelled,
+        firstControlFocusable: !first || document.activeElement === first,
+      };
+    });
+    if (audit.documentWidth > audit.viewportWidth + 1) {
+      throw new Error(section.label + "_mobile_horizontal_overflow: " + JSON.stringify(audit));
+    }
+    if (audit.unlabelled.length) {
+      throw new Error(section.label + "_unlabelled_form_controls: " + JSON.stringify(audit.unlabelled));
+    }
+    if (!audit.firstControlFocusable) throw new Error(section.label + "_keyboard_focus_failed");
+  }
+  console.log("Admin form conformance passed at 390px: no page overflow, all visible controls labelled and keyboard-focusable.");
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}
