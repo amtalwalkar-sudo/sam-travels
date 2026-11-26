@@ -842,3 +842,34 @@ These changes and tests are part of PR #99. The earlier run 45839459288 validate
 **External/manual gates retained:** physical OEM/device certification; full OS reboot persistence where emulator coverage is not deterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; final owner visual/usability approval; and repository branch-protection/ruleset verification. These are not CI passes.
 
 Do not declare whole-contract acceptance until the final exact-head workflow is green, the four project records and PR body agree, and every remaining owner-acceptance requirement is either explicitly approved or remains clearly open.
+
+
+### 9.54 — PR #99 backup boundary and dependency advisory reconciliation — 2026-11-27
+
+This addendum supersedes the earlier open implementation descriptions in §§9.35, 9.37 and 9.39 only to the extent stated below. It does not claim exact-head CI or whole-contract acceptance.
+
+**§9.35 — Dependency vulnerability report**
+- Required Web CI now captures `npm audit --json` and `npm audit --omit=dev --json` reports separately.
+- The report prints package name, severity, direct/transitive status, affected range, dependency nodes, advisory details and fix availability; both JSON files are uploaded as a 30-day artifact.
+- Critical production advisories fail the Web gate.
+- **Disposition: reporting/classification mechanism added; actual report inspection and any required remediation remain pending the final exact-head CI run.** Dev-only advisories must be explicitly identified and bounded; they are not silently treated as resolved.
+
+**§9.37 — Record-count enforcement**
+- Browser manifest validation already totals participant counts against the shared one-million-record ceiling.
+- Android Room export now checks raw exported rows before canonical interchange normalization and retains the post-normalization fence.
+- Android encrypted-package creation totals manifest counts before digest/encryption.
+- Android restore caps the raw record array before snapshot/manifest validation, participant traversal, checkpoint creation or destination mutation.
+- Added focused instrumentation for native package creation and restore pre-mutation rejection using the injectable lower test limit.
+- **Disposition: implementation and regression tests added; exact-head Android/Web CI pending.**
+
+**§9.39 — Plaintext-size preflight**
+- TypeScript package creation already validates plaintext size before digest/encryption.
+- Android adds exact UTF-8 byte counting without allocating the encoded byte array, estimates GCM tag/base64/envelope overhead, and checks the limit in the Dropbox worker before byte-array materialization and again at the native package creation boundary.
+- Added tests for multibyte UTF-8, inclusive size boundary and first byte over.
+- **Disposition: preflight enforcement added; representative peak-memory/time acceptance remains open.** No lower Android cap is claimed without supported-device benchmark evidence.
+
+**Trip Financial correction owner decision**
+- Owner approval received 2026-11-27 for the existing append-only fare correction UX/schema: original fare and linked Work/GPS event remain immutable; correction stores before/after, reason, target/chain revisions and Admin actor; current fare projection refreshes. No permission to edit Work/GPS/odometer events is implied.
+- This closes the owner-ratification dependency noted in §9.53; the implementation still requires exact-head CI.
+
+The five required CI gates must pass on the final PR #99 head. PR #99 remains open, draft and unmerged; no new PR is to be opened. Physical device/OEM, live Dropbox account and owner visual approval remain separate manual gates.
