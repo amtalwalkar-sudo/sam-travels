@@ -39,6 +39,8 @@ export function TripHistory({ trips }: { trips: readonly TripHistoryRecord[] }) 
         </div>}
         {trip.source === "historical_backfill" && <div className="trip-history-evidence">
           <div><small>FARE</small><span>₹{((trip.farePaise ?? 0) / 100).toFixed(2)}</span></div>
+          {trip.tollPaise !== undefined && <div><small>TOLL · {trip.tollPayer?.toUpperCase()}</small><span>₹{(trip.tollPaise / 100).toFixed(2)}</span></div>}
+          {trip.parkingPaise !== undefined && <div><small>PARKING · {trip.parkingPayer?.toUpperCase()}</small><span>₹{(trip.parkingPaise / 100).toFixed(2)}</span></div>}
           <div><small>RECORD TYPE</small><span>Admin-declared historical trip</span></div>
           <div><small>OPERATIONAL DATE</small><span>{trip.operationalDate ?? "Not available"}</span></div>
           <div><small>DRIVER / VEHICLE</small><span>{trip.driverId ?? "—"} / {trip.vehicleId ?? "—"}</span></div>

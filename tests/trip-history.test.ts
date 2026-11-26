@@ -26,14 +26,16 @@ describe("durable trip history projection", () => {
       backfillId: "paper-trip-1", status: "submitted" as const, attribution: "admin_declared" as const,
       driverId: "driver-1", vehicleId: "vehicle-1", operationalDate: "2026-11-10",
       startedAt: "2026-11-10T08:00:00.000Z", endedAt: "2026-11-10T08:35:00.000Z",
-      farePaise: 12500, reason: "Omitted during offline entry",
+      farePaise: 12500, tollPaise: 500, tollPayer: "driver", parkingPaise: 300, parkingPayer: "customer",
+      reason: "Omitted during offline entry",
       recordedAt: "2026-11-11T10:00:00.000Z",
       actor: { role: "admin" as const, actorId: "admin-1" },
     };
     const [trip] = buildTripHistoryWithBackfills([], [backfill]);
     expect(trip).toMatchObject({
       id: "historical-backfill:paper-trip-1", source: "historical_backfill",
-      status: "completed", farePaise: 12500, attribution: "admin_declared",
+      status: "completed", farePaise: 12500, tollPaise: 500, tollPayer: "driver",
+      parkingPaise: 300, parkingPayer: "customer", attribution: "admin_declared",
       actor: { role: "admin", actorId: "admin-1" },
     });
     expect(trip).not.toHaveProperty("startEventId");

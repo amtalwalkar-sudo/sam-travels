@@ -127,6 +127,39 @@ try {
   const currentAssignments = assignmentHistory.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
   assert.equal(currentAssignments.length, 1, "the configured Driver must have one current assignment");
   assert.equal(currentAssignments[0].vehicleId, vehicleId, "the configured Driver must be paired with the sole active Vehicle");
+
+  const configuredDriver = configuredPair.find(row =>
+    row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName
+  );
+  assert.ok(configuredDriver, "The historical trip must use the saved Driver identity");
+  const backfillReference = "workflow-missing-trip-" + Date.now();
+  const backfillPanel = page.getByRole("region", { name: "Historical trip backfill" });
+  await backfillPanel.getByRole("button", { name: "Add missing historical trip", exact: true }).click();
+  await backfillPanel.getByLabel("Driver").selectOption(configuredDriver.data.driverId);
+  await backfillPanel.getByLabel("Vehicle").selectOption(vehicleId);
+  await backfillPanel.getByLabel("Trip started (India time)").fill("2026-11-10T08:00");
+  await backfillPanel.getByLabel("Trip ended (India time)").fill("2026-11-10T08:30");
+  await backfillPanel.getByLabel("Fare (₹)").fill("250");
+  await backfillPanel.getByLabel("Toll (₹, optional)").fill("10");
+  await backfillPanel.getByLabel("Toll paid by").selectOption("driver");
+  await backfillPanel.getByLabel("Parking (₹, optional)").fill("5");
+  await backfillPanel.getByLabel("Parking paid by").selectOption("customer");
+  await backfillPanel.getByLabel("Backfill reference (optional)").fill(backfillReference);
+  await backfillPanel.getByLabel("Reason / source of historical information").fill("Reconciled from the paper trip sheet");
+  await backfillPanel.getByRole("button", { name: "Save historical trip", exact: true }).click();
+  await backfillPanel.getByRole("status").filter({ hasText: "Historical trip recorded as an Admin-declared entry" }).waitFor({ state: "visible" });
+  const afterBackfill = await readBrowserRecords(page);
+  const backfillRecord = afterBackfill.find(row => row.id === "historical-trip-backfill:" + backfillReference);
+  assert.ok(backfillRecord, "Missing trip must be persisted through the Admin PWA entry path");
+  assert.equal(backfillRecord.data.farePaise, 25000);
+  assert.equal(backfillRecord.data.tollPaise, 1000);
+  assert.equal(backfillRecord.data.tollPayer, "driver");
+  assert.equal(backfillRecord.data.parkingPaise, 500);
+  assert.equal(backfillRecord.data.parkingPayer, "customer");
+  for (const key of ["eventId", "startEventId", "endEventId", "gps", "startGps", "endGps", "odometerKm", "tripContext"]) {
+    assert.equal(backfillRecord.data[key], undefined, "Admin backfill must not fabricate Work/GPS/odometer evidence: " + key);
+  }
+
   await page.getByLabel("Person name").fill(driverName);
   await page.getByLabel("Driver role").check();
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
@@ -141,6 +174,10 @@ try {
 
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.locator(".driver-card").waitFor({ state: "visible", timeout: 15000 });
+  const tripHistory = page.getByRole("region", { name: "Trip history" });
+  const insertedTrip = tripHistory.locator(".trip-history-item").filter({ hasText: backfillReference });
+  await insertedTrip.getByText("TOLL · DRIVER", { exact: true }).waitFor({ state: "visible" });
+  await insertedTrip.getByText("PARKING · CUSTOMER", { exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Shift-start odometer (km)").fill("12345");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
   await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ state: "visible", timeout: 30000 });
