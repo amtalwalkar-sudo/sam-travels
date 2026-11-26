@@ -65,6 +65,20 @@ class NativeBackupV2PackageTest {
         )
     }
 
+    @Test fun nativePackageCreationRejectsOverLimitManifestBeforeDigestOrEncryption() {
+        val manifest = JSONObject()
+            .put("applicationVersion", "0.1.0")
+            .put("schemaVersion", 1)
+            .put("createdAt", "2026-11-04T00:00:00.000Z")
+            .put("businessTimezone", "Asia/Kolkata")
+            .put("snapshotRevision", 0)
+            .put("recordCounts", JSONObject().put("records", MAX_BACKUP_RECORD_COUNT + 1))
+        val failure = runCatching {
+            NativeBackupV2Package.create(ByteArray(0), manifest, "not-decoded-before-validation")
+        }.exceptionOrNull()
+        assertEquals("backup_record_count_limit", failure?.message)
+    }
+
     @Test fun nativeDecryptsSharedRecoveryOnlyPackageAndRejectsTampering() {
         val context = InstrumentationRegistry.getInstrumentation().context
         val fixture = JSONObject(context.assets.open("cross-platform-backup-v2.json").bufferedReader().use { it.readText() })
