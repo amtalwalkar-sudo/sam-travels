@@ -93,7 +93,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
         assertNotNull("Driver–Vehicle assignment persisted", db.records().get(assignmentRecordId!!))
 
-        AdminEntryPathAuditTestSupport.assertHistoricalTripBackfill(
+        HistoricalTripBackfillAcceptanceSupport.assertHistoricalTripBackfill(
             activity, support, db, driverData.getString("driverId"), vehicleRecordId!!, marker,
         )
         support.eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
