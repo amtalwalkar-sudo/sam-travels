@@ -12,6 +12,8 @@ export type BrowserFeatureMigrationContext = Readonly<{ records: RecordRepositor
  * transaction, so a thrown migration or publication error aborts both.
  */
 export class DexieFeatureExtensionUpgradeTransaction {
+  constructor(private readonly featureId?: string) {}
+
   async run<Result>(
     operation: (context: {
       migrationContext: BrowserFeatureMigrationContext;
@@ -23,7 +25,11 @@ export class DexieFeatureExtensionUpgradeTransaction {
         async get<T>(id: string) { const row = await browserDatabase.records.get(id); if (row) assertRecordEnvelope(row); return row as RecordEnvelope<T> | undefined; },
         async put<T>(record: RecordEnvelope<T>) { assertRecordEnvelope(record); await browserDatabase.records.put(record as RecordEnvelope<unknown>); },
         async list<T>() { const rows = await browserDatabase.records.toArray(); rows.forEach(assertRecordEnvelope); return rows as Array<RecordEnvelope<T>>; },
-        async remove(id: string) { await browserDatabase.records.delete(id); },
+        async remove(id: string) {
+          const prefix = this.featureId ? "feature:" + this.featureId + ":" : undefined;
+          if (!prefix || !id.startsWith(prefix)) throw new Error("feature_upgrade_delete_namespace_mismatch");
+          await browserDatabase.records.delete(id);
+        },
       } },
       persistInstalledExtension: async snapshot => {
         const id = "installed-extension:" + snapshot.extension.id;
