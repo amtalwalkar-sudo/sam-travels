@@ -48,13 +48,16 @@ export function FuelEntryPanel() {
       const [availableVehicles, drafts, readModels, configuration] = await Promise.all([
         services.vehicles.list(),
         services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
-        services.businessExpenses.listFuelReadModels(),
+        services.businessExpenses.listFuelPurchases(),
         services.operatingConfiguration.getVehicleForReadOnly(),
       ]);
-      const purchases = readModels.fuelPurchases;
+      // Keep the purchase list and form usable without waiting for the larger
+      // expense projection (which also resolves driver-attributed expenses).
+      const purchases = readModels;
       setFuelPurchases(purchases);
-      setFuelCostRates(readModels.fuelCostRates);
-      setDailyExpenseOutputs(readModels.dailyExpenseOutputs);
+      void refreshFuelReadModels().catch(error =>
+        setMessage(error instanceof Error ? error.message : "Fuel calculations could not be refreshed.")
+      );
       const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
       for (const purchase of purchases) {
         const previous = latest.get(purchase.data.vehicleId);
@@ -95,7 +98,7 @@ export function FuelEntryPanel() {
     } finally {
       if (startInFlight.current === pending) startInFlight.current = null;
     }
-  }, [services]);
+  }, [services, refreshFuelReadModels]);
 
   useEffect(() => {
     if (open) void start().catch(error => setMessage(error instanceof Error ? error.message : "Fuel entry could not be opened."));
