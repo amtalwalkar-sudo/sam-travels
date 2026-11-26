@@ -43,6 +43,19 @@ describe("persistent person identity adapters", () => {
     });
   });
 
+  it("retains a failed-bootstrap person as a soft-deleted historical identity", async () => {
+    const records = new MemoryRecords();
+    const people = new PersistentBusinessPersonRepository(records, "web", () => "2026-11-11T10:00:00.000Z");
+    await people.save({ schemaVersion: 1, personId: "person-rollback", displayName: "Initial Admin",
+      roles: ["admin"], status: "active" });
+    await people.remove("person-rollback");
+    expect(await people.get("person-rollback")).toBeUndefined();
+    expect(await people.list()).toEqual([]);
+    expect(records.rows.get("identity:person:person-rollback")).toMatchObject({
+      revision: 2, deletedAt: "2026-11-11T10:00:00.000Z",
+    });
+  });
+
   it("persists Driver profile unlinking across repository reads", async () => {
     const records = new MemoryRecords();
     await saveDriverPersonLink(records, "web", "driver-1", "person-1");
