@@ -79,7 +79,7 @@ async function bootstrap(): Promise<void> {
   );
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments, currentAuthor, operatingConfiguration);
   initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments, undefined, currentAuthor, operatingConfiguration);
-  initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles, undefined, operatingConfiguration);
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {
       const actor = await getPersonIdentityService().currentActor();
