@@ -6,11 +6,9 @@ import android.location.Location
 import android.location.LocationListener
 import android.os.Looper
 import android.os.SystemClock
-import androidx.test.rule.GrantPermissionRule
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
@@ -39,17 +37,13 @@ class DriverWorkflowNativeGpsBridgeAcceptanceTest {
         }
     }
 
-    @get:Rule
-    val locationPermission = GrantPermissionRule.grant(
-        Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-    )
-
     @Test fun sixSequentialCapacitorGpsCapturesUseIndependentNativeFixes() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
         val source = FakeLocationSource()
         DriverLocationSourceFactory.overrideForTests = source
+        shell(instrumentation, "pm grant ${app.packageName} ${Manifest.permission.ACCESS_FINE_LOCATION}")
+        shell(instrumentation, "pm grant ${app.packageName} ${Manifest.permission.ACCESS_COARSE_LOCATION}")
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
@@ -151,6 +145,11 @@ class DriverWorkflowNativeGpsBridgeAcceptanceTest {
             SystemClock.sleep(50)
         }
         return false
+    }
+
+    private fun shell(instrumentation: android.app.Instrumentation, command: String) {
+        val descriptor = instrumentation.uiAutomation.executeShellCommand(command)
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use { it.readText() }
     }
 
     private fun instrumentation() = InstrumentationRegistry.getInstrumentation()
