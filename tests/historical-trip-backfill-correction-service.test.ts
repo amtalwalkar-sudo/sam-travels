@@ -95,7 +95,7 @@ describe("historical trip backfill financial corrections", () => {
     await expect(unverified.submit({
       correctionId: "unverified", targetRecordId: original.id, expectedTargetRevision: 1,
       expectedChainRevision: 0, fieldPath: "farePaise", afterValue: 11000, reason: "Correction",
-    })).rejects.toThrow("historical_correction_actor_required");
+    })).rejects.toThrow("historical_correction_admin_verification_required");
 
     const valid = new HistoricalTripBackfillCorrectionServiceV1(records, {
       currentActor: async () => ({ role: "admin", actorId: "admin-1", adminPinVerifiedAt: "2026-11-11T08:00:00.000Z" }),
