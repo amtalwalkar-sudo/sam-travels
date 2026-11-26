@@ -20,9 +20,48 @@ internal object AdminTestUiControlSupport {
     ) {
         val name = label.replace("'", "\\'")
         val text = value.replace("'", "\\'")
-        val ready = """[...document.querySelectorAll('label')].some(n=>n.textContent.includes('$name')&&(()=>{const c=n.querySelector('select');return !c||[...c.options].some(o=>o.value==='$text')})())"""
+        // A label's textContent includes the selected <option> text. Matching
+        // that combined string can accidentally target a different field (for
+        // example, a historical inactive Driver option) when labels overlap.
+        // Match the label's own text nodes and, for selects, the exact option.
+        val ready = """(() => {
+            const ownText = n => [...n.childNodes]
+                .filter(c => c.nodeType === Node.TEXT_NODE)
+                .map(c => c.textContent || '').join(' ').replace(/\\s+/g, ' ').trim();
+            const labels = [...document.querySelectorAll('label')]
+                .filter(n => ownText(n).includes('$name'));
+            return labels.some(n => {
+                const c = n.querySelector('select,input,textarea');
+                return c instanceof HTMLSelectElement
+                    ? [...c.options].some(o => o.value === '$text')
+                    : Boolean(c);
+            });
+        })()"""
         assertTrue("Admin field/options load: " + label, await(ready, 15000))
-        val js = """(()=>{let a=[...document.querySelectorAll('label')].filter(n=>n.textContent.trim()==='$name');if(!a.length)a=[...document.querySelectorAll('label')].filter(n=>n.textContent.includes('$name'));const c=a[$index]?.querySelector('input,select,textarea');if(!c)return false;const p=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(c,'$text');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
+        val js = """(() => {
+            const ownText = n => [...n.childNodes]
+                .filter(c => c.nodeType === Node.TEXT_NODE)
+                .map(c => c.textContent || '').join(' ').replace(/\\s+/g, ' ').trim();
+            let labels = [...document.querySelectorAll('label')]
+                .filter(n => ownText(n).trim() === '$name');
+            if (!labels.length) labels = [...document.querySelectorAll('label')]
+                .filter(n => ownText(n).includes('$name'));
+            labels = labels.filter(n => {
+                const c = n.querySelector('select,input,textarea');
+                return c instanceof HTMLSelectElement
+                    ? [...c.options].some(o => o.value === '$text')
+                    : Boolean(c);
+            });
+            const n = labels[$index];
+            const c = n?.querySelector('select,input,textarea');
+            if (!c) return false;
+            const p = c instanceof HTMLSelectElement ? HTMLSelectElement.prototype
+                : c instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype
+                : HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(p, 'value').set.call(c, '$text');
+            c.dispatchEvent(new Event(c instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+            return true;
+        })()"""
         check(javascriptValue(js) == "true") { "Missing Admin field: " + label }
     }
 
