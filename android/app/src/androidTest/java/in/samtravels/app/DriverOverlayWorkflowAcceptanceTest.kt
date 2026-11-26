@@ -49,10 +49,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         DriverLocationSourceFactory.overrideForTests = locationSource
         val expected = listOf(
             "trip_create" to "going_to_pickup",
+            "cancel_ride" to "shift_active",
+            "trip_create" to "going_to_pickup",
             "start_ride" to "trip_active",
             "end_ride" to "shift_active",
-            "trip_create" to "going_to_pickup",
-            "cancel_ride" to "shift_active",
         )
         try {
             withAttachedOverlay(
