@@ -49,7 +49,7 @@ class DriverWorkflowCapacitorBridgeTest {
 
         try {
             assertTrue(
-                "Capacitor WebView should render the Drive workspace",
+                "Capacitor WebView should render the Drive workspace; page=" + javascriptValue(activity, "document.body.innerText"),
                 awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000),
             )
             val restoreCompleted = awaitJavascript(
