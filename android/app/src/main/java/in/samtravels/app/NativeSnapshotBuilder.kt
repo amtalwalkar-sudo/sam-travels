@@ -22,9 +22,11 @@ internal object NativeSnapshotBuilder {
         createdAt: String = Instant.now().toString(),
         maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
     ): NativeSnapshotBundle {
-        val records = NativeFeatureBackupManifestCompatibility.toCanonicalInterchangeRecords(
-            NativeBackupCoverage.exportBusinessRecords(database, isInternal),
-        )
+        // Count the raw exported Room rows before canonical normalization allocates
+        // a second JSON graph. Keep the post-normalization assertion as a contract fence.
+        val exportedRecords = NativeBackupCoverage.exportBusinessRecords(database, isInternal)
+        requireBackupRecordCountWithinLimit(exportedRecords.length(), maxRecordCount)
+        val records = NativeFeatureBackupManifestCompatibility.toCanonicalInterchangeRecords(exportedRecords)
         requireBackupRecordCountWithinLimit(records.length(), maxRecordCount)
         val snapshotRevision = (0 until records.length()).map { records.getJSONObject(it) }
             .firstOrNull { it.optString("participantId") == "work-driver-state" && it.optString("id") == "driver-state" }
