@@ -165,7 +165,7 @@ describe("application feature extension upgrade coordinator", () => {
             });
           },
         },
-        transaction: new DexieFeatureExtensionUpgradeTransaction(),
+        transaction: new DexieFeatureExtensionUpgradeTransaction("persistent-addon"),
       });
       expect(version).toBe(2);
       expect((await browserDatabase.records.get("feature:persistent-addon:migrated"))?.data).toEqual({ migratedTo: 2 });
@@ -192,7 +192,7 @@ describe("application feature extension upgrade coordinator", () => {
             throw new Error("injected_indexeddb_migration_failure");
           },
         },
-        transaction: new DexieFeatureExtensionUpgradeTransaction(),
+        transaction: new DexieFeatureExtensionUpgradeTransaction("persistent-addon"),
       })).rejects.toThrow("injected_indexeddb_migration_failure");
       expect(await browserDatabase.records.get("feature:persistent-addon:partial")).toBeUndefined();
       expect(await browserDatabase.records.get("installed-extension:persistent-addon.core")).toBeUndefined();
