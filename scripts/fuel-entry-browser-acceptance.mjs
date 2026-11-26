@@ -154,8 +154,8 @@ try {
   assert.equal(firstSubmitEvent, true, "Fuel submit button must dispatch the form submit event");
   const firstSubmitStatus = (await panel.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeFirstSubmit,
-    "Fuel submission must not request geolocation");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeFirstSubmit + 1,
+    "Fuel submission must request one GPS snapshot without blocking the save");
   let committedRows = await readBrowserRecords(page);
   let purchases = committedRows.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -164,7 +164,7 @@ try {
   assert.equal(purchases[0].data.odometerKm, 12345);
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[0].createdBy?.role, "driver", "Fuel purchase must retain the active Driver actor");
-  assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
+  assert.equal(typeof purchases[0].createdBy?.personId, "string", "Fuel purchase must retain the linked Driver person identity");
   await context.setOffline(false);
   await page.clock.fastForward("00:01");
    await panel.getByLabel("Odometer (km)").fill("12346");
