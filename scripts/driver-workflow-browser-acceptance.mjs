@@ -57,7 +57,7 @@ try {
         getCurrentPosition(success) {
           const calls = Number(localStorage.getItem("__workflow_geo_calls") || "0") + 1;
           localStorage.setItem("__workflow_geo_calls", String(calls));
-          success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
+          success({ coords: { latitude: 19.076 + calls * 0.0001, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() + calls });
         },
         watchPosition(success) {
           const calls = Number(localStorage.getItem("__workflow_geo_calls") || "0") + 1;
@@ -218,6 +218,8 @@ try {
     ["shift_start", "trip_create", "start_ride", "end_ride", "trip_create", "cancel_ride", "shift_end"]);
   assert.equal(new Set(committedEvents.map(event => event.gps.fixAt)).size, 7,
     "each persisted Work event must retain its own GPS fix timestamp");
+  assert.equal(new Set(committedEvents.map(event => event.gps.latitude)).size, 7,
+    "each persisted Work event must retain its own independently acquired coordinates");
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__workflow_geo_calls") || "0")), 7,
     "each Work transition must acquire fresh event-scoped GPS evidence");
 
