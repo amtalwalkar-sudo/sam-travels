@@ -29,6 +29,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
     val complianceId = "feature:compliance:$suffix"
     val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(complianceId, "UTF-8")
     val previousSelectedDriver = database.records().get("work:selected-driver")
+    val previousDriverState = database.records().get("driver-state")
     val previousDriverRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:driver:") }
     val previousFinanceRecords = database.records().list().filter { it.id.startsWith("feature:finance:") }
     val previousVehicles = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
@@ -85,6 +86,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       val selectedDriverData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
       database.records().put(StoredRecord("work:selected-driver",
         maintenanceEnvelope("work:selected-driver", now, selectedDriverData).toString(), 1, now))
+      AdminTestUiControlSupport.resetDriverStateToIdle(database, now)
       NativeStartupRecovery.invalidate(database)
       activity = instrumentation.startActivitySync(
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -283,6 +285,8 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         .forEach { database.records().remove(it.id) }
       if (previousSelectedDriver != null) database.records().put(previousSelectedDriver)
       else database.records().remove("work:selected-driver")
+      if (previousDriverState != null) database.records().put(previousDriverState)
+      else database.records().remove("driver-state")
       runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
       NativeStartupRecovery.invalidate(database)
       activity?.let { instrumentation.runOnMainSync { it.finish() } }
