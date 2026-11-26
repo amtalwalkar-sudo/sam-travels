@@ -1,7 +1,5 @@
 import type { VehicleService } from "./vehicle-service";
 import type { RecordRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
-import type { HistoricalTripBackfillV1 } from "../../domain/src/historical-trip-backfill";
 import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
@@ -9,21 +7,18 @@ import type { TripFinancialService } from "./trip-financial-service";
 import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { buildFullCostWorkDistanceProjectionV1 } from "./full-cost-breakeven-work-distance";
 import {
+  listProjectedHistoricalTripBackfillsV1,
+  projectHistoricalTripBackfillCostsV1,
+  type HistoricalTripBackfillCostReaderV1,
+  type HistoricalTripBackfillCostCorrectionReaderV1,
+} from "./full-cost-breakeven-historical-backfills";
+import {
   calculateFullCostBreakevenV1,
   type BreakevenDailyActivityV1,
   type BreakevenDailyCostV1,
   type BreakevenCompletenessV1,
   type BreakevenPeriodResultV1,
 } from "../../domain/src/full-cost-breakeven";
-
-type HistoricalTripBackfillCostReaderV1 = Readonly<{ list(): Promise<readonly RecordEnvelope<HistoricalTripBackfillV1>[]> }>;
-type HistoricalTripBackfillCostCorrectionReaderV1 = Readonly<{
-  project(record: RecordEnvelope<HistoricalTripBackfillV1>): Promise<Readonly<{
-    data: HistoricalTripBackfillV1;
-    correctionRefs: readonly Readonly<{ sourceId: string; revision: number; chainRevision: number }>[];
-  }>>;
-}>;
-
 export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV1 & {
   fuelSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
   maintenanceSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
@@ -36,7 +31,6 @@ export type FullCostBreakevenSourceProjectionV1 = Readonly<{
   datedCosts: readonly BreakevenDailyCostV1[];
   completeness: readonly BreakevenCompletenessV1[];
 }>;
-
 function ratioAmount(km: number, ratio: { numerator: string; denominator: string }): number {
   const numerator = BigInt(ratio.numerator), denominator = BigInt(ratio.denominator);
   if (denominator <= 0n || numerator < 0n) throw new Error("breakeven_source_rate_invalid");
@@ -44,7 +38,6 @@ function ratioAmount(km: number, ratio: { numerator: string; denominator: string
   if (amount > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("breakeven_source_amount_overflow");
   return Number(amount);
 }
-
 /**
  * Read-only adapter over owning application services. Annual-first fixed-cost
  * allocation remains owned by BusinessStartDateCostAllocationService; every
@@ -65,19 +58,15 @@ export class FullCostBreakevenService {
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
-    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords, historicalBackfills] = await Promise.all([
+    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
       this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
-      this.historicalTripBackfills?.list() ?? Promise.resolve([]),
     ]);
-    const projectedHistoricalBackfills = this.historicalTripBackfillCorrections
-      ? await Promise.all(historicalBackfills.map(async record => {
-          const projection = await this.historicalTripBackfillCorrections!.project(record);
-          return { ...record, data: projection.data, correctionRefs: projection.correctionRefs };
-        }))
-      : historicalBackfills.map(record => ({ ...record, correctionRefs: [] as const }));
+    const projectedHistoricalBackfills = await listProjectedHistoricalTripBackfillsV1(
+      this.historicalTripBackfills, this.historicalTripBackfillCorrections,
+    );
     const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
     if (this.expenses.listCorrectionReferences) {
       const correctionTargets = [...new Set([
@@ -370,20 +359,9 @@ export class FullCostBreakevenService {
       });
     }
 
-    for (const record of projectedHistoricalBackfills) {
-      const data = record.data;
-      if (record.deletedAt || data.vehicleId !== vehicleId || data.operationalDate < from || data.operationalDate > to) continue;
-      const driverExpenses = (data.tollPayer === "driver" ? data.tollPaise ?? 0 : 0) +
-        (data.parkingPayer === "driver" ? data.parkingPaise ?? 0 : 0);
-      if (driverExpenses > 0) datedCosts.push({
-        date: data.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
-        sourceId: record.id, sourceRevision: record.revision,
-        sourceRefs: [
-          { sourceId: record.id, revision: record.revision },
-          ...record.correctionRefs.map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
-        ],
-      });
-    }
+    datedCosts.push(...projectHistoricalTripBackfillCostsV1(
+      projectedHistoricalBackfills, vehicleId, from, to,
+    ));
 
     for (const source of allocationReport.result.sources) {
       if (source.disposition === "overlap_review_required" &&
