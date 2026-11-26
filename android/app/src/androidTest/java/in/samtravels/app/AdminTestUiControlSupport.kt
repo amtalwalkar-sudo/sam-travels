@@ -62,7 +62,7 @@ internal object AdminTestUiControlSupport {
             c.dispatchEvent(new Event(c instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
             return true;
         })()"""
-        check(javascriptValue(js) == "true") { "Missing Admin field: " + label }
+        check(javascriptValue(js) == "true") { "Missing Admin field: " + label + "; page=" + javascriptValue("document.body.innerText") }
     }
 
     private fun assertTrue(message: String, condition: Boolean) {
