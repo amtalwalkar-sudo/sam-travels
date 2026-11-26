@@ -5,10 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.content.Context
-import android.location.Criteria
 import android.location.Location
 import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -99,10 +97,8 @@ class DriverWorkflowPlugin:Plugin(){
   try{
    val remainingMs=DriverRecoveryPolicy.remainingGpsWindowMillis(transitionAtValue)
    if(remainingMs<=0L){call.reject("Original GPS evidence window expired; intent remains pending","GPS_WINDOW_EXPIRED");return}
-   val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-   val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE}
-   val provider=if(manager.isProviderEnabled(LocationManager.GPS_PROVIDER))LocationManager.GPS_PROVIDER
-    else manager.getBestProvider(criteria,true)?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
+   val locationSource=DriverLocationSourceFactory.create(context)
+   val provider=locationSource.bestProvider()?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
    val wakeLock=(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
     .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:PwaEventGps").apply{setReferenceCounted(false);acquire(remainingMs.coerceAtMost(30_000L))}
    fun releaseWakeLock(){if(wakeLock.isHeld)try{wakeLock.release()}catch(_:Exception){}}
@@ -113,7 +109,7 @@ class DriverWorkflowPlugin:Plugin(){
     if(finished)return
     finished=true
     main.removeCallbacks(timeout)
-    try{manager.removeUpdates(listener)}catch(_:Exception){}
+    try{locationSource.removeUpdates(listener)}catch(_:Exception){}
     releaseWakeLock()
     if(location!=null){
      val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude)
@@ -132,7 +128,7 @@ class DriverWorkflowPlugin:Plugin(){
     }
    }
    try{
-    manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())
+    locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper())
     main.postDelayed(timeout,remainingMs)
    }catch(error:Exception){
     finished=true;releaseWakeLock();throw error
