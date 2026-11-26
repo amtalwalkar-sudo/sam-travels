@@ -3,12 +3,12 @@ export function buildPerformanceBackfillCorrectionFixtureV1(operationalDate, tri
   const targetId = "historical-trip-backfill:performance-screen-backfill";
   return [
     {
-      id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
+      id: "work:daily-business-km:" + encodeURIComponent(tripContext.vehicleId) + ":" + operationalDate,
       schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
       source: "web", revision: 1,
       data: {
         schemaVersion: 1, kind: "daily_business_kilometres",
-        vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
+        vehicleId: tripContext.vehicleId, operationalDate,
         totalBusinessKm: 42, unallocatedBusinessKm: 0,
         entries: [{ shiftId: tripContext.shiftId, allocationStatus: "allocated",
           businessKm: 42, personalKm: 7 }],
