@@ -122,7 +122,6 @@ export class FullCostBreakevenService {
       completeness.push({ source: "active-driving-day-distance", status: "unavailable",
         detail: "The shared Work record repository was not supplied to verify finalized daily-distance provenance." });
     }
-
     const accruedOperationalDates = new Set<string>();
     const histories = await Promise.all(operatingVehicles.map(async vehicle => ({
       vehicle,
