@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AtomicRecordBatchRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { HistoricalTripBackfillCorrectionServiceV1 } from "../packages/application/src/historical-trip-backfill-correction-service";
+import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
 import type { HistoricalTripBackfillV1 } from "../packages/domain/src/historical-trip-backfill";
 
 class Records implements AtomicRecordBatchRepository {
@@ -108,4 +109,31 @@ describe("historical trip backfill financial corrections", () => {
       expectedChainRevision: 0, fieldPath: "farePaise", afterValue: 12000, reason: "Stale correction",
     })).rejects.toThrow("historical_correction_stale_chain");
   });
+  it("refreshes verified daily fare revenue and provenance after a backfill correction", async () => {
+    const records = new Records(), original = source(); await records.put(original);
+    const corrections = new HistoricalTripBackfillCorrectionServiceV1(records, {
+      currentActor: async () => ({ role: "admin", actorId: "admin-1", adminPinVerifiedAt: "2026-11-11T08:00:00.000Z" }),
+    });
+    await corrections.submit({
+      correctionId: "backfill-revenue-fix", targetRecordId: original.id,
+      expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "farePaise",
+      afterValue: 15000, reason: "Verified against receipt", businessEffectiveDate: "2026-11-10",
+    });
+    const revenue = new PerformanceTripRevenueAdapterV1(
+      { submittedTripFinancialRecords: async () => [] },
+      { list: async () => [original] },
+      corrections,
+    );
+    const rows = await revenue.listVerifiedDailyRevenue("2026-11-10", "2026-11-10");
+    expect(rows).toEqual([expect.objectContaining({
+      date: "2026-11-10", grossFarePaise: 15000, cancellationFeePaise: 0,
+      verified: true, attribution: "admin_declared",
+      sourceRefs: [
+        { sourceId: original.id, revision: 1, attribution: "admin_declared" },
+        { sourceId: "historical-correction:backfill-revenue-fix", revision: 1 },
+      ],
+    })]);
+    expect(await revenue.getSourceSnapshotIdentity()).toContain("historical-correction:backfill-revenue-fix@1");
+  });
+
 });
