@@ -92,43 +92,43 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
       ) as MainActivity
       val page = activity!!
-      assertTrue("Work ready; page=" + evaluateMaintenanceWebView(page, "document.body.innerText"), awaitMaintenanceJavascript(page, "document.querySelector('.driver-card') !== null", 30_000))
+      assertTrue("Work ready; page=" + readMaintenanceWebViewText(page, "document.body.innerText"), awaitMaintenanceJavascript(page, "document.querySelector('.driver-card') !== null", 30_000))
       assertTrue("Admin navigation", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')", 10_000))
-      evaluateMaintenanceWebView(page, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
+      readMaintenanceWebViewText(page, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
       assertTrue("Admin ready", awaitMaintenanceJavascript(page, "document.querySelector('.admin-replacement-shell') !== null", 15_000))
       assertTrue("Admin identity fields", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-      assertTrue("Admin role checkbox", evaluateMaintenanceWebView(page, """
+      assertTrue("Admin role checkbox", readMaintenanceWebViewText(page, """
         (() => { const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role')); const input = label?.querySelector('input[type=checkbox]'); if (!input) return false; input.click(); return true; })()
       """))
-      assertTrue("Enroll admin fields", evaluateMaintenanceWebView(page, """
+      assertTrue("Enroll admin fields", readMaintenanceWebViewText(page, """
         (() => { const set = (name, value) => { const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(name)); const input = label?.querySelector('input'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); return true; }; return set('Person name', 'Compliance Acceptance Admin') && set('Set initial Admin PIN', '4831'); })()
       """))
-      evaluateMaintenanceWebView(page, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
+      readMaintenanceWebViewText(page, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Admin enrolled", awaitMaintenanceJavascript(page, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
       assertTrue("Admin identity option loads", awaitMaintenanceJavascript(page,
         "Array.from(Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Select person'))?.querySelectorAll('select option') ?? []).some(option => option.textContent.trim() === 'Compliance Acceptance Admin')", 15_000))
-      assertTrue("Admin activation selection", evaluateMaintenanceWebView(page, """
+      assertTrue("Admin activation selection", readMaintenanceWebViewText(page, """
         (() => { const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Select person')); const select = label?.querySelector('select'); if (!select) return false; const option = Array.from(select.options).find(item => item.textContent.trim() === 'Compliance Acceptance Admin'); if (!option) return false; select.value = option.value; select.dispatchEvent(new Event('input', { bubbles: true })); select.dispatchEvent(new Event('change', { bubbles: true })); const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role')); const role = roleLabel?.querySelector('select'); if (!role) return false; role.value = 'admin'; role.dispatchEvent(new Event('change', { bubbles: true })); return true; })()
       """))
       assertTrue("Admin PIN field", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')", 5_000))
-      assertTrue("Activate admin", evaluateMaintenanceWebView(page, """
+      assertTrue("Activate admin", readMaintenanceWebViewText(page, """
         (() => { const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN'); const input = label?.querySelector('input'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, '4831'); input.dispatchEvent(new Event('input', { bubbles: true })); label.closest('form')?.querySelector('button')?.click(); return true; })()
       """))
       assertTrue("Admin active", awaitMaintenanceJavascript(page, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
-      evaluateMaintenanceWebView(page, "document.getElementById('admin-section-trigger-compliance')?.click()")
+      readMaintenanceWebViewText(page, "document.getElementById('admin-section-trigger-compliance')?.click()")
       assertTrue("Compliance overview", awaitMaintenanceJavascript(page, "document.querySelector('.compliance-fleet-overview') !== null", 15_000))
       assertTrue("Compliance record", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Acceptance insurance'))", 10_000))
-      assertTrue("Correction editor", evaluateMaintenanceWebView(page, """
+      assertTrue("Correction editor", readMaintenanceWebViewText(page, """
         (() => { const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance insurance')); const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct details / history')); button?.click(); return Boolean(button); })()
       """))
-      assertTrue("Correction input", evaluateMaintenanceWebView(page, """
+      assertTrue("Correction input", readMaintenanceWebViewText(page, """
         (() => { const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance insurance')); const selectLabel = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes('Field to correct')); const select = selectLabel?.querySelector('select'); if (!select) return false; select.value = 'totalCostPaise'; select.dispatchEvent(new Event('change', { bubbles: true })); const amountLabel = Array.from(card.querySelectorAll('label')).find(node => node.textContent.includes('Corrected total cost')); const amount = amountLabel?.querySelector('input'); const reasonLabel = Array.from(card.querySelectorAll('label')).find(node => node.textContent.includes('Reason for correction')); const reason = reasonLabel?.querySelector('textarea'); if (!amount || !reason) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(amount, '730.00'); amount.dispatchEvent(new Event('input', { bubbles: true })); const textSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; textSetter.call(reason, 'Final premium verified against insurer receipt'); reason.dispatchEvent(new Event('input', { bubbles: true })); return true; })()
       """))
-      evaluateMaintenanceWebView(page, """
+      readMaintenanceWebViewText(page, """
         (() => { const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance insurance')); card?.querySelector('button.admin-primary')?.click(); return true; })()
       """)
       assertTrue("Corrected daily cost refreshed", awaitMaintenanceJavascript(page,
@@ -150,7 +150,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       // Exercise the rendered Room-backed renewal form, not just the repository service.
       val renewalFrom = today.plusDays(1).toString()
       val renewalTo = today.plusDays(365).toString()
-      assertTrue("Renewal form opens", evaluateMaintenanceWebView(page, """
+      assertTrue("Renewal form opens", readMaintenanceWebViewText(page, """
         (() => {
           const button = [...document.querySelectorAll('.admin-capability-panel button')]
             .find(node => node.textContent.includes('Add compliance / renewal'));
@@ -161,7 +161,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertTrue("Renewal form controls finish loading", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-form label')).some(node => node.textContent.includes('Compliance type / name') && node.querySelector('input'))",
         10_000))
-      assertTrue("Renewal fields entered", evaluateMaintenanceWebView(page, """
+      assertTrue("Renewal fields entered", readMaintenanceWebViewText(page, """
         (() => {
           const labels = [...document.querySelectorAll('.admin-capability-form label')];
           const label = text => labels.find(node => node.textContent.includes(text));
@@ -181,10 +181,10 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertTrue("Renewal draft fields are durably saved before submission", awaitMaintenanceJavascript(page,
         "document.querySelector('form.admin-capability-form small.admin-hint')?.textContent.includes('revision 6')",
         30_000))
-      assertTrue("Previous Compliance record is offered for renewal; form=" + evaluateMaintenanceWebView(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
+      assertTrue("Previous Compliance record is offered for renewal; form=" + readMaintenanceWebViewText(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-form label')).some(label => label.textContent.includes('Renewing previous record') && Array.from(label.querySelectorAll('option')).some(option => option.value === '$complianceId'))",
         10_000))
-      assertTrue("Renewal links to the previous record", evaluateMaintenanceWebView(page, """
+      assertTrue("Renewal links to the previous record", readMaintenanceWebViewText(page, """
         (() => {
           const label = [...document.querySelectorAll('.admin-capability-form label')]
             .find(node => node.textContent.includes('Renewing previous record'));
@@ -206,7 +206,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return !!button && !button.disabled;
         })()
       """, 10_000))
-      evaluateMaintenanceWebView(page, """
+      readMaintenanceWebViewText(page, """
         (() => {
           const form = [...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')));
           const button = [...(form?.querySelectorAll('button') ?? [])]
@@ -245,7 +245,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
 
       ComplianceOverlapReviewAcceptanceSupport.assertRoomBackedOverlapReview(
         page, database, complianceId, validFrom, validTo, renewalFrom,
-        evaluate = { target, script -> evaluateMaintenanceWebView(target, script) },
+        evaluate = { target, script -> readMaintenanceWebViewText(target, script) },
         await = { target, expression, timeout -> awaitMaintenanceJavascript(target, expression, timeout) },
       )
 
