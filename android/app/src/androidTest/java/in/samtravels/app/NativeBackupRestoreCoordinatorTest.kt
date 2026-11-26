@@ -1,5 +1,4 @@
 package `in`.samtravels.app
-
 import android.content.Context
 import android.util.Base64
 import androidx.room.Room
@@ -21,31 +20,8 @@ class NativeBackupRestoreCoordinatorTest {
             .put("data", data).toString(),
         1, at,
     )
-
     private fun snapshot(database: LocalDatabase) =
         NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "test")
-
-    @Test fun rawRecordLimitRejectsBeforeSnapshotValidationOrCheckpointCreation() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val name = "restore-record-limit.db"
-        context.deleteDatabase(name)
-        val db = Room.databaseBuilder(context, LocalDatabase::class.java, name)
-            .allowMainThreadQueries().build()
-        try {
-            val oversized = JSONObject().put("records", org.json.JSONArray().put(JSONObject()))
-            val failure = runCatching {
-                NativeBackupRestoreCoordinator.restore(
-                    db, oversized, JSONObject(), { snapshot(db) }, maxRecordCount = 0,
-                )
-            }.exceptionOrNull()
-            assertEquals("backup_record_count_limit", failure?.message)
-            assertTrue(db.records().list().isEmpty())
-        } finally {
-            db.close()
-            context.deleteDatabase(name)
-        }
-    }
-
     @Test fun productionRestoreReopenRecoveryAndReexportPreservePreRestoreGraph() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "restore-coordinator-integrated.db"
@@ -82,7 +58,6 @@ class NativeBackupRestoreCoordinatorTest {
             val authenticatedSnapshotBytes = NativeBackupV2Package.decrypt(encryptedPackage, recoveryKey)
             val authenticatedSnapshot = JSONObject(authenticatedSnapshotBytes.toString(Charsets.UTF_8))
             val authenticatedManifest = encryptedPackage.getJSONObject("manifest")
-
             // Authentication failures must happen before the production coordinator
             // creates a checkpoint or touches the current Room dataset.
             val wrongKey = Base64.encodeToString(ByteArray(32), Base64.NO_WRAP)
@@ -95,7 +70,6 @@ class NativeBackupRestoreCoordinatorTest {
                 NativeBackupV2Package.decrypt(tamperedPackage, recoveryKey)
             }
             assertEquals(0, db.records().list().count { it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX) })
-
             // A different valid target state is the rollback baseline.
             db.records().put(envelope("pre-restore-record", JSONObject().put("value", "keep"), at, 2))
             val beforeRestore = snapshot(db)

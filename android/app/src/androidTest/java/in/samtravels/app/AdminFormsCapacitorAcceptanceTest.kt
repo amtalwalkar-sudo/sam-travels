@@ -21,7 +21,6 @@ class AdminFormsCapacitorAcceptanceTest {
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
-        // Isolate fixture data from earlier instrumentation journeys.
         app.deleteDatabase("sam-travels.db")
         var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
@@ -117,9 +116,6 @@ class AdminFormsCapacitorAcceptanceTest {
             )
             activity = fuelRecovery.first
             val fuelRecordId = fuelRecovery.second
-            // A second UI-created full-tank purchase closes the odometer interval.
-            // Performance can then attribute fuel cost/mileage to the same two
-            // source identities instead of expecting a one-refill estimate.
             val closingFuelRecordId = AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(
                 activity, this, db, vehicleRecordId,
             )

@@ -44,6 +44,7 @@ try {
   await page.getByLabel("Vehicle type").fill("Car");
   await page.getByLabel("Fuel type").selectOption("CNG");
   await page.getByLabel("Year of manufacture").fill("2024");
+  await page.getByLabel("Ownership").selectOption("Owned");
   await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
   await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   const vehicleRows = await readBrowserRecords(page);
