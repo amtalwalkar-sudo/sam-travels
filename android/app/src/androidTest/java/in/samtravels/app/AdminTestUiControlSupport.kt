@@ -1,7 +1,15 @@
 package `in`.samtravels.app
 
+import org.json.JSONObject
+
 /** DOM controls used by the Admin acceptance journeys; waits for async select options before setting. */
 internal object AdminTestUiControlSupport {
+    fun resetDriverStateToIdle(database: LocalDatabase, now: String) {
+        val idle = JSONObject().put("schemaVersion", 1).put("revision", 1).put("state", "idle")
+        val value = JSONObject().put("value", idle)
+        database.records().put(StoredRecord("driver-state", value.toString(), 1, now))
+    }
+
     fun set(
         activity: MainActivity,
         label: String,
@@ -44,7 +52,7 @@ internal object AdminTestUiControlSupport {
             evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-driver .admin-capability-record')].find(n=>[...n.querySelectorAll('small')].some(x=>/ · active(?: ·|$)/.test(x.textContent)));const edit=[...card?.querySelectorAll('button')??[]].find(b=>b.textContent.trim()==='Edit');edit?.click();return Boolean(edit)})()""")
             setField("Status", "inactive")
             clickAction("Save driver")
-            check(awaitCondition("document.body.innerText.includes('Driver updated.')", 15000)) {
+            check(awaitCondition("!(" + activeDriver + ")", 15000)) {
                 "Active Driver retirement did not complete"
             }
         }
