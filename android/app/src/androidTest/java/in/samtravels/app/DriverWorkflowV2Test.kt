@@ -19,8 +19,14 @@ class DriverWorkflowV2Test {
         ApplicationProvider.getApplicationContext<Context>(),LocalDatabase::class.java,
     ).allowMainThreadQueries().build()
     @After fun closeDatabase()=db.close()
-    private fun gps()=JSONObject().put("latitude",19.076).put("longitude",72.8777)
-        .put("horizontalAccuracyM",8).put("fixAt",java.time.Instant.now().toString()).put("provider","android-test")
+    private var gpsSequence = 0
+    private fun gps(): JSONObject {
+        gpsSequence += 1
+        return JSONObject().put("latitude", 19.076 + gpsSequence * 0.0001).put("longitude", 72.8777)
+            .put("horizontalAccuracyM", 8)
+            .put("fixAt", java.time.Instant.now().plusNanos(gpsSequence.toLong()).toString())
+            .put("provider", "android-test-fresh-fix-$gpsSequence")
+    }
 
     @Test fun missingWorkSelectionDoesNotPartiallyCommitShiftStart() {
         val id="missing-selection-v2"
@@ -128,6 +134,10 @@ class DriverWorkflowV2Test {
         assertEquals("shift-end-v2",daily.getJSONArray("entries").getJSONObject(0).getString("shiftEndEventId"))
         val events=DriverWorkflowStore.listEvents(db)
         assertEquals(7,events.size)
+        assertEquals("Every Work event must persist its own fresh GPS timestamp", 7,
+            events.map { it.getJSONObject("gps").getString("fixAt") }.toSet().size)
+        assertEquals("Every Work event must persist its own acquired location fix", 7,
+            events.map { it.getJSONObject("gps").getDouble("latitude") }.toSet().size)
         assertTrue(JSONObject(events.first { it.optString("eventId")=="shift-v2" }.toString())
             .getJSONObject("command").has("driverContext"))
         assertTrue(JSONObject(events.first { it.optString("eventId")=="trip-v2" }.toString())
