@@ -22,3 +22,18 @@ internal object AdminTestUiControlSupport {
         if (!condition) throw AssertionError(message)
     }
 }
+
+    /** Retires the one seeded demo vehicle so a test can configure its own active vehicle. */
+    fun retireProfileVehicle(
+        setField: (String, String) -> Unit,
+        clickAction: (String) -> Unit,
+        evaluate: (String) -> Unit,
+        awaitCondition: (String, Long) -> Boolean,
+    ) {
+        evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')].find(n=>n.textContent.includes('MH01EM7360'));card?.querySelector('button')?.click();return Boolean(card)})()""")
+        setField("Lifecycle status", "inactive")
+        clickAction("Save vehicle")
+        check(awaitCondition("document.body.innerText.includes('Vehicle details updated.')", 15000)) {
+            "Seed vehicle retirement did not complete"
+        }
+    }
