@@ -855,3 +855,41 @@ Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/b
 **Exact-head verification:** PR #105 head bade1b25be18a0705d2ed45ee4f4f182097d4b97; required workflow [run #45839459288, attempt 2](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45839459288) completed successfully on that exact SHA. Architecture, Web, Android (Gradle build, unit tests and emulator-backed Room/workflow/backup reliability gate), Cross-platform encrypted backup restore (Android-produced package restored through production Browser/Dexie), and Integrated regression gate all succeeded. Optional Production geocoder verification was skipped by the PR workflow condition.
 
 **Disposition and remaining acceptance:** the targeted operating-context audit is closed. PR #105 remains OPEN · DRAFT · UNMERGED, stacked on PR #104; PRs #99, #102, #103 and #104 remain open/draft/unmerged. Physical phone/OEM acceptance, live Dropbox account delivery and final owner visual/usability approval remain separate manual gates. The whole Stage 6 contract remains active; this addendum does not reopen completed Stages 1–5 or alter the Performance UI.
+
+
+### 9.53 — PR #99 Stage 6 historical integrity, device/GPS and form audit closeout — 2026-11-26
+
+**Status: IMPLEMENTATION AND FOCUSED REGRESSION EVIDENCE ADDED; FINAL EXACT-HEAD CI PENDING.** This addendum supersedes the unresolved Stage 6 bullets in §9.48 only where the same requirement is closed below. Stages 1–5 remain accepted and are not reopened.
+
+**Historical integrity and provenance — closed at the audited repository/service boundaries**
+- The current production call-site audit found that generic repository hard-delete is needed only for transient form working copies. Browser/Dexie and Room now enforce the same `__sam_travels_form_working_copy__:` boundary. Submitted Finance, Compliance, Maintenance, Business Expense, Work, Log Book and correction history cannot be hard-deleted through the generic repository API.
+- First-Admin bootstrap rollback now writes a revision-checked `deletedAt` tombstone for the person identity instead of physically deleting the record. Active identity projections ignore the tombstone while historical identity remains available.
+- Feature-extension migration transactions restrict staged deletes to the owning `feature:<featureId>:` namespace. The Room batch boundary independently validates the declared namespace before applying deletes.
+- Record-envelope validation and regression coverage now explicitly include `updatedBy`, valid legacy `deletedAt`, malformed provenance and malformed tombstone timestamps. Existing Finance Admin actor attribution, Work event actor snapshots and domain correction actor/reason tests remain authoritative.
+- Added Browser and Android tests for protected generic deletion, failed-bootstrap identity tombstones, feature-owned migration deletion and update-actor/deletedAt compatibility. See implementation evidence matrix §9.54.
+
+**Trip financial correction and linked Work-event integrity**
+- The existing append-only Trip Financial correction capability is now exercised through the rendered PWA journey and Android Room-backed WebView acceptance. The test corrects a submitted fare, verifies original amount/revision and correction actor/reason/before/after, checks corrected current readback, and proves the linked Work/GPS event JSON remains unchanged.
+- The rendered PWA journey also exercises shift start/end, trip creation, Start ride, End ride and Cancel ride, with the second trip creation required by the state machine. Android historical trip backfill acceptance remains mapped in `HistoricalTripBackfillAcceptanceSupport`.
+- Feature-specific correction policy remains subject to the shared Forgiving Data Entry/Historical Correction contract and the Driver Workflow owner contract; this evidence does not authorize editing Work/GPS/odometer source events or adding correction controls to unsupported surfaces.
+
+**Device readiness, GPS and forms — focused contract assertions added**
+- The Android WebView acceptance now follows the Location settings handoff, returns to the app, and verifies a fresh readiness query. The prompt's focus/visibility recheck behavior has a pure regression test; existing policy tests continue to cover optional/non-blocking capabilities.
+- Browser GPS provider tests independently acquire/release a fresh fix for each required event type. Android workflow persistence tests assert unique GPS fix timestamps and coordinates for each event. The rendered PWA acceptance asserts seven separate GPS requests for the seven committed events in its complete journey.
+- Fuel's obsolete location-evidence form field was removed; Fuel definition tests assert no quantity/location/GPS form field. Shared form definitions now reject malformed Select options and validate time values. Admin rendered acceptance checks 390px viewport fit, visible-control label association and keyboard focusability for every Admin section.
+
+**Previously closed Stage 6 slices retained**
+- Fuel correction/retry and immediate downstream rate/daily readback: §9.49.
+- Maintenance expense/visit correction, actual-expense projection and authoritative 04:00 daily accrual: §9.50.
+- Compliance correction, linked renewal, overlap review and date-scoped allocation readback: §9.51.
+- One-Vehicle/one-Driver operating-context resolver wiring and stale-context no-write/read protection: §9.52.
+
+**Eight-condition reconciliation and acceptance**
+- Conditions 1–5 now have named implementation/test evidence in §9.54 and the earlier accepted Stage 1–5 records, subject to any feature-specific owner ratification required by the normative contracts.
+- Condition 6 is being reconciled across the four PR #99 project records and PR description.
+- Condition 7 remains pending until all five required jobs pass on the final documentation-updated PR #99 head.
+- Condition 8 is verified: PR #99 remains open, draft and unmerged. No new PR is opened and no merge is authorized.
+
+**External/manual gates retained:** physical OEM/device certification; full OS reboot persistence where emulator coverage is not deterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; final owner visual/usability approval; and repository branch-protection/ruleset verification. These are not CI passes.
+
+Do not declare whole-contract acceptance until the final exact-head workflow is green, the four project records and PR body agree, and every remaining owner-acceptance requirement is either explicitly approved or remains clearly open.
