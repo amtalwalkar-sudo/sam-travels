@@ -1,7 +1,13 @@
 import type { RecordEnvelope } from "./types";
 
+export const FORM_WORKING_COPY_RECORD_PREFIX = "__sam_travels_form_working_copy__:";
+
+export function assertTransientRecordDeletionAllowed(id: string): void {
+  if (!id.startsWith(FORM_WORKING_COPY_RECORD_PREFIX)) throw new Error("record_delete_forbidden");
+}
+
 export interface RecordRepository {
-  /** Hard-delete only transient drafts or failed-bootstrap rollback records; submitted business history is immutable. */
+  /** Only transient form working copies may be hard-deleted; business and identity history is retained. */
   get<T>(id: string): Promise<RecordEnvelope<T> | undefined>;
   put<T>(record: RecordEnvelope<T>): Promise<void>;
   list<T>(): Promise<Array<RecordEnvelope<T>>>;
