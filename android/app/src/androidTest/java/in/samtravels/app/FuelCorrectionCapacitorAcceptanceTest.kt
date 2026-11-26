@@ -28,6 +28,13 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val previousSelectedDriver = database.records().get("work:selected-driver")
         val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
         val previousAssignments = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
+        // The operating-context contract requires exactly one active Driver. Other
+        // acceptance tests share the Room database and may leave their seeded driver
+        // rows behind, so isolate this fixture rather than making the production
+        // resolver silently choose among ambiguous active drivers.
+        val previousDriverRecords = database.records().list().filter {
+            it.id.startsWith("feature:driver-records:driver:")
+        }
         val previousDriver = database.records().get("feature:driver-records:driver:$driverId")
         val previousLink = database.records().get("identity:driver-person-link:$driverId")
         val previousPerson = database.records().get("identity:person:$personId")
@@ -42,6 +49,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
         var activity: MainActivity? = null
         try {
             previousAssignments.forEach { database.records().remove(it.id) }
+            previousDriverRecords.forEach { database.records().remove(it.id) }
             previousVehicleRecords.forEach { database.records().remove(it.id) }
             previousFuelRecords.forEach { database.records().remove(it.id) }
             previousFuelDrafts.forEach { database.records().remove(it.id) }
@@ -255,6 +263,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
             database.records().remove("feature:driver-records:assignment:$driverId")
             previousAssignments.forEach { database.records().put(it) }
             database.records().remove("feature:driver-records:driver:$driverId")
+            previousDriverRecords.forEach { database.records().put(it) }
             database.records().remove("identity:driver-person-link:$driverId")
             database.records().remove("identity:person:$personId")
             database.records().remove("historical-correction-chain:" + java.net.URLEncoder.encode(fuelId, "UTF-8"))
