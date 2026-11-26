@@ -19,6 +19,7 @@ type DeviceReadinessApi = {
     opened: boolean;
     usedFallback: boolean;
   }>;
+  addListener(eventName: "appResume", listener: () => void): Promise<{ remove(): Promise<void> }>;
 };
 
 const DeviceReadiness = registerPlugin<DeviceReadinessApi>("DeviceReadiness");
@@ -34,4 +35,8 @@ export function getDeviceReadinessStatus() {
 
 export function openDeviceReadinessSetting(setting: string) {
   return DeviceReadiness.openSetting({ setting });
+}
+
+export function addDeviceReadinessResumeListener(listener: () => void) {
+  return DeviceReadiness.addListener("appResume", listener);
 }
