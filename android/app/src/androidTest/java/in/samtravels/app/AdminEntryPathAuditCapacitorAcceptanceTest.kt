@@ -51,6 +51,12 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         check(support.javascriptValue(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN');const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));l.closest('form')?.querySelector('button')?.click();return true})()""") == "true")
         assertTrue("Activated", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
         support.eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
+        // Retire the clean-workspace demo vehicle before creating the journey's
+        // own single active operating vehicle.
+        support.eval(activity, """(()=>{const card=[...document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')].find(n=>n.textContent.includes('MH01EM7360'));card?.querySelector('button')?.click();return Boolean(card)})()""")
+        support.set(activity, "Lifecycle status", "inactive")
+        support.click(activity, "Save vehicle")
+        assertTrue("Seed vehicle retired", support.await(activity, "document.body.innerText.includes('Vehicle details updated.')", 15000))
         support.click(activity, "Add vehicle")
         val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
         support.set(activity, "Registration number", registration)

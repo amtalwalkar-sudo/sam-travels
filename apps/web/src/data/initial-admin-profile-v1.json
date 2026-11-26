@@ -32,6 +32,6 @@
     "annualInterestRateBasisPoints": 1000,
     "loanStartDate": "2026-09-01",
     "tenureMonths": 60,
-    "firstEmiDate": "2026-09-30"
+    "firstEmiDate": "2026-10-01"
   }
 }

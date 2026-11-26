@@ -184,6 +184,17 @@ internal class RestoredRoomPerformanceWebViewAcceptanceTest : RestoredRoomPerfor
             val webView = webViewRef.get() ?: throw AssertionError("MainActivity did not attach its Capacitor WebView")
             stage = "wait for local workspace"
             waitFor(webView, 90) { it.getString("body").contains("Local workspace ready") }
+            // Bootstrap must not add a demo vehicle beside the restored Room vehicle.
+            val afterBootstrap = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+                .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+                .allowMainThreadQueries().build()
+            try {
+                val activeAfterBootstrap = afterBootstrap.records().list().filter { row ->
+                    row.id.startsWith("feature:vehicle:") &&
+                        JSONObject(row.json).optJSONObject("data")?.optString("lifecycleState") == "active"
+                }.map { it.id }.sorted()
+                assertEquals("Web bootstrap must preserve the restored single active vehicle", listOf(vehicleId), activeAfterBootstrap)
+            } finally { afterBootstrap.close() }
             // Compliance's production overview is Admin-authorized. Establish
             // the first Admin and activate its PIN-verified session through the
             // same identity UI used by the real application, not a test bypass.

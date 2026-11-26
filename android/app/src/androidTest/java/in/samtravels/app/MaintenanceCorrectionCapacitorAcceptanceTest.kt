@@ -72,7 +72,19 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     database.records().put(visit)
     DriverWorkflowIdentityTestFixtures.seed(database, "driver-one", "person-driver-one")
     DriverWorkflowIdentityTestFixtures.seedLink(database, "driver-two", "person-driver-two")
-    listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
+    // Driver Two remains an auditable historical actor, not a second active
+    // Work driver. The configured operating pair must be unambiguous.
+    val secondDriverRow = database.records().get("feature:driver-records:driver:driver-two")!!
+    val secondDriverEnvelope = JSONObject(secondDriverRow.json)
+    secondDriverEnvelope.getJSONObject("data").put("lifecycleState", "inactive")
+    database.records().put(StoredRecord(secondDriverRow.id, secondDriverEnvelope.toString(), secondDriverRow.schemaVersion, secondDriverRow.updatedAt))
+    val assignmentId = "feature:driver-records:assignment:driver-one"
+    val assignmentData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
+        .put("assignments", JSONArray().put(JSONObject()
+            .put("assignmentId", "maintenance-correction-assignment")
+            .put("vehicleId", vehicleId).put("assignedAt", now)))
+    database.records().put(StoredRecord(assignmentId, maintenanceEnvelope(assignmentId, now, assignmentData).toString(), 1, now))
+    listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) =>
         val row = database.records().get("identity:person:$personId")!!
         val payload = JSONObject(row.json)
         payload.getJSONObject("data").put("displayName", name)

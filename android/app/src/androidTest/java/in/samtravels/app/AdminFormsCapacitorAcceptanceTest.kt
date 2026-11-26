@@ -57,6 +57,12 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
             assertRoomOperationReceiptExists(db, "feature:business-settings:business", setOf("create", "update"))
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
+            // Retire the clean-workspace demo vehicle before creating the journey's
+            // own single active operating vehicle.
+            eval(activity, """(()=>{const card=[...document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')].find(n=>n.textContent.includes('MH01EM7360'));card?.querySelector('button')?.click();return Boolean(card)})()""")
+            set(activity, "Lifecycle status", "inactive")
+            click(activity, "Save vehicle")
+            assertTrue("Seed vehicle retired", await(activity, "document.body.innerText.includes('Vehicle details updated.')", 15000))
             click(activity, "Add vehicle")
             val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
             set(activity, "Registration number", registration)
