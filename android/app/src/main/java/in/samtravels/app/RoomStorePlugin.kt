@@ -166,10 +166,6 @@ class RoomStorePlugin : Plugin() {
             call.reject("Record id required")
             return
         }
-        try { assertTransientRecordDeletionAllowed(id) } catch (error: Exception) {
-            call.reject("Room delete failed", error)
-            return
-        }
         executor.execute {
             try {
                 NativeStartupRecovery.ensure(db)
@@ -293,6 +289,10 @@ class RoomStorePlugin : Plugin() {
         val id = call.getString("id")
         if (id.isNullOrBlank()) {
             call.reject("Record id required")
+            return
+        }
+        try { assertTransientRecordDeletionAllowed(id) } catch (error: Exception) {
+            call.reject("Room delete failed", error)
             return
         }
         executor.execute {
