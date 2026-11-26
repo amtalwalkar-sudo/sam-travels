@@ -119,7 +119,8 @@ class FuelCorrectionCapacitorAcceptanceTest {
                 "document.querySelector('.fuel-entry-toggle') !== null", 10000))
             assertTrue("Fuel entry opens", evaluateMaintenanceWebView(startedActivity,
                 "document.querySelector('.fuel-entry-toggle')?.click();true"))
-            assertTrue("Existing fuel purchase is listed; panel=" + evaluateMaintenanceWebView(startedActivity, "document.querySelector('.fuel-entry-panel')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(startedActivity,
+            assertTrue("Existing fuel purchase is listed; rendered state=" + readMaintenanceWebViewText(startedActivity,
+                "JSON.stringify({panel:document.querySelector('.fuel-entry-panel')?.innerText ?? null,body:document.body.innerText})"), awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-panel')?.textContent.includes('45,000 km')", 15000))
             assertTrue("Correction action opens", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
