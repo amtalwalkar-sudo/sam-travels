@@ -212,6 +212,7 @@ try {
     db.close();
     return rows;
   });
+  committedEvents.sort((left, right) => left.revision - right.revision);
   assert.equal(committedEvents.length, 7, "the rendered journey must commit all seven Work events");
   assert.deepEqual(committedEvents.map(event => event.command.eventType),
     ["shift_start", "trip_create", "start_ride", "end_ride", "trip_create", "cancel_ride", "shift_end"]);
