@@ -37,7 +37,16 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
   }
 
   async remove(personId: string): Promise<void> {
-    await this.records.remove(PERSON_PREFIX + personId);
+    // First-Admin bootstrap rollback is retained as a tombstone, never a hard delete.
+    const id = PERSON_PREFIX + personId;
+    const current = await this.records.get<BusinessPersonV1>(id);
+    if (!current || current.deletedAt) return;
+    const timestamp = this.now();
+    const next: RecordEnvelope<BusinessPersonV1> = {
+      ...current, updatedAt: timestamp, revision: current.revision + 1, deletedAt: timestamp,
+    };
+    const committed = await this.records.compareAndSet(id, current.revision, next);
+    if (!committed) throw new Error("business_person_rollback_revision_conflict");
   }
 
   async save(person: BusinessPersonV1): Promise<BusinessPersonV1> {
