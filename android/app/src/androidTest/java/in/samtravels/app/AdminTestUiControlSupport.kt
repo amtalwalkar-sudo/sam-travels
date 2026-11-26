@@ -22,25 +22,31 @@ internal object AdminTestUiControlSupport {
         if (!condition) throw AssertionError(message)
     }
 
-    /** Retires the one seeded demo vehicle so a test can configure its own active vehicle. */
+    /** Retires any active operating profiles; tests must not depend on a particular demo seed identity. */
     fun retireProfileVehicle(
         setField: (String, String) -> Unit,
         clickAction: (String) -> Unit,
         evaluate: (String) -> Unit,
         awaitCondition: (String, Long) -> Boolean,
     ) {
-        evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')].find(n=>n.textContent.includes('MH01EM7360'));card?.querySelector('button')?.click();return Boolean(card)})()""")
-        setField("Lifecycle status", "inactive")
-        clickAction("Save vehicle")
-        check(awaitCondition("document.body.innerText.includes('Vehicle details updated.')", 15000)) {
-            "Seed vehicle retirement did not complete"
+        val activeVehicle = """Array.from(document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')).some(card => card.querySelector('.admin-capability-record-actions span')?.textContent.trim() === 'active')"""
+        while (awaitCondition(activeVehicle, 1000)) {
+            evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-vehicle .admin-capability-record')].find(n=>n.querySelector('.admin-capability-record-actions span')?.textContent.trim()==='active');const edit=[...card?.querySelectorAll('button')??[]].find(b=>b.textContent.trim()==='Edit');edit?.click();return Boolean(edit)})()""")
+            setField("Lifecycle status", "inactive")
+            clickAction("Save vehicle")
+            check(awaitCondition("document.body.innerText.includes('Vehicle details updated.')", 15000)) {
+                "Active Vehicle retirement did not complete"
+            }
         }
         evaluate("document.getElementById('admin-section-trigger-driver')?.click()")
-        evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-driver .admin-capability-record')].find(n=>n.textContent.includes('Ashwinikumar Talwalkar'));const edit=[...card?.querySelectorAll('button')??[]].find(b=>b.textContent.trim()==='Edit');edit?.click();return Boolean(edit)})()""")
-        setField("Status", "inactive")
-        clickAction("Save driver")
-        check(awaitCondition("document.body.innerText.includes('Driver updated.')", 15000)) {
-            "Seed driver retirement did not complete"
+        val activeDriver = """Array.from(document.querySelectorAll('#admin-section-panel-driver .admin-capability-record')).some(card => [...card.querySelectorAll('small')].some(node => / · active(?: ·|$)/.test(node.textContent)))"""
+        while (awaitCondition(activeDriver, 1000)) {
+            evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-driver .admin-capability-record')].find(n=>[...n.querySelectorAll('small')].some(x=>/ · active(?: ·|$)/.test(x.textContent)));const edit=[...card?.querySelectorAll('button')??[]].find(b=>b.textContent.trim()==='Edit');edit?.click();return Boolean(edit)})()""")
+            setField("Status", "inactive")
+            clickAction("Save driver")
+            check(awaitCondition("document.body.innerText.includes('Driver updated.')", 15000)) {
+                "Active Driver retirement did not complete"
+            }
         }
         evaluate("document.getElementById('admin-section-trigger-vehicle')?.click()")
     }
