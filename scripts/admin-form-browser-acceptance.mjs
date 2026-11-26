@@ -88,7 +88,7 @@ try {
   console.log("Initial Admin vehicle profile rendered and verified:", vehicleId);
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
-  const activeDriverName = await page.evaluate(async () => {
+  const activeDriver = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
