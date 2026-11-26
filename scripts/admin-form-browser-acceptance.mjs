@@ -146,7 +146,6 @@ try {
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
   console.log("Compliance coverage and Traffic Challan records submitted.");
   await page.getByRole("button", { name: "Finance", exact: true }).click();
-  await page.locator("#admin-vehicle").selectOption(vehicleId);
   await page.getByRole("button", { name: "Add loan", exact: true }).click();
   await page.getByLabel("Loan name").fill("Admin Browser Loan");
   await page.getByLabel("Lender name").fill("Acceptance Bank");
