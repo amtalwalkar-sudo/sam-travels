@@ -107,6 +107,6 @@ export function ComplianceSection() {
     {!vehicleId?<p className="admin-hint">Configure exactly one active Vehicle before recording compliance.</p>:vehicleRecords.length===0?<p className="admin-hint">No compliance records for this vehicle.</p>:vehicleRecords.map(r=><article className="admin-capability-record" key={r.id}>
       <div><strong>{r.data.complianceName} · {complianceStatus(r.data.validTo)}</strong><small>{r.data.validFrom} to {r.data.validTo} · {money(r.data.totalCostPaise)}</small><small>{r.data.renewedFromRecordId?"Renewal linked to previous record":"Original record"}{r.data.supportingDocumentRef?" · "+r.data.supportingDocumentRef:""}</small></div>
     </article>)}
-    {message&&<p className="admin-message" role="status">{message}</p>}
+    {message&&<p className="admin-message" role="status" data-compliance-save-message={message}>{message}</p>}
   </div>;
 }
