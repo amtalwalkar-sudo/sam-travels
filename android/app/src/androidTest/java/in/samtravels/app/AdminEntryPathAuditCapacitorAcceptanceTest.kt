@@ -15,9 +15,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
 @Test fun calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
     val app = instrumentation.targetContext.applicationContext
-    // This end-to-end journey follows isolated parity/restart phases in the same
-    // emulator. Start from a clean Room store so stale fleet fixtures cannot
-    // make the single operating vehicle ambiguous.
     app.deleteDatabase("sam-travels.db")
     var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
         .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
@@ -275,11 +272,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             activity, support, db, vehicleRecordId!!, fuelRecordId!!, fuelRecordIds, adminFeeRecordId,
         )
     } finally {
-        // If an assertion aborts the post-restore journey before explicit
-        // markVerified/discardVerified, restore the checkpoint before fixture
-        // cleanup. Never delete an internal checkpoint by matching user data
-        // inside its serialized snapshot: the next process must be able to
-        // recover it rather than being stranded with a journal-only marker.
+        // Roll back any unverified restore before fixture cleanup.
         runCatching { NativeBackupRecovery.recoverPending(db) }
         val recoveredExpenseRecordIds = fuelRecordIds + listOfNotNull(adminFeeRecordId)
         db.records().list().filter { row ->
