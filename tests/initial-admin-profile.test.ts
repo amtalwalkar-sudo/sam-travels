@@ -6,6 +6,7 @@ describe("initial Admin profile import", () => {
     const created: string[] = [];
     const services = {
       vehicles: {
+        list: vi.fn(async () => []),
         getByRegistrationNumber: vi.fn(async () => undefined),
         create: vi.fn(async (data: { registrationNumber: string }) => { created.push("vehicle:" + data.registrationNumber); }),
       },
@@ -21,7 +22,6 @@ describe("initial Admin profile import", () => {
         getForReadOnly: vi.fn(async () => undefined),
         create: vi.fn(async (input: { details: { lenderName: string; firstEmiDate: string } }) => { created.push("loan:" + input.details.lenderName + ":" + input.details.firstEmiDate); }),
       },
-      source: "import" as const,
     };
 
     await seedInitialAdminProfile(services as never);
@@ -38,13 +38,47 @@ describe("initial Admin profile import", () => {
     ]);
   });
 
+  it("does not add the demo profile beside a different restored vehicle", async () => {
+    const created: string[] = [];
+    const services = {
+      vehicles: {
+        list: vi.fn(async () => [{ id: "feature:vehicle:MH01AB1234" }]),
+        getByRegistrationNumber: vi.fn(async () => undefined),
+        create: vi.fn(async () => { created.push("vehicle"); }),
+      },
+      drivers: {
+        get: vi.fn(async () => undefined),
+        create: vi.fn(async () => { created.push("driver"); }),
+      },
+      compliance: {
+        get: vi.fn(async () => undefined),
+        create: vi.fn(async () => { created.push("compliance"); }),
+      },
+      financeLoans: {
+        getForReadOnly: vi.fn(async () => undefined),
+        create: vi.fn(async () => { created.push("loan"); }),
+      },
+    };
+
+    await seedInitialAdminProfile(services as never);
+
+    expect(created).toEqual([]);
+    expect(services.vehicles.create).not.toHaveBeenCalled();
+    expect(services.drivers.create).not.toHaveBeenCalled();
+    expect(services.compliance.create).not.toHaveBeenCalled();
+    expect(services.financeLoans.create).not.toHaveBeenCalled();
+  });
+
   it("does not overwrite existing Admin records on later launches", async () => {
     const services = {
-      vehicles: { getByRegistrationNumber: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
+      vehicles: {
+        list: vi.fn(async () => [{ id: "feature:vehicle:MH01EM7360" }]),
+        getByRegistrationNumber: vi.fn(async () => ({ revision: 2 })),
+        create: vi.fn(),
+      },
       drivers: { get: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
       compliance: { get: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
-      financeLoans: { get: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
-      source: "import" as const,
+      financeLoans: { getForReadOnly: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
     };
 
     await seedInitialAdminProfile(services as never);

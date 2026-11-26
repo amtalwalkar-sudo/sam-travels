@@ -28,9 +28,11 @@ type InitialAdminProfileV1 = {
 const profile = initialProfileJson as InitialAdminProfileV1;
 
 /**
- * Apply the user-supplied first-run Admin profile as ordinary persisted feature records.
- * Existing records are never overwritten, so subsequent launches preserve Admin edits.
- * A partial run is safe to retry: every record has a stable identity and is checked first.
+ * Apply the supplied first-run profile only to an empty vehicle workspace.
+ * Existing repositories are authoritative: startup must never add the demo
+ * vehicle (or its related demo records) beside a restored/user-owned vehicle.
+ * A partial first-run import remains safe to retry because the profile vehicle
+ * is created before the remaining records and each record has a stable identity.
  */
 export async function seedInitialAdminProfile(input: Readonly<{
   vehicles: VehicleService;
@@ -38,8 +40,11 @@ export async function seedInitialAdminProfile(input: Readonly<{
   compliance: ComplianceService;
   financeLoans: FinanceLoanService;
 }>): Promise<void> {
-  const vehicleId = "feature:vehicle:" + profile.vehicle.registrationNumber;
+  const existingVehicles = await input.vehicles.list();
   const vehicle = await input.vehicles.getByRegistrationNumber(profile.vehicle.registrationNumber);
+  if (!vehicle && existingVehicles.length > 0) return;
+
+  const vehicleId = "feature:vehicle:" + profile.vehicle.registrationNumber;
   if (!vehicle) {
     await input.vehicles.create({
       schemaVersion: 1,
