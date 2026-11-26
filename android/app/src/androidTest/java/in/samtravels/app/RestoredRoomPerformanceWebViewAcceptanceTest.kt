@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference
  * coordinator. This intentionally does not inject a fake calculation context.
  */
 @RunWith(AndroidJUnit4::class)
-class RestoredRoomPerformanceWebViewAcceptanceTest : RestoredRoomPerformanceWebViewAcceptanceSupport() {
+internal class RestoredRoomPerformanceWebViewAcceptanceTest : RestoredRoomPerformanceWebViewAcceptanceSupport() {
     @Test fun restoredRoomPoolDrivesTheActualAndroidPerformanceScreen() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = ApplicationProvider.getApplicationContext<Context>()
