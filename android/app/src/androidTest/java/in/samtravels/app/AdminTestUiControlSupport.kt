@@ -36,7 +36,7 @@ internal object AdminTestUiControlSupport {
             "Seed vehicle retirement did not complete"
         }
         evaluate("document.getElementById('admin-section-trigger-driver')?.click()")
-        evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-driver .admin-capability-record')].find(n=>n.textContent.includes('Ashwinikumar Talwalkar'));card?.querySelector('button')?.click();return Boolean(card)})()""")
+        evaluate("""(()=>{const card=[...document.querySelectorAll('#admin-section-panel-driver .admin-capability-record')].find(n=>n.textContent.includes('Ashwinikumar Talwalkar'));const edit=[...card?.querySelectorAll('button')??[]].find(b=>b.textContent.trim()==='Edit');edit?.click();return Boolean(edit)})()""")
         setField("Status", "inactive")
         clickAction("Save driver")
         check(awaitCondition("document.body.innerText.includes('Driver updated.')", 15000)) {
