@@ -59,27 +59,44 @@ try {
 
   const adminSections = page.getByRole("navigation", { name: "Admin sections" });
   await adminSections.getByRole("button", { name: "Vehicle", exact: true }).click();
-  await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
-  await page.getByLabel("Registration number").fill("MH00PS0093");
-  await page.getByLabel("Make").fill("Acceptance");
-  await page.getByLabel("Model").fill("Performance");
-  await page.getByLabel("Vehicle type").fill("Car");
-  await page.getByLabel("Fuel type").selectOption("CNG");
-  await page.getByLabel("Year of manufacture").fill("2024");
-  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
-  await page.getByText("MH00PS0093", { exact: true }).waitFor();
-  console.log("Single active vehicle configured for the Performance distance projection.");
+  const operatingFixture = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const vehicles = rows.filter(row => row.id.startsWith("feature:vehicle:") &&
+      row.data?.lifecycleState === "active");
+    const drivers = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
+      row.data?.lifecycleState === "active");
+    if (vehicles.length !== 1) throw new Error("initial_profile_active_vehicle_count_invalid:" + vehicles.length);
+    if (drivers.length !== 1) throw new Error("initial_profile_active_driver_count_invalid:" + drivers.length);
+    return {
+      vehicleId: vehicles[0].id,
+      registration: vehicles[0].data.registrationNumber,
+      driverId: drivers[0].data.driverId,
+      driverName: drivers[0].data.name,
+    };
+  });
+  const { vehicleId, registration, driverId, driverName } = operatingFixture;
+  await page.getByText(registration, { exact: true }).waitFor();
+  console.log("Initial-profile single active vehicle and driver loaded for Performance acceptance.");
 
-  const driverName = "Performance Acceptance Driver";
   await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
-  await page.getByRole("button", { name: "Add driver", exact: true }).click();
-  await page.getByLabel("Driver name").fill(driverName);
-  await page.getByRole("button", { name: "Save driver", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor();
   const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
+  await driverCard.waitFor({ state: "visible" });
+  const configure = driverCard.getByRole("button", { name: "Configure for Work", exact: true });
+  if (await configure.count()) await configure.click();
+  else await driverCard.getByRole("button", { name: "Verify operating configuration", exact: true }).click();
   await page.getByRole("status").filter({
-    hasText: driverName + " is configured with MH00PS0093 for Work.",
+    hasText: driverName + " is configured with " + registration + " for Work.",
   }).waitFor();
   const configuredRecords = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
@@ -88,28 +105,23 @@ try {
       request.onerror = () => reject(request.error);
     });
     const rows = await new Promise((resolve, reject) => {
-      const read = db.transaction("records", "readonly").objectStore("records").getAll();
-      read.onsuccess = () => resolve(read.result);
-      read.onerror = () => reject(read.error);
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
     });
     db.close();
     return rows;
   });
   const selectedWorkDriver = configuredRecords.find(row => row.id === "work:selected-driver");
-  if (!selectedWorkDriver?.data?.driverId) {
-    throw new Error("missing_canonical_work_driver_selection");
-  }
-  const configuredDriver = configuredRecords.find(row =>
-    row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName
-  );
-  if (selectedWorkDriver.data.driverId !== configuredDriver?.data?.driverId) {
+  if (selectedWorkDriver?.data?.driverId !== driverId) {
     throw new Error("work_driver_selection_mismatch");
   }
   const assignmentHistory = configuredRecords.find(row =>
-    row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(selectedWorkDriver.data.driverId)
+    row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(driverId)
   );
   const currentAssignments = assignmentHistory?.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
-  if (currentAssignments.length !== 1 || currentAssignments[0].vehicleId !== "feature:vehicle:MH00PS0093") {
+  if (currentAssignments.length !== 1 || currentAssignments[0].vehicleId !== vehicleId) {
     throw new Error("current_assignment_mismatch");
   }
 
@@ -188,7 +200,7 @@ try {
       committedTripFinancials.data.tollPayer !== "driver" ||
       committedTripFinancials.data.parkingPaise !== 25000 ||
       committedTripFinancials.data.parkingPayer !== "driver" ||
-      committedTripFinancials.data.tripContext?.vehicleId !== "feature:vehicle:MH00PS0093" ||
+      committedTripFinancials.data.tripContext?.vehicleId !== vehicleId ||
       committedTripFinancials.data.tripContext?.operationalDate !== today) {
     throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record:" +
       JSON.stringify(committedTripFinancials));
