@@ -90,7 +90,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .put("assignmentId", "maintenance-correction-assignment")
             .put("vehicleId", vehicleId).put("assignedAt", now)))
     database.records().put(StoredRecord(assignmentId, maintenanceEnvelope(assignmentId, now, assignmentData).toString(), 1, now))
-    listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) =>
+    listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
         val row = database.records().get("identity:person:$personId")!!
         val payload = JSONObject(row.json)
         payload.getJSONObject("data").put("displayName", name)
