@@ -874,3 +874,28 @@ This addendum supersedes the earlier open implementation descriptions in §§9.3
 - This closes the owner-ratification dependency noted in §9.53; the implementation still requires exact-head CI.
 
 The five required CI gates must pass on the final PR #99 head. PR #99 remains open, draft and unmerged; no new PR is to be opened. Physical device/OEM, live Dropbox account and owner visual approval remain separate manual gates.
+
+
+### 9.55 — PR #99 current acceptance reconciliation — 2026-11-27
+
+This addendum supersedes earlier PR #99 status summaries in this register only where updated below. Stages 1–5 remain accepted at their named exact heads; Stage 6 and whole-contract acceptance remain open.
+
+**Evidence and implementation updates**
+- Trip Financial correction owner approval was received 2026-11-27 for the existing append-only submitted-fare correction. The original fare and linked Work/GPS event remain immutable; correction provenance includes before/after values, reason, target/chain revisions and Admin actor.
+- Room record-count fences now cover raw export before normalization, native package manifest totals before crypto, and raw restore records before validation/checkpoint mutation. Browser and Android boundary tests are authored.
+- TypeScript encodeBackupSnapshot now counts exact UTF-8 bytes and checks GCM/base64/envelope size before allocating the encoded payload. Android scheduled Dropbox export counts UTF-8 bytes before byte-array allocation and repeats preflight at native package creation. Multibyte and first-over tests are authored. Representative peak-memory/time acceptance remains open.
+- Vitest 5.1.2 and a moderate-or-higher full dependency graph audit gate are committed; the final dependency report must be inspected for zero remaining advisories.
+- Android run #4933 on becec6809276d2a9af40af324b5b9088b478ca23 failed 8/181 instrumentation tests: seven Work WebView startup assertions and one overlay action availability assertion. A retryable startup-failure surface and page/accessibility diagnostics have been added. These do not count as passing evidence; root causes remain to be fixed from the next exact-head logs.
+
+| PR #99 §1A condition | Current disposition |
+|---|---|
+| 1. Entry-path requirement mapping | **INCOMPLETE** — Stage 6 Android acceptance failures remain unresolved. |
+| 2. PWA/Dexie and Android/Room compliance | **SCOPED CORE PROVEN; STAGE 6 ANDROID ACCEPTANCE PENDING**. |
+| 3. Populated semantic/calculation/restore parity | **SCOPED CORE PROVEN; FINAL EXACT-HEAD REGRESSION PENDING**. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction approved; dependency re-audit and backup performance evidence remain open. |
+| 5. Negative/boundary/interruption/recovery | **STAGE 5 ACCEPTED; NEW BACKUP BOUNDARY TESTS PENDING EXACT-HEAD CI**. |
+| 6. Four project records and PR description agree | **RECONCILED AT THIS CHECKPOINT**; recheck after final documentation commit. |
+| 7. Five required CI jobs on exact final SHA | **PENDING** — Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+**Disposition:** Whole-contract acceptance remains **INCOMPLETE**. Do not merge or open a new PR. Physical OEM/device certification, full OS reboot where nondeterministic, live Dropbox account operations, owner visual approval and branch-protection/ruleset verification remain separate manual/administrative gates.
