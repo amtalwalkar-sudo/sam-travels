@@ -161,7 +161,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       """))
       assertTrue("Renewal form is ready to submit", awaitMaintenanceJavascript(page, """
         (() => {
-          const form = document.querySelector('.admin-capability-form');
+          const form = [...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')));
           const button = [...(form?.querySelectorAll('button') ?? [])]
             .find(node => node.textContent.includes('Save record'));
           return !!button && !button.disabled;
@@ -169,7 +169,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       """, 10_000))
       evaluateMaintenanceWebView(page, """
         (() => {
-          const form = document.querySelector('.admin-capability-form');
+          const form = [...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')));
           const button = [...(form?.querySelectorAll('button') ?? [])]
             .find(node => node.textContent.includes('Save record'));
           button?.click();
@@ -179,9 +179,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertTrue("Compliance renewal saved; rendered state=" + readMaintenanceWebViewText(page, """
         JSON.stringify({
           status: document.querySelector('.admin-capability-panel [role=status]')?.textContent ?? null,
-          form: document.querySelector('.admin-capability-form')?.innerText ?? null,
-          values: [...(document.querySelectorAll('.admin-capability-form input') ?? [])].map(input => ({name:input.previousSibling?.textContent ?? input.type,value:input.value})),
-          buttons: [...(document.querySelectorAll('.admin-capability-form button') ?? [])].map(button => ({text:button.textContent,disabled:button.disabled}))
+          form: [...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.innerText ?? null,
+          values: [...([...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.querySelectorAll('input') ?? [])].map(input => ({name:input.previousSibling?.textContent ?? input.type,value:input.value})),
+          buttons: [...([...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.querySelectorAll('button') ?? [])].map(button => ({text:button.textContent,disabled:button.disabled}))
         })
       """), awaitMaintenanceJavascript(page,
         "document.querySelector('.admin-capability-panel [role=status]')?.textContent.includes('Compliance record saved')",
