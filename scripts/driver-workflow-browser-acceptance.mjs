@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { exerciseWorkTripEntryPaths } from "./admin-entry-path-audit.mjs";
 
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
@@ -179,9 +180,7 @@ try {
   const insertedTrip = tripHistory.locator(".trip-history-item").filter({ hasText: backfillReference });
   await insertedTrip.getByText("TOLL · DRIVER", { exact: true }).waitFor({ state: "visible" });
   await insertedTrip.getByText("PARKING · CUSTOMER", { exact: true }).waitFor({ state: "visible" });
-  await page.getByLabel("Shift-start odometer (km)").fill("12345");
-  await page.getByRole("button", { name: "Start shift", exact: true }).click();
-  await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  await exerciseWorkTripEntryPaths(page, { adminName: "Workflow Browser Admin", adminPin });
 
   const persistedState = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
@@ -197,14 +196,15 @@ try {
     db.close();
     return row?.value ?? null;
   });
-  assert.equal(persistedState?.state, "shift_active", "rendered PWA Start shift must commit the authoritative state");
-  assert.equal(persistedState?.revision, 1, "first committed UI transition must advance the workflow revision once");
+  assert.equal(persistedState?.state, "idle", "the complete rendered Work journey must finish with no active shift");
+  assert.equal(persistedState?.revision, 7, "six event types plus the second trip creation must commit exactly seven transitions");
   const committedRows = await readBrowserRecords(page);
   const committedEvents = committedRows.filter(row => row.id.startsWith("logbook:"));
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__workflow_geo_calls") || "0")), 1,
-    "the UI transition must request its own event-scoped GPS evidence exactly once");
+  assert.equal(committedEvents.length, 7, "the rendered journey must commit all seven Work events");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__workflow_geo_calls") || "0")), 7,
+    "each Work transition must acquire fresh event-scoped GPS evidence");
 
-  console.log("Rendered Work acceptance passed: imported single Driver/Vehicle, real Drive-screen Start shift action, GPS evidence, and revision-1 authoritative Dexie state verified.");
+  console.log("Rendered Work acceptance passed: full shift/trip/fare/cancellation journey, Admin fare correction, immutable Work/GPS events, actor provenance and seven independent GPS acquisitions verified.");
 } finally {
   await browser?.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill("SIGTERM"); }
