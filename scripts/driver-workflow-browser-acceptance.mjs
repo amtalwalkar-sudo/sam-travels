@@ -198,9 +198,25 @@ try {
   });
   assert.equal(persistedState?.state, "idle", "the complete rendered Work journey must finish with no active shift");
   assert.equal(persistedState?.revision, 7, "six event types plus the second trip creation must commit exactly seven transitions");
-  const committedRows = await readBrowserRecords(page);
-  const committedEvents = committedRows.filter(row => row.id.startsWith("logbook:"));
+  const committedEvents = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("driverEvents", "readonly").objectStore("driverEvents").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows;
+  });
   assert.equal(committedEvents.length, 7, "the rendered journey must commit all seven Work events");
+  assert.deepEqual(committedEvents.map(event => event.command.eventType),
+    ["shift_start", "trip_create", "start_ride", "end_ride", "trip_create", "cancel_ride", "shift_end"]);
+  assert.equal(new Set(committedEvents.map(event => event.gps.fixAt)).size, 7,
+    "each persisted Work event must retain its own GPS fix timestamp");
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__workflow_geo_calls") || "0")), 7,
     "each Work transition must acquire fresh event-scoped GPS evidence");
 
