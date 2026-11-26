@@ -92,7 +92,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
       ) as MainActivity
       val page = activity!!
-      assertTrue("Work ready", awaitMaintenanceJavascript(page, "document.querySelector('.driver-card') !== null", 30_000))
+      assertTrue("Work ready; page=" + awaitMaintenanceJavascriptValue(page, "document.body.innerText"), awaitMaintenanceJavascript(page, "document.querySelector('.driver-card') !== null", 30_000))
       assertTrue("Admin navigation", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')", 10_000))
       evaluateMaintenanceWebView(page, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
