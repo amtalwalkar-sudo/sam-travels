@@ -23,9 +23,9 @@ internal object TripFinancialCorrectionAcceptanceSupport {
         val recordedAt = "2026-11-15T08:30:00.000Z"
         val tripContext = JSONObject()
         .put("schemaVersion", 1).put("shiftId", "shift-" + tripId)
-        .put("driverId", driverData.getString("driverId"))
-        .put("assignmentId", assignmentRecordId)
-        .put("vehicleId", vehicleRecordId).put("operationalDate", "2026-11-15")
+        .put("driverId", driverId)
+        .put("assignmentId", assignmentId)
+        .put("vehicleId", vehicleId).put("operationalDate", "2026-11-15")
         val financialData = JSONObject()
         .put("schemaVersion", 1).put("tripId", tripId)
         .put("kind", "completed_ride_financials").put("status", "submitted")
@@ -43,7 +43,7 @@ internal object TripFinancialCorrectionAcceptanceSupport {
         val logbookData = JSONObject()
         .put("eventId", endRideEventId).put("eventType", "end_ride")
         .put("tripId", tripId).put("shiftId", "shift-" + tripId)
-        .put("driverId", driverData.getString("driverId")).put("vehicleId", vehicleRecordId)
+        .put("driverId", driverId).put("vehicleId", vehicleId)
         .put("gps", JSONObject().put("latitude", 19.076).put("longitude", 72.8777)
         .put("accuracyMeters", 10).put("capturedAt", recordedAt))
         .put("odometerKm", 1050)
@@ -66,7 +66,7 @@ internal object TripFinancialCorrectionAcceptanceSupport {
         assertNotNull("Original trip financial source remains", immutableTripSource)
         val immutableTripData = JSONObject(immutableTripSource!!.json).getJSONObject("data")
         assertEquals("Original fare is not overwritten", 15000, immutableTripData.getInt("farePaise"))
-        assertEquals("Original source revision is not advanced", 1, immutableTripSource.revision)
+        assertEquals("Original source revision is not advanced", 1, JSONObject(immutableTripSource!!.json).getInt("revision"))
         val tripCorrections = db.records().list().filter { row ->
         row.id.startsWith("historical-correction:") &&
         JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == tripFinancialId
