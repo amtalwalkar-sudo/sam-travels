@@ -111,6 +111,9 @@ class AdminFormsCapacitorAcceptanceTest {
             val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
             assertEquals("Active Vehicle assigned", vehicleRecordId, assignment.getString("vehicleId"))
             assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
+            TripFinancialCorrectionAcceptanceSupport.assertTripFinancialCorrection(
+                activity, this, db, configuredDriverData.getString("driverId"), vehicleRecordId, assignmentHistory.id,
+            )
             val fuelRecovery = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
                 activity, this, db, vehicleRecordId, marker + " Admin",
             )
