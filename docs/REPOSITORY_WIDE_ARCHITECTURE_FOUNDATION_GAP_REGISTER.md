@@ -814,3 +814,24 @@ Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/b
 **Exact-head verification:** PR #102 head \`655d7ef55acd81ab9e9c50e993fed32e4a11a7fc\`; required CI [run #45819697235](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45819697235) passed Architecture, Web (including Maintenance and Work rendered PWA acceptance), Android (including Room instrumentation), Cross-platform encrypted backup restore and Integrated regression gate. Optional Production geocoder verification was skipped by the PR workflow condition.
 
 **Remaining outside this slice:** full §3.0.1 operating-pair context binding for Maintenance and the other dependent features remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates, not CI passes. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
+
+### 9.51 — PR #99 Stage 6 focused slice 3: Compliance correction, renewal and allocation readback — 2026-11-26
+
+**Status: COMPLIANCE CORRECTION / RENEWAL SLICE CLOSED ON THE EVIDENCE BELOW.** The implementation already present in the Stage 6 stack is now supplemented with an explicit late-renewal and date-scoped daily-cost regression. This does not close the separate repository-wide operating-pair context audit or the whole Stage 6 contract.
+
+**Immutable renewal and correction policy**
+- ComplianceService creates immutable Vehicle-owned validity records. A renewal must link to an existing predecessor for the same vehicle and compliance item; early renewal preserves the actual overlap and late renewal preserves the actual uncovered gap. It does not silently extend or rewrite the previous validity.
+- The normal change path for a new premium/amount is a new linked renewal record. Historical corrections use a separate append-only chain and cannot change vehicle identity or renewedFromRecordId.
+- ComplianceHistoricalCorrectionAdapter and ComplianceHistoricalCorrection allow only approved historical fields such as totalCostPaise, validFrom and validTo. Source envelopes remain immutable and correction history retains Admin authority, reason, stale-chain checks and provenance.
+- ComplianceAnalysisService projects valid correction chains into Admin overview and Performance allocation reads. Its daily-cost path uses the same corrected records and exact rational per-record allocation. Unconfirmed/stale same-item overlaps withhold aggregate cost; confirmed reviews are tied to exact source revisions.
+
+**Readback and verification coverage**
+- tests/compliance-service.test.ts now verifies a late linked renewal: the prior record remains unchanged, the uncovered January interval remains a gap, the old amount applies only through its own validity, and the renewed amount applies from the new validity start.
+- tests/compliance-domain.test.ts covers inclusive validity, gap/overlap analysis, exact rational daily allocation, overlap withholding, explicit confirmation and stale review revisions.
+- tests/compliance-analysis-correction-projection.test.ts verifies corrected dates and premium amounts feed overview and Performance allocation reads and fails closed on a corrupt correction chain.
+- scripts/compliance-overview-browser-acceptance.mjs exercises the rendered Admin PWA: fleet coverage gaps/overlaps, vehicle filtering, source-revision review decisions, append-only date and premium corrections, immediate daily-cost refresh, linked renewal creation and readback after reload.
+- Android ComplianceCorrectionCapacitorAcceptanceTest repeats correction and renewal workflows through the Room-backed Capacitor WebView, checks original immutability and verifies the correction/renewal lineage survives Room backup/restore.
+
+**Exact-head verification:** this focused slice is stacked after Maintenance evidence PR #103 and trip/fare PR #102. Full CI must pass on the final PR head before this slice is marked green. The required gates are Architecture, Web/PWA, Android Room instrumentation, Cross-platform encrypted backup restore and Integrated regression gate; optional post-deployment geocoder verification is not a PR gate.
+
+**Remaining outside this slice:** full §3.0.1 operating-pair context binding across Compliance and dependent cost consumers remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
