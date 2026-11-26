@@ -82,6 +82,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         .put("assignments", JSONArray().put(JSONObject().put("assignmentId", "compliance-correction-assignment")
           .put("vehicleId", vehicleId).put("assignedAt", now)))
       database.records().put(StoredRecord(assignmentId, maintenanceEnvelope(assignmentId, now, assignmentData).toString(), 1, now))
+      val selectedDriverData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
+      database.records().put(StoredRecord("work:selected-driver",
+        maintenanceEnvelope("work:selected-driver", now, selectedDriverData).toString(), 1, now))
       NativeStartupRecovery.invalidate(database)
       activity = instrumentation.startActivitySync(
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
