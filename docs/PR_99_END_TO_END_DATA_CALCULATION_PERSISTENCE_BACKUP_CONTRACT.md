@@ -710,3 +710,21 @@ This status addendum is authoritative for the current PR #99 checkpoint and supe
 Whole-contract completion is not claimed by this checkpoint. It requires: (a) explicit owner disposition for the feature-specific Trip Financial correction policy required by the Driver Workflow contract; (b) confirmation that every applicable entry path is mapped to its named Browser and Android evidence; (c) all four project records and the PR description agree; (d) all five required CI jobs pass on the exact final PR head; and (e) PR #99 remains open/draft/unmerged unless the owner separately authorizes a merge.
 
 Physical OEM/device certification, non-deterministic full OS reboot persistence, live Dropbox account authentication/upload/download/scheduled-backup/restore, final owner visual/usability approval, and repository branch-protection/ruleset verification remain separate manual or administrative gates. They are not CI passes.
+
+
+## 18. 2026-11-27 owner decision and backup-boundary reconciliation
+
+**Trip Financial correction owner decision — APPROVED.** The owner explicitly approved the existing append-only submitted-trip/fare correction UX and schema. The approved correction preserves the original fare and linked Work/GPS event, appends a correction containing before/after values, reason, target and chain revisions, and Admin actor, and refreshes the current fare projection. This is an approval of the existing scoped implementation; it does not authorize mutation of Work/GPS/odometer source events or unrelated correction surfaces. The owner-ratification blocker in §1A condition 4 is resolved.
+
+**Backup record-count boundary — implementation and focused tests added; exact-head CI pending.**
+- Browser encrypted-package manifest validation already totals all participant record counts and enforces the shared one-million-record limit.
+- Android Room snapshot export now checks the raw exported record array before canonical interchange normalization, and retains the post-normalization assertion.
+- Android encrypted-package creation validates manifest record totals before digest/encryption.
+- Android restore reads and caps the raw records array before snapshot/manifest and participant validation; the lower-limit instrumentation seam proves rejection occurs before checkpoint or destination mutation.
+- Regression coverage: Android `BackupPackageLimitsTest`, `NativeBackupV2PackageTest.nativePackageCreationRejectsOverLimitManifestBeforeDigestOrEncryption`, and `NativeBackupRestoreCoordinatorTest.rawRecordLimitRejectsBeforeSnapshotValidationOrCheckpointCreation`.
+
+**Plaintext-size boundary — enforcement added; performance evidence remains open.** TypeScript package creation already preflights plaintext size before digest/encryption. Android now counts exact UTF-8 bytes without allocating the encoded byte array, applies AES-GCM tag/base64/envelope overhead, checks before byte-array creation in the Dropbox worker, and repeats the check at the native package creation boundary. Regression coverage includes exact UTF-8 counting and inclusive/first-over package-size boundaries in `BackupPackageLimitsTest`. This does not substitute for representative peak-memory/time acceptance on supported Android and browser targets; no unsupported lower device cap is introduced.
+
+**Dependency advisory gate — repeatable report/classification added; results pending.** The required Web CI gate now captures full and production-only `npm audit --json` reports, prints advisory package names, severity, dependency paths/nodes and fix availability, uploads both reports, and fails on critical production advisories. The exact-head report must be inspected and any critical production dependency remediated; dev-only exceptions still require explicit bounded disposition.
+
+The above code and workflow changes are not accepted until the required five CI jobs pass on the final exact PR #99 head. Stage 6 and whole-contract acceptance remain **INCOMPLETE** until the dependency report is classified, remaining backup performance evidence is dispositioned, the four project records and PR body agree, and exact-head CI is green. PR #99 remains open, draft and unmerged; no new PR is authorized.
