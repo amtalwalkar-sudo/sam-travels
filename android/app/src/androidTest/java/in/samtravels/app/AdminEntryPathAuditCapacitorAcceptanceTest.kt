@@ -300,6 +300,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         }.forEach { db.records().remove(it.id) }
         if (previousWorkSelection != null) db.records().put(previousWorkSelection)
         else db.records().remove("work:selected-driver")
+        if (previousDriverState != null) db.records().put(previousDriverState)
+        else db.records().remove("driver-state")
         if (previousPerformanceSettings != null) db.records().put(previousPerformanceSettings)
         else db.records().remove("feature:performance:settings")
         runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
