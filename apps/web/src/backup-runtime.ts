@@ -3,6 +3,7 @@ import type { DropboxBackupClient } from "../../../packages/features/backup";
 import type { SnapshotManifest } from "../../../packages/core/src/backup";
 import {
   createEncryptedBackup,
+  encodeBackupSnapshot,
   decryptBackupWithPassphrase,
   parseBackupPackage,
   decryptBackupWithRecoveryKey,
@@ -55,7 +56,8 @@ export async function consumeNativeOAuthCallback(): Promise<string | null> {
 }
 
 function snapshotBytes(snapshot: unknown): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify(snapshot));
+  // Preflight exact UTF-8 and encrypted envelope size before allocating the payload bytes.
+  return encodeBackupSnapshot(snapshot);
 }
 
 /** Runtime adapter selects exactly one authoritative store: Room or IndexedDB. */
