@@ -181,8 +181,12 @@ export class FeatureRecordService<Data> {
       if (replay) return replay;
     }
     const timestamp = input.now ?? this.now();
-    const createdBy = input.createdBy ?? (FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
-    if (FeatureRecordService.authorResolver && !createdBy) throw new Error("business_actor_not_active");
+    const createdBy = input.createdBy ?? (input.source === "import"
+      ? undefined
+      : FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
+    if (input.source !== "import" && FeatureRecordService.authorResolver && !createdBy) {
+      throw new Error("business_actor_not_active");
+    }
     const record: RecordEnvelope<Data> = {
       id: input.id,
       schemaVersion: RECORD_ENVELOPE_SCHEMA_VERSION,

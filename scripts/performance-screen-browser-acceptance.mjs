@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { indiaDateOffsetDays, proratedTargetPaise, moneyFromPaise, monthTargetPaise, previousMonthDate } from "./performance-acceptance-helpers.mjs";
 import { assertBrowserStage3GoldenJourney } from "./stage3-browser-golden-journey.mjs";
+import { buildPerformanceBackfillCorrectionFixtureV1 } from "./performance-backfill-correction-fixture.mjs";
 
 const baseUrl = "http://127.0.0.1:4173";
 const indiaHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).find(part => part.type === "hour")?.value ?? "0");
@@ -218,39 +219,15 @@ try {
   await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor();
   await page.getByText(note, { exact: true }).waitFor();
-  await page.evaluate(async ({ operationalDate, committedTripContext }) => {
+  const acceptanceRecords = buildPerformanceBackfillCorrectionFixtureV1(
+    today, committedTripFinancials.data.tripContext,
+  );
+  await page.evaluate(async (records) => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const createdAt = operationalDate + "T10:00:00.000Z";
-    const tripContext = committedTripContext;
-    const records = [
-      {
-        id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, kind: "daily_business_kilometres",
-          vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
-          totalBusinessKm: 42, unallocatedBusinessKm: 0,
-          entries: [{ shiftId: tripContext.shiftId, allocationStatus: "allocated",
-            businessKm: 42, personalKm: 7 }],
-        },
-      },
-      {
-        id: "work:trip-financial-obligation:performance-screen-cancellation",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, tripId: "performance-screen-cancellation",
-          kind: "cancellation_fee", status: "submitted",
-          cancellationEventId: "performance-screen-cancellation-event", createdAt,
-          tripContext, feePaise: 5000,
-        },
-      },
-    ];
     await new Promise((resolve, reject) => {
       const transaction = db.transaction("records", "readwrite");
       for (const record of records) transaction.objectStore("records").put(record);
@@ -259,7 +236,7 @@ try {
       transaction.onabort = () => reject(transaction.error);
     });
     db.close();
-  }, { operationalDate: today, committedTripContext: committedTripFinancials.data.tripContext });
+  }, acceptanceRecords);
   console.log("Verified fare and cancellation-fee source records seeded for the selected operational date.");
   console.log("Performance Admin inputs saved: actual business start date, fixed monthly target, and a separately noted pre-business cost.");
 
@@ -289,18 +266,18 @@ try {
   }
 
   const periodRevenue = page.getByRole("button", { name: "Explain Period revenue", exact: true });
-  if (!(await periodRevenue.innerText()).includes("₹2,570.00")) {
-    throw new Error("rendered_work_fare_and_cancellation_fee_not_combined_in_period_revenue");
+  if (!(await periodRevenue.innerText()).includes("₹2,720.00")) {
+    throw new Error("rendered_corrected_backfill_fare_and_work_revenue_not_combined_in_period_revenue");
   }
   const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
-  if (!(await lifetimeRevenue.innerText()).includes("₹2,570.00")) {
-    throw new Error("rendered_work_fare_missing_from_lifetime_position");
+  if (!(await lifetimeRevenue.innerText()).includes("₹2,720.00")) {
+    throw new Error("rendered_corrected_backfill_fare_missing_from_lifetime_position");
   }
   const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
   const eligibleCostText = await eligibleCostsCard.innerText();
   const eligibleCostRupees = Number((eligibleCostText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
-  if (eligibleCostRupees < 570) {
-    throw new Error("driver_paid_toll_and_parking_not_reflected_in_full_performance_calculation:" + eligibleCostText);
+  if (eligibleCostRupees < 720) {
+    throw new Error("corrected_driver_paid_parking_or_customer_paid_toll_not_reflected_once_in_full_performance_calculation:" + eligibleCostText);
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();

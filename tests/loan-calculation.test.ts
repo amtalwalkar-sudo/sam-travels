@@ -98,6 +98,17 @@ describe("Finance monthly reducing-balance loan calculation v1", () => {
     ]);
   });
 
+  it("preserves a lender's month-end EMI date across different month lengths", () => {
+    const schedule = buildLoanAmortizationSchedule({
+      ...standardInput,
+      tenureMonths: 3,
+      firstEmiDate: "2026-09-30",
+    });
+    expect(schedule.rows.map(row => row.dueDate)).toEqual([
+      "2026-09-30", "2026-10-31", "2026-11-30",
+    ]);
+  });
+
   it("registers and executes the exact Finance calculation version with provenance", () => {
     const runtime = initializeRuntimeRegistry({ extensions: [FINANCE_FEATURE_EXTENSION] });
     expect(runtime.calculations.get(LOAN_EMI_CALCULATION.id)?.ownerFeatureId).toBe("finance");
@@ -136,7 +147,7 @@ describe("Finance monthly reducing-balance loan calculation v1", () => {
     expect(() => calculateLoanEmiQuote({ ...standardInput, principalPaise: 0 })).toThrow("positive integer");
     expect(() => calculateLoanEmiQuote({ ...standardInput, annualInterestRateBasisPoints: -1 })).toThrow("non-negative");
     expect(() => calculateLoanEmiQuote({ ...standardInput, tenureMonths: 0 })).toThrow("tenure");
-    expect(() => calculateLoanEmiQuote({ ...standardInput, firstEmiDate: "2026-02-02" })).toThrow("first day");
+    expect(() => calculateLoanEmiQuote({ ...standardInput, firstEmiDate: "2026-02-02" })).not.toThrow();
     expect(() => calculateLoanEmiQuote({ ...standardInput, firstEmiDate: "2026-01-01" })).toThrow("cannot precede loan start");
     expect(() => calculateLoanEmiQuote({ ...standardInput, loanStartDate: "2026-02-01", firstEmiDate: "2026-02-01" })).not.toThrow();
     expect(() => calculateLoanEmiQuote({ ...standardInput, loanStartDate: "2026-02-30" })).toThrow("loan start date");

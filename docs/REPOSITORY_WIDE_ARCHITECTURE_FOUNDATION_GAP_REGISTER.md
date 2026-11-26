@@ -792,3 +792,66 @@ Stages 1–5 remain accepted and are not reopened. Stage 6 remains the sole acti
 Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/business-expense-correction-retry.test.ts (retry revisions and corrected price/kg interval recalculation); and Android FuelCorrectionCapacitorAcceptanceTest.driverCorrectsFuelAmountThroughWebViewAndRoomReadModelsRefresh (rendered WebView over Room, immutable original, correction actor/chain and immediate daily readback).
 
 **Status: IMPLEMENTATION ADDED; REQUIRED CI / TEST EXECUTION PENDING.** Do not count the Android instrumentation source or Browser test source as passing evidence until the final exact-head workflow reports success. This slice does not close the other six Stage 6 areas or whole-contract §1A.
+
+### 9.50 — PR #99 Stage 6 focused slice 2: Maintenance correction and daily accrual evidence — 2026-11-26
+
+**Status: MAINTENANCE CORRECTION / DAILY ACCRUAL SLICE CLOSED ON THE EVIDENCE BELOW.** This closes the Maintenance item carried in §9.48 for correction propagation and confirms the already-wired authoritative daily accrual path. It does not close the separate repository-wide operating-pair context audit or the whole Stage 6 contract.
+
+**Correction and actual-expense readback**
+- \`MaintenanceService.listVehicleRecords()\` and \`getActualExpenseTotal()\` now consume the feature-owned correction projection for both Maintenance expenses (\`amountPaise\`) and service visits (\`totalPaise\`). The original record and itemised visit evidence remain immutable.
+- The Admin/Driver Maintenance presentation exposes append-only correction history for expense amounts and visit totals. Correction authority remains feature-policy-controlled; another Driver's record is rejected.
+- \`tests/maintenance-service.test.ts\` proves corrected expense and visit values flow into the actual-expense total while original source records remain unchanged.
+- \`scripts/maintenance-correction-browser-acceptance.mjs\` exercises both corrections through the rendered PWA and asserts the corrected actual-cost summary, original source values, Admin attribution, correction records and chain heads.
+- Android \`MaintenanceCorrectionCapacitorAcceptanceTest\` / \`MaintenanceCorrectionAcceptanceFlow\` exercises the same correction forms over the live Capacitor WebView backed by Room, including Driver ownership restrictions, expense and visit corrections, immutable originals and Room backup/restore.
+
+**Authoritative daily accrual**
+- \`WorkApplicationCoordinatorV1\` delivers committed Work events to \`accrueMaintenanceForCompletedWorkDay\`. Accrual is attempted only for a committed Workflow v2 \`shift_rotate\` event (the 04:00 operational boundary), not an ordinary shift end.
+- The integration requires exactly one daily-business-kilometre record matching the outgoing shift and rotation event, an allocated contribution and zero unallocated business km. \`MaintenanceService.accrueDailyBusinessKilometres\` independently validates the full daily record before persisting an accrual.
+- The immutable daily accrual snapshots the daily-distance record ID/revision, confirmed business km, separate personal km/personal amount, and the maintenance rate effective on that operational date. Its vehicle/date key and source-snapshot check make outbox replay idempotent; a changed source snapshot fails closed rather than rewriting history.
+- \`tests/maintenance-service.test.ts\` covers rate-history idempotency/effective dates, daily accrual idempotency and rate snapshot retention after a later rate change, automatic 04:00 rotation accrual, ordinary-shift-end exclusion, and deferral while any daily km remains unallocated.
+- Browser backup coverage is in \`tests/maintenance-backup.test.ts\`. Android Room coverage is in \`NativeMaintenanceBackupRoomTest\`, including the daily-km source revision, rate history, business/personal km split and immutable accrual.
+
+**Exact-head verification:** PR #102 head \`655d7ef55acd81ab9e9c50e993fed32e4a11a7fc\`; required CI [run #45819697235](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45819697235) passed Architecture, Web (including Maintenance and Work rendered PWA acceptance), Android (including Room instrumentation), Cross-platform encrypted backup restore and Integrated regression gate. Optional Production geocoder verification was skipped by the PR workflow condition.
+
+**Remaining outside this slice:** full §3.0.1 operating-pair context binding for Maintenance and the other dependent features remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates, not CI passes. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
+
+### 9.51 — PR #99 Stage 6 focused slice 3: Compliance correction, renewal and allocation readback — 2026-11-26
+
+**Status: COMPLIANCE CORRECTION / RENEWAL SLICE CLOSED ON THE EVIDENCE BELOW.** The implementation already present in the Stage 6 stack is now supplemented with an explicit late-renewal and date-scoped daily-cost regression. This does not close the separate repository-wide operating-pair context audit or the whole Stage 6 contract.
+
+**Immutable renewal and correction policy**
+- ComplianceService creates immutable Vehicle-owned validity records. A renewal must link to an existing predecessor for the same vehicle and compliance item; early renewal preserves the actual overlap and late renewal preserves the actual uncovered gap. It does not silently extend or rewrite the previous validity.
+- The normal change path for a new premium/amount is a new linked renewal record. Historical corrections use a separate append-only chain and cannot change vehicle identity or renewedFromRecordId.
+- ComplianceHistoricalCorrectionAdapter and ComplianceHistoricalCorrection allow only approved historical fields such as totalCostPaise, validFrom and validTo. Source envelopes remain immutable and correction history retains Admin authority, reason, stale-chain checks and provenance.
+- ComplianceAnalysisService projects valid correction chains into Admin overview and Performance allocation reads. Its daily-cost path uses the same corrected records and exact rational per-record allocation. Unconfirmed/stale same-item overlaps withhold aggregate cost; confirmed reviews are tied to exact source revisions.
+
+**Readback and verification coverage**
+- tests/compliance-service.test.ts now verifies a late linked renewal: the prior record remains unchanged, the uncovered January interval remains a gap, the old amount applies only through its own validity, and the renewed amount applies from the new validity start.
+- tests/compliance-domain.test.ts covers inclusive validity, gap/overlap analysis, exact rational daily allocation, overlap withholding, explicit confirmation and stale review revisions.
+- tests/compliance-analysis-correction-projection.test.ts verifies corrected dates and premium amounts feed overview and Performance allocation reads and fails closed on a corrupt correction chain.
+- scripts/compliance-overview-browser-acceptance.mjs exercises the rendered Admin PWA: fleet coverage gaps/overlaps, vehicle filtering, source-revision review decisions, append-only date and premium corrections, immediate daily-cost refresh, linked renewal creation and readback after reload.
+- Android ComplianceCorrectionCapacitorAcceptanceTest repeats correction and renewal workflows through the Room-backed Capacitor WebView, checks original immutability and verifies the correction/renewal lineage survives Room backup/restore.
+
+**Exact-head verification:** this focused slice is stacked after Maintenance evidence PR #103 and trip/fare PR #102. Full CI must pass on the final PR head before this slice is marked green. The required gates are Architecture, Web/PWA, Android Room instrumentation, Cross-platform encrypted backup restore and Integrated regression gate; optional post-deployment geocoder verification is not a PR gate.
+
+**Remaining outside this slice:** full §3.0.1 operating-pair context binding across Compliance and dependent cost consumers remains part of the separate operating-context audit. Physical OEM/device acceptance and final owner usability approval remain external/manual gates. Stage 6 and PR #99 whole-contract acceptance remain incomplete.
+
+
+### 9.52 — Stage 6 operating-context audit closeout — 2026-11-26
+
+**Status: TARGETED OPERATING-CONTEXT AUDIT CLOSED ON EXACT-HEAD CI EVIDENCE.** This closes the focused production-resolver wiring and stale-context protection audit requested for Finance, Business Expenses, Maintenance and Performance. It does not certify the entire Stage 6 contract or close unrelated repository-wide architecture/recovery gaps.
+
+**Production composition and resolver wiring**
+- Inspected the production Web bootstrap in apps/web/src/main.tsx: the operating-configuration resolver is passed to Finance loan, Business Expenses, Maintenance, Compliance and Full-Cost Breakeven services. Performance is composed with its calculation runtime and Full-Cost Breakeven/cost-allocation dependencies.
+- Android uses the same PWA bootstrap through Capacitor; no separate Android application composition root or resolver-wiring divergence was found.
+- Finance already validates vehicle/operating context and revalidates stale context before command commits. No additional change was required.
+- Business Expenses fuel and expense writes already revalidate operating context before commit. No additional change was required.
+
+**Concrete defects fixed in PR #105**
+- Maintenance rate-history writes (setRate) and daily-business-kilometre accrual writes now revalidate the operating context before creating records. Regression tests prove stale context rejects writes without repository mutation.
+- The independent Full-Cost Breakeven distance projection used by the Performance screen now captures operating/vehicle context before source reads and revalidates it before returning. This closes a stale-read window not covered by the broader Performance calculation snapshot fence. A regression verifies capture ordering and rejection when context changes during the read.
+- No Performance UI redesign or unrelated feature-stage reopening was performed.
+
+**Exact-head verification:** PR #105 head bade1b25be18a0705d2ed45ee4f4f182097d4b97; required workflow [run #45839459288, attempt 2](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45839459288) completed successfully on that exact SHA. Architecture, Web, Android (Gradle build, unit tests and emulator-backed Room/workflow/backup reliability gate), Cross-platform encrypted backup restore (Android-produced package restored through production Browser/Dexie), and Integrated regression gate all succeeded. Optional Production geocoder verification was skipped by the PR workflow condition.
+
+**Disposition and remaining acceptance:** the targeted operating-context audit is closed. PR #105 remains OPEN · DRAFT · UNMERGED, stacked on PR #104; PRs #99, #102, #103 and #104 remain open/draft/unmerged. Physical phone/OEM acceptance, live Dropbox account delivery and final owner visual/usability approval remain separate manual gates. The whole Stage 6 contract remains active; this addendum does not reopen completed Stages 1–5 or alter the Performance UI.

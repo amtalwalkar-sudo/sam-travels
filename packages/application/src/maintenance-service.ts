@@ -44,7 +44,6 @@ const EXPENSE_PREFIX = PREFIX + "expense:";
 const RATE_PREFIX = PREFIX + "rate:";
 const DEFAULT_RATE = 250;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function recordId(kind: "visit" | "expense", uuid: string): string {
   if (typeof uuid !== "string" || !UUID.test(uuid)) throw new Error("maintenance_record_uuid_invalid");
   return (kind === "visit" ? VISIT_PREFIX : EXPENSE_PREFIX) + uuid.toLowerCase();
@@ -65,7 +64,6 @@ function isValidDate(value: string): boolean {
 export class MaintenanceService {
   private readonly records: FeatureRecordService<MaintenanceRecordV1>;
   private readonly repository: AtomicRecordRepository;
-
   constructor(
     repository: AtomicRecordRepository,
     validate: MaintenanceRecordValidator,
@@ -173,7 +171,8 @@ export class MaintenanceService {
     vehicleId: string; ratePaisePerKm: number; commandId: string; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceRateHistoryV1>> {
-    const vehicle = await this.requireVehicle(input.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    const vehicle = await this.requireVehicle(input.vehicleId, operating);
     if (!Number.isSafeInteger(input.ratePaisePerKm) || input.ratePaisePerKm < 0) {
       throw new Error("maintenance_rate_invalid");
     }
@@ -217,6 +216,7 @@ export class MaintenanceService {
       schemaVersion: 1, kind: "rate_history", vehicleId: input.vehicleId,
       entries: Object.freeze(entries),
     };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     if (!current) {
       return this.records.create({
         id, data, source: input.source, businessDate: effectiveFrom, now: timestamp, operation: input.operation,
@@ -236,7 +236,8 @@ export class MaintenanceService {
   }
 
   async accrueDailyBusinessKilometres(input: { vehicleId: string; operationalDate: string; source: FeatureRecordSource }): Promise<RecordEnvelope<MaintenanceDailyAccrualV1>> {
-    await this.requireVehicle(input.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.vehicleId, operating);
     if (!isValidDate(input.operationalDate)) throw new Error("maintenance_business_date_invalid");
     const dailyBusinessKmRecordId = "work:daily-business-km:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
     const daily = await this.repository.get<{
@@ -295,6 +296,7 @@ export class MaintenanceService {
       throw new Error("maintenance_daily_accrual_amount_out_of_range");
     }
     try {
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       return await this.records.create({ id, data, source: input.source, businessDate: input.operationalDate }) as RecordEnvelope<MaintenanceDailyAccrualV1>;
     } catch (error) {
       const raced = await this.records.get(id);
@@ -347,7 +349,6 @@ export class MaintenanceService {
       return next;
     }, 0);
   }
-
   async getServiceReminderStates(vehicleId: string, asOf: string): Promise<readonly Readonly<{
     visit: RecordEnvelope<MaintenanceVisitV1>;
     dateDue: boolean;

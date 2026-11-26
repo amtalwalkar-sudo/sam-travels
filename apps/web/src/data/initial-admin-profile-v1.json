@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "vehicle": {
+    "registrationNumber": "MH01EM7360",
+    "make": "MARUTI SUZUKI",
+    "model": "WAGON R TOUR H3",
+    "vehicleType": "Car",
+    "fuelType": "CNG",
+    "yearOfManufacture": 2024,
+    "ownership": "Financed",
+    "lifecycleState": "active"
+  },
+  "driver": {
+    "driverId": "ashwinikumar-talwalkar",
+    "name": "Ashwinikumar Talwalkar",
+    "mobileNumber": "8097986191",
+    "lifecycleState": "active",
+    "selectedForWork": true
+  },
+  "compliance": [
+    { "id": "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000001", "complianceName": "Insurance", "validFrom": "2026-07-22", "validTo": "2027-07-23", "totalCostPaise": 1459500 },
+    { "id": "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000002", "complianceName": "PUC", "validFrom": "2026-04-09", "validTo": "2027-04-10", "totalCostPaise": 12000 },
+    { "id": "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000003", "complianceName": "Permit", "validFrom": "2026-07-15", "validTo": "2031-07-15", "totalCostPaise": 500000 },
+    { "id": "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000004", "complianceName": "Fitness", "validFrom": "2026-08-02", "validTo": "2027-08-03", "totalCostPaise": 1500000 },
+    { "id": "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000005", "complianceName": "Road tax", "validFrom": "2026-07-01", "validTo": "2027-07-31", "totalCostPaise": 800000 }
+  ],
+  "loan": {
+    "id": "feature:finance:loan:9c5d6e20-2c3a-4c71-9c2d-200000000001",
+    "loanName": "Vehicle loan - MH01EM7360",
+    "lenderName": "Varsha Sharma",
+    "principalPaise": 53300000,
+    "annualInterestRateBasisPoints": 1000,
+    "loanStartDate": "2026-09-01",
+    "tenureMonths": 60,
+    "firstEmiDate": "2026-09-30"
+  }
+}

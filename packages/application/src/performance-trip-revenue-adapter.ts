@@ -8,6 +8,17 @@ type SubmittedTripFinancialRecord = SubmittedTripFinancialRecordV1;
 export type HistoricalTripBackfillRevenueReaderV1 = Readonly<{
   list(): Promise<readonly RecordEnvelope<HistoricalTripBackfillV1>[]>;
 }>;
+export type HistoricalTripBackfillCorrectionReaderV1 = Readonly<{
+  project(record: RecordEnvelope<HistoricalTripBackfillV1>): Promise<Readonly<{
+    data: HistoricalTripBackfillV1;
+    correctionChainRevision: number;
+    correctionRefs: readonly Readonly<{ sourceId: string; revision: number; chainRevision: number }>[];
+  }>>;
+}>;
+type ProjectedBackfillV1 = RecordEnvelope<HistoricalTripBackfillV1> & Readonly<{
+  correctionChainRevision?: number;
+  correctionRefs?: readonly Readonly<{ sourceId: string; revision: number; chainRevision: number }>[];
+}>;
 
 function validOperationalDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -19,19 +30,33 @@ function validOperationalDate(value: string): boolean {
 export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
   private snapshot?: Promise<Readonly<{
     tripRecords: readonly SubmittedTripFinancialRecord[];
-    backfills: readonly RecordEnvelope<HistoricalTripBackfillV1>[];
+    backfills: readonly ProjectedBackfillV1[];
   }>>;
 
   constructor(
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     private readonly backfillReader?: HistoricalTripBackfillRevenueReaderV1,
+    private readonly backfillCorrections?: HistoricalTripBackfillCorrectionReaderV1,
   ) {}
 
-  async prepareSnapshot(_from: string, _to: string): Promise<void> {
-    this.snapshot = Promise.all([
+  private async loadRecords() {
+    const [tripRecords, sourceBackfills] = await Promise.all([
       this.tripFinancials.submittedTripFinancialRecords(),
       this.backfillReader?.list() ?? Promise.resolve([]),
-    ]).then(([tripRecords, backfills]) => ({ tripRecords, backfills }));
+    ]);
+    const backfills = this.backfillCorrections
+      ? await Promise.all(sourceBackfills.map(async record => {
+          const projection = await this.backfillCorrections!.project(record);
+          return { ...record, data: projection.data,
+            correctionChainRevision: projection.correctionChainRevision,
+            correctionRefs: projection.correctionRefs };
+        }))
+      : sourceBackfills.map(record => ({ ...record, correctionRefs: [] as const }));
+    return { tripRecords, backfills };
+  }
+
+  async prepareSnapshot(_from: string, _to: string): Promise<void> {
+    this.snapshot = this.loadRecords();
     await this.snapshot;
   }
 
@@ -39,11 +64,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
 
   private async records() {
     if (this.snapshot) return this.snapshot;
-    const [tripRecords, backfills] = await Promise.all([
-      this.tripFinancials.submittedTripFinancialRecords(),
-      this.backfillReader?.list() ?? Promise.resolve([]),
-    ]);
-    return { tripRecords, backfills };
+    return this.loadRecords();
   }
 
   async getSourceSnapshotIdentity(): Promise<string> {
@@ -53,7 +74,10 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
         record.id + "@" + record.revision,
         ...(record.correctionRefs ?? []).map(ref => ref.sourceId + "@" + ref.revision),
       ]),
-      ...backfills.filter(record => !record.deletedAt).map(record => record.id + "@" + record.revision),
+      ...backfills.filter(record => !record.deletedAt).flatMap(record => [
+        record.id + "@" + record.revision,
+        ...(record.correctionRefs ?? []).map(ref => ref.sourceId + "@" + ref.revision),
+      ]),
     ].sort().join("|");
   }
 
@@ -91,7 +115,10 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
       result.push(Object.freeze({
         date: data.operationalDate, grossFarePaise: data.farePaise, cancellationFeePaise: 0,
         verified: true, attribution: "admin_declared",
-        sourceRefs: Object.freeze([{ sourceId: record.id, revision: record.revision, attribution: "admin_declared" as const }]),
+        sourceRefs: Object.freeze([
+          { sourceId: record.id, revision: record.revision, attribution: "admin_declared" as const },
+          ...(record.correctionRefs ?? []).map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
+        ]),
       }));
     }
     return Object.freeze(result.sort((a,b)=>a.date.localeCompare(b.date) ||

@@ -287,4 +287,20 @@ describe("atomic feature-owned record service", () => {
       .rejects.toThrow("record_invalid_update_author_provenance");
   });
 
+  it("allows trusted imports before an interactive person session exists", async () => {
+    const { service } = setup();
+    FeatureRecordService.setAuthorResolver(async () => { throw new Error("business_actor_not_active"); });
+    try {
+      const imported = await service.create({
+        id: "feature:sample:imported",
+        data: { label: "Imported setup", amountPaise: 100 },
+        source: "import",
+      });
+      expect(imported.source).toBe("import");
+      expect(imported.createdBy).toBeUndefined();
+    } finally {
+      FeatureRecordService.setAuthorResolver(undefined);
+    }
+  });
+
 });

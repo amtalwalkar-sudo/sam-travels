@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
-import { HistoricalTripBackfillServiceV1, historicalTripOperationalDateFromInstant } from "../packages/application/src/historical-trip-backfill-service";
+import { HistoricalTripBackfillServiceV1, historicalTripOperationalDateFromInstant, type SubmitHistoricalTripBackfillV1 } from "../packages/application/src/historical-trip-backfill-service";
 
 class Records implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -16,11 +16,11 @@ class Records implements AtomicRecordRepository {
   }
 }
 
-const input = {
+const input: SubmitHistoricalTripBackfillV1 = {
   backfillId: "legacy-trip-1", driverId: "driver-1", vehicleId: "vehicle-1",
   operationalDate: "2026-11-10", startedAt: "2026-11-10T08:00:00.000Z",
   endedAt: "2026-11-10T08:35:00.000Z", farePaise: 12500,
-  tollPaise: 500, tollPayer: "driver" as const, parkingPaise: 300, parkingPayer: "customer" as const,
+  tollPaise: 500, tollPayer: "driver", parkingPaise: 300, parkingPayer: "customer",
   reason: "Trip was omitted during offline entry; reconciled from paper trip sheet",
 };
 

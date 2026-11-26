@@ -13,7 +13,7 @@ import {
   
   
   PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
-  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1, OperatingConfigurationServiceV1
+  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1, HistoricalTripBackfillCorrectionServiceV1, OperatingConfigurationServiceV1
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -31,11 +31,13 @@ import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
 import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-form-submission";
+import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
 import { WorkDriverSelectionService } from "../../../packages/application/src/work-driver-selection-service";
 import { createAdminFormRuntimeV1 } from "./admin-form-runtime";
+import { seedInitialAdminProfile } from "./initial-admin-profile";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
@@ -47,6 +49,7 @@ async function bootstrap(): Promise<void> {
   const repository = await createPlatformRepository();
   const operatingConfiguration = new OperatingConfigurationServiceV1(repository);
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
+  const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   const currentAuthor = async () => {
     const actor = await getPersonIdentityService().currentActor();
@@ -71,7 +74,7 @@ async function bootstrap(): Promise<void> {
   }, vehicles, undefined, historicalCorrections, operatingConfiguration);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
-    getApplicationBusinessExpensesService(), getApplicationRecordSource(),
+    getApplicationBusinessExpensesService(), getApplicationRecordSource(), businessExpenseEnrichmentQueue,
   );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, undefined, operatingConfiguration);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
@@ -100,6 +103,12 @@ async function bootstrap(): Promise<void> {
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, undefined, operatingConfiguration,
   );
   initializeApplicationFeatureLifecycle(repository);
+  await seedInitialAdminProfile({
+    vehicles,
+    drivers: driverRecords,
+    compliance: getApplicationComplianceService(),
+    financeLoans,
+  });
   const formRuntime = createAdminFormRuntimeV1({
     repository,
     recordSource: getApplicationRecordSource(),
@@ -123,10 +132,13 @@ async function bootstrap(): Promise<void> {
       return { role: actor.role, actorId: actor.actorId };
     },
   }, getApplicationRecordSource());
+  const historicalTripBackfillCorrections = new HistoricalTripBackfillCorrectionServiceV1(
+    repository, getPersonIdentityService(), getApplicationRecordSource(),
+  );
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository, operatingConfiguration,
-    historicalTripBackfills,
+    historicalTripBackfills, historicalTripBackfillCorrections,
   );
   const performanceCalculation = createPerformanceCalculationServiceV1({
     businessSettings: getApplicationBusinessSettingsService(),
@@ -135,6 +147,7 @@ async function bootstrap(): Promise<void> {
     allocation: costAllocation,
     tripFinancials,
     historicalTripBackfills,
+    historicalTripBackfillCorrections,
     recordRepository: repository,
   });
   const adminServices = Object.freeze({

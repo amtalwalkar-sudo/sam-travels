@@ -1,7 +1,5 @@
 import type { VehicleService } from "./vehicle-service";
 import type { RecordRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
-import type { HistoricalTripBackfillV1 } from "../../domain/src/historical-trip-backfill";
 import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
@@ -9,15 +7,18 @@ import type { TripFinancialService } from "./trip-financial-service";
 import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { buildFullCostWorkDistanceProjectionV1 } from "./full-cost-breakeven-work-distance";
 import {
+  listProjectedHistoricalTripBackfillsV1,
+  projectHistoricalTripBackfillCostsV1,
+  type HistoricalTripBackfillCostReaderV1,
+  type HistoricalTripBackfillCostCorrectionReaderV1,
+} from "./full-cost-breakeven-historical-backfills";
+import {
   calculateFullCostBreakevenV1,
   type BreakevenDailyActivityV1,
   type BreakevenDailyCostV1,
   type BreakevenCompletenessV1,
   type BreakevenPeriodResultV1,
 } from "../../domain/src/full-cost-breakeven";
-
-type HistoricalTripBackfillCostReaderV1 = Readonly<{ list(): Promise<readonly RecordEnvelope<HistoricalTripBackfillV1>[]> }>;
-
 export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV1 & {
   fuelSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
   maintenanceSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
@@ -30,7 +31,6 @@ export type FullCostBreakevenSourceProjectionV1 = Readonly<{
   datedCosts: readonly BreakevenDailyCostV1[];
   completeness: readonly BreakevenCompletenessV1[];
 }>;
-
 function ratioAmount(km: number, ratio: { numerator: string; denominator: string }): number {
   const numerator = BigInt(ratio.numerator), denominator = BigInt(ratio.denominator);
   if (denominator <= 0n || numerator < 0n) throw new Error("breakeven_source_rate_invalid");
@@ -38,7 +38,6 @@ function ratioAmount(km: number, ratio: { numerator: string; denominator: string
   if (amount > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("breakeven_source_amount_overflow");
   return Number(amount);
 }
-
 /**
  * Read-only adapter over owning application services. Annual-first fixed-cost
  * allocation remains owned by BusinessStartDateCostAllocationService; every
@@ -53,18 +52,30 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly"> &
+      Partial<Pick<OperatingConfigurationServiceV1, "assertCurrentForReadOnly" | "assertVehicleCurrentForReadOnly">>,
     private readonly historicalTripBackfills?: HistoricalTripBackfillCostReaderV1,
+    private readonly historicalTripBackfillCorrections?: HistoricalTripBackfillCostCorrectionReaderV1,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
-    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords, historicalBackfills] = await Promise.all([
+    const operating = await this.operatingConfiguration?.getForReadOnly().catch(error => {
+      if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
+      throw error;
+    });
+    const operatingVehicle = operating
+      ? { schemaVersion: 1 as const, vehicleId: operating.vehicleId, vehicleRevision: operating.vehicleRevision }
+      : await this.operatingConfiguration?.getVehicleForReadOnly();
+
+    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
       this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
-      this.historicalTripBackfills?.list() ?? Promise.resolve([]),
     ]);
+    const projectedHistoricalBackfills = await listProjectedHistoricalTripBackfillsV1(
+      this.historicalTripBackfills, this.historicalTripBackfillCorrections,
+    );
     const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
     if (this.expenses.listCorrectionReferences) {
       const correctionTargets = [...new Set([
@@ -76,15 +87,6 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    const operating = await this.operatingConfiguration?.getForReadOnly().catch(error => {
-      if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
-      throw error;
-    });
-    const operatingVehicle = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getVehicleForReadOnly
-        ? this.operatingConfiguration.getVehicleForReadOnly()
-        : operating)
-      : undefined;
     const operatingVehicles = operatingVehicle
       ? vehicles.filter(vehicle => vehicle.id === operatingVehicle.vehicleId &&
           vehicle.data?.lifecycleState === "active" && vehicle.revision === operatingVehicle.vehicleRevision)
@@ -94,14 +96,12 @@ export class FullCostBreakevenService {
       throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     }
     const configuredDriverId = operating?.driverId;
-
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
       { source: "business-expenses", status: "complete" },
       { source: "fuel-rate-history", status: "complete" },
       { source: "maintenance-accruals", status: "complete" },
     ];
-
     const vehicleId = operatingVehicles[0].id;
     const {
       activityByDate, distanceByDate, activeDaySourceIssues,
@@ -121,7 +121,6 @@ export class FullCostBreakevenService {
       completeness.push({ source: "active-driving-day-distance", status: "unavailable",
         detail: "The shared Work record repository was not supplied to verify finalized daily-distance provenance." });
     }
-
     const accruedOperationalDates = new Set<string>();
     const histories = await Promise.all(operatingVehicles.map(async vehicle => ({
       vehicle,
@@ -357,10 +356,9 @@ export class FullCostBreakevenService {
       });
     }
 
-    for (const record of historicalBackfills) {
-      const data = record.data, driverExpenses = (data.tollPayer === "driver" ? data.tollPaise ?? 0 : 0) + (data.parkingPayer === "driver" ? data.parkingPaise ?? 0 : 0);
-      if (!record.deletedAt && data.vehicleId === vehicleId && data.operationalDate >= from && data.operationalDate <= to && driverExpenses > 0) datedCosts.push({ date: data.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous", sourceId: record.id, sourceRevision: record.revision, sourceRefs: [{ sourceId: record.id, revision: record.revision }] });
-    }
+    datedCosts.push(...projectHistoricalTripBackfillCostsV1(
+      projectedHistoricalBackfills, vehicleId, from, to,
+    ));
 
     for (const source of allocationReport.result.sources) {
       if (source.disposition === "overlap_review_required" &&
@@ -378,6 +376,9 @@ export class FullCostBreakevenService {
         });
       }
     }
+
+    if (operating) await this.operatingConfiguration?.assertCurrentForReadOnly?.(operating);
+    else if (operatingVehicle) await this.operatingConfiguration?.assertVehicleCurrentForReadOnly?.(operatingVehicle);
 
     return Object.freeze({
       businessStartDate: allocationReport.businessStartDate,

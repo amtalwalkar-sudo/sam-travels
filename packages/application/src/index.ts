@@ -69,4 +69,5 @@ export * from "./trip-financial-form-runtime";
 
 export * from "./work-driver-selection-service";
 export * from "./historical-trip-backfill-service";
+export * from "./historical-trip-backfill-correction-service";
 export * from "./operating-configuration-service";
