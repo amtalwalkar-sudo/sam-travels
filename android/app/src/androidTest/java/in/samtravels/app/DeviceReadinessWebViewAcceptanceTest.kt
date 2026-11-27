@@ -68,12 +68,11 @@ class DeviceReadinessWebViewAcceptanceTest {
                 (() => {
                   const plugin = window.Capacitor?.Plugins?.DeviceReadiness;
                   if (!plugin) return false;
-                  window.__readinessChecks = 0;
-                  const getStatus = plugin.getStatus.bind(plugin);
-                  plugin.getStatus = (...args) => {
-                    window.__readinessChecks += 1;
-                    return getStatus(...args);
-                  };
+                  window.__nativeResumeEvents = 0;
+                  window.__resumeListenerReady = false;
+                  plugin.addListener("appResume", () => {
+                    window.__nativeResumeEvents += 1;
+                  }).then(() => { window.__resumeListenerReady = true; });
                   const openSetting = plugin.openSetting.bind(plugin);
                   plugin.openSetting = options => openSetting(options).then(result => {
                     window.__settingResult = result;
@@ -82,7 +81,12 @@ class DeviceReadinessWebViewAcceptanceTest {
                   return true;
                 })()
             """.trimIndent())
-            val checksBeforeSettings = evaluate(view, "window.__readinessChecks || 0").trim('"').toInt()
+            val listenerDeadline = System.currentTimeMillis() + 5_000
+            while (System.currentTimeMillis() < listenerDeadline &&
+                evaluate(view, "window.__resumeListenerReady === true") != "true") Thread.sleep(50)
+            assertTrue("Native resume observer must be registered before opening Settings",
+                evaluate(view, "window.__resumeListenerReady === true") == "true")
+            val resumeEventsBeforeSettings = evaluate(view, "window.__nativeResumeEvents || 0").trim('"').toInt()
             assertTrue("Location settings action must be rendered",
                 evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].some(n => n.innerText.includes('Precise location access'))") == "true")
             evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].find(n => n.innerText.includes('Precise location access'))?.click()")
@@ -94,13 +98,13 @@ class DeviceReadinessWebViewAcceptanceTest {
             while (System.currentTimeMillis() < returnDeadline && !activity.hasWindowFocus()) Thread.sleep(100)
             assertTrue("App must regain focus after returning from Android Settings", activity.hasWindowFocus())
             val recheckDeadline = System.currentTimeMillis() + 10_000
-            var checksAfterReturn = checksBeforeSettings
-            while (System.currentTimeMillis() < recheckDeadline && checksAfterReturn <= checksBeforeSettings) {
-                checksAfterReturn = evaluate(view, "window.__readinessChecks || 0").trim('"').toInt()
+            var resumeEventsAfterReturn = resumeEventsBeforeSettings
+            while (System.currentTimeMillis() < recheckDeadline && resumeEventsAfterReturn <= resumeEventsBeforeSettings) {
+                resumeEventsAfterReturn = evaluate(view, "window.__nativeResumeEvents || 0").trim('"').toInt()
                 Thread.sleep(100)
             }
-            assertTrue("Returning from Settings must trigger a fresh readiness check",
-                checksAfterReturn > checksBeforeSettings)
+            assertTrue("Returning from Settings must deliver the native resume event that refreshes readiness",
+                resumeEventsAfterReturn > resumeEventsBeforeSettings)
             assertTrue("Native Settings handoff must report success",
                 evaluate(view, "window.__settingResult?.opened === true") == "true")
             evaluate(view, "document.querySelector('.device-readiness-footer button')?.click()")
