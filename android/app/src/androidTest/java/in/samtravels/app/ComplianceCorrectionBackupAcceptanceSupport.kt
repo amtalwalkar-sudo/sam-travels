@@ -21,4 +21,23 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     assertEquals("Renewal lineage survives Room backup/restore", complianceId,
       JSONObject(database.records().get(renewalId)!!.json).getJSONObject("data").getString("renewedFromRecordId"))
   }
+
+  fun openCorrectionEditor(
+    page: MainActivity,
+    await: (MainActivity, String, Long) -> Boolean,
+  ): Boolean {
+    val clickOnce = """
+      (() => {
+        const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+          .find(node => node.textContent.includes('Correct details / history'));
+        if (!button || button.disabled) return false;
+        if (button.dataset.acceptanceClickDispatched === 'true') return true;
+        button.dataset.acceptanceClickDispatched = 'true';
+        button.click();
+        return true;
+      })()
+    """
+    if (!await(page, clickOnce, 10_000)) return false
+    return await(page, "document.querySelector('.compliance-correction-editor') !== null", 10_000)
+  }
 }
