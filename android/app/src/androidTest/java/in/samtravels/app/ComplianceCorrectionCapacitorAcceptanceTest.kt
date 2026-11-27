@@ -17,12 +17,7 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ComplianceCorrectionCapacitorAcceptanceTest {
-  // evaluateJavascript returns JSON-encoded booleans ("true"/"false"); keep
-  // the DOM-control helper usable directly in JUnit assertions.
-  private fun assertTrue(message: String, javascriptBoolean: String) {
-    org.junit.Assert.assertTrue(message, javascriptBoolean == "true")
-  }
-
+  private fun assertTrue(message: String, javascriptBoolean: String) = org.junit.Assert.assertTrue(message, javascriptBoolean == "true")
   @Test
   fun adminComplianceCorrectionRefreshesRoomDailyCostAndSurvivesBackupRestore() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -164,7 +159,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return Boolean(button);
         })()
       """))
-      assertTrue("Renewal form controls finish loading", awaitMaintenanceJavascript(page,
+      assertTrue("Renewal controls load", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-form label')).some(node => node.textContent.includes('Compliance type / name') && node.querySelector('input'))",
         10_000))
       assertTrue("Renewal fields entered", readMaintenanceWebViewText(page, """
@@ -184,10 +179,10 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
             setInput('Total cost (₹)', '810.00');
         })()
       """))
-      assertTrue("Renewal draft fields are durably saved before submission", awaitMaintenanceJavascript(page,
+      assertTrue("Renewal draft saved", awaitMaintenanceJavascript(page,
         "document.querySelector('form.admin-capability-form small.admin-hint')?.textContent.includes('revision 6')",
         30_000))
-      assertTrue("Previous Compliance record is offered for renewal; form=" + readMaintenanceWebViewText(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
+      assertTrue("Renewal record; form=" + readMaintenanceWebViewText(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-form label')).some(label => label.textContent.includes('Renewing previous record') && Array.from(label.querySelectorAll('option')).some(option => option.value === '$complianceId'))",
         10_000))
       assertTrue("Renewal links to the previous record", readMaintenanceWebViewText(page, """
@@ -201,7 +196,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return true;
         })()
       """))
-      assertTrue("Renewal relationship is durably saved before submission", awaitMaintenanceJavascript(page,
+      assertTrue("Renewal link saved", awaitMaintenanceJavascript(page,
         "document.querySelector('form.admin-capability-form small.admin-hint')?.textContent.includes('revision 7')",
         30_000))
       assertTrue("Renewal form is ready to submit", awaitMaintenanceJavascript(page, """
@@ -221,7 +216,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return Boolean(button);
         })()
       """)
-      assertTrue("Compliance renewal saved; rendered state=" + readMaintenanceWebViewText(page, """
+      assertTrue("Renewal saved; state=" + readMaintenanceWebViewText(page, """
         JSON.stringify({
           status: document.querySelector('.admin-capability-panel [role=status]')?.textContent ?? null,
           complianceMessage: document.querySelector('.admin-capability-panel .admin-message')?.textContent ?? null,
