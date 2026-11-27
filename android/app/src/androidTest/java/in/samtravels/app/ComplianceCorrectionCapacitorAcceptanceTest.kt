@@ -129,9 +129,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         ComplianceCorrectionBackupAcceptanceSupport.openCorrectionEditor(page) { target, expression, timeout ->
           awaitMaintenanceJavascript(target, expression, timeout)
         })
-      assertTrue("Correction input", readMaintenanceWebViewText(page, """
-        (() => { const selectLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label')).find(node => node.textContent.includes('Field to correct')); const select = selectLabel?.querySelector('select'); if (!select) return false; select.value = 'totalCostPaise'; select.dispatchEvent(new Event('change', { bubbles: true })); const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label')).find(node => node.textContent.includes('Corrected total cost')); const amount = amountLabel?.querySelector('input'); const reasonLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label')).find(node => node.textContent.includes('Reason for correction')); const reason = reasonLabel?.querySelector('textarea'); if (!amount || !reason) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(amount, '730.00'); amount.dispatchEvent(new Event('input', { bubbles: true })); const textSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; textSetter.call(reason, 'Final premium verified against insurer receipt'); reason.dispatchEvent(new Event('input', { bubbles: true })); return true; })()
-      """))
+      assertTrue("Correction input", ComplianceCorrectionBackupAcceptanceSupport.fillTotalCostCorrection(
+        page, ::awaitMaintenanceJavascript, ::readMaintenanceWebViewText,
+      ))
       readMaintenanceWebViewText(page, """
         (() => { document.querySelector('.compliance-correction-editor button.admin-primary')?.click(); return true; })()
       """)
