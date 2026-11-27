@@ -41,11 +41,11 @@ internal object DriverLocationSourceFactory {
 internal object DriverOverlayDatabaseFactory {
     @Volatile var databaseNameOverrideForTests: String? = null
 
-    fun open(context: Context): LocalDatabase =
+    fun open(context: Context, databaseNameOverride: String? = databaseNameOverrideForTests): LocalDatabase =
         Room.databaseBuilder(
             context.applicationContext,
             LocalDatabase::class.java,
-            databaseNameOverrideForTests ?: "sam-travels.db",
+            databaseNameOverride ?: "sam-travels.db",
         ).addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation()
             .build()
