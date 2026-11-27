@@ -79,10 +79,10 @@ export async function seedInitialAdminProfile(input: Readonly<{
     }
   }
 
-  const loan = input.financeLoans.getForReadOnly
-    ? await input.financeLoans.getForReadOnly(profile.loan.id)
-    : await input.financeLoans.get(profile.loan.id);
-  if (!loan) {
+  // A scoped read-only lookup can intentionally hide a loan belonging to a
+  // different operating vehicle. Import idempotency must check identity across
+  // the whole repository or it can try to recreate an existing stable ID.
+  if (!await input.financeLoans.hasRecord(profile.loan.id)) {
     await input.financeLoans.create({
       uuid: profile.loan.id.slice("feature:finance:loan:".length),
       details: {
