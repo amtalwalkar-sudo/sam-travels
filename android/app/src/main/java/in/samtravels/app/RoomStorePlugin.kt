@@ -9,6 +9,7 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -151,12 +152,15 @@ class RoomStorePlugin : Plugin() {
     }
 
     // Reads preserve historical rows; application services validate typed records before use.
-    private fun decodeStoredRow(row: StoredRecord): JSONObject = JSONObject(row.json).apply {
-        // Work's legacy state/intent rows are keyed by the Room primary key but
-        // intentionally are not RecordEnvelope payloads. The shared repository
-        // list contract still needs a stable id for snapshot fences and source
-        // enumeration; expose the storage identity without rewriting the payload.
-        if (!has("id")) put("id", row.id)
+    private fun decodeStoredRow(row: StoredRecord): JSONObject {
+        // Parse the persisted payload explicitly as JSON text. Do not pass the
+        // Room entity itself to JSONObject's reflective Object constructor:
+        // that constructor interprets StoredRecord as a bean and fails before
+        // the browser repository can enumerate any rows.
+        val payload = JSONTokener(row.json).nextValue() as? JSONObject
+            ?: error("room_record_payload_not_object:" + row.id)
+        if (!payload.has("id")) payload.put("id", row.id)
+        return payload
     }
 
     @PluginMethod
