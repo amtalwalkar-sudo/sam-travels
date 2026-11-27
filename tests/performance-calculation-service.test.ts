@@ -225,6 +225,38 @@ describe("PerformanceCalculationServiceV1", () => {
       .rejects.toThrow("performance_global_source_snapshot_changed_during_calculation");
   });
 
+  it("ignores restore checkpoint and journal churn but still fences business-record revisions", async () => {
+    const repository = new MemoryRepository();
+    const timestamp = "2026-03-16T00:00:00.000Z";
+    const internal = (id: string, revision: number): RecordEnvelope<{ status: string }> => ({
+      id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "integration", revision, data: { status: "pending" },
+    });
+    await repository.put(internal("__sam_travels_recovery_checkpoint__:restore-1", 1));
+    await repository.put(internal("__sam_travels_recovery_journal__:restore-1", 1));
+    await repository.put({
+      id: "feature:business-expenses:fuel:source-1", schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "integration", revision: 1,
+      data: { status: "confirmed" },
+    });
+    const boundary = new PerformanceCalculationSnapshotBoundaryV1(repository);
+    const before = await boundary.capture();
+
+    await repository.put(internal("__sam_travels_recovery_checkpoint__:restore-1", 2));
+    await repository.put(internal("__sam_travels_recovery_journal__:restore-1", 2));
+    const afterRecoveryMetadata = await boundary.capture();
+    expect(afterRecoveryMetadata.identity).toBe(before.identity);
+
+    const businessRecord = await repository.get<{ status: string }>("feature:business-expenses:fuel:source-1");
+    expect(businessRecord).toBeDefined();
+    await repository.put({
+      ...businessRecord!, revision: 2, updatedAt: "2026-03-16T00:01:00.000Z",
+      data: { status: "corrected" },
+    });
+    const afterBusinessWrite = await boundary.capture();
+    expect(afterBusinessWrite.identity).not.toBe(before.identity);
+  });
+
   it("reconciles a corrected trip revenue revision on the next calculation snapshot", async () => {
     let record: RecordEnvelope<CompletedTripFinancialObligation> = {
       id: "work:trip-financial-obligation:corrected-trip", schemaVersion: 1,
