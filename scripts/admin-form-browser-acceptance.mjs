@@ -193,7 +193,7 @@ try {
   } catch (error) {
     console.log("Prepayment preview status element count:", await paymentPanel.locator("[role=status]").count());
     console.log("Prepayment form present:", (await paymentPanel.locator("form.loan-form").count()) === 1);
-    throw new Error("admin_prepayment_preview_failed:" + (error instanceof Error ? error.message : String(error)));
+    throw new Error("admin_prepayment_preview_failed");
   }
   await paymentPanel.getByRole("button", { name: "Confirm prepayment", exact: true }).click();
   try {
@@ -201,7 +201,7 @@ try {
   } catch (error) {
     console.log("Prepayment commit status element count:", await paymentPanel.locator("[role=status]").count());
     console.log("Prepayment history row count:", await paymentPanel.locator(".loan-payment-list > *").count());
-    throw new Error("admin_prepayment_commit_failed:" + (error instanceof Error ? error.message : String(error)));
+    throw new Error("admin_prepayment_commit_failed");
   }
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
   await paymentPanel.getByLabel("Payment date").fill(futureDateOffsetDays(1));
@@ -215,7 +215,7 @@ try {
   await allocationStatus.waitFor({ state: "visible" });
   const allocationMessage = (await allocationStatus.allTextContents()).join(" ");
   if (!allocationMessage.includes("No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.")) {
-    throw new Error("Unexpected future-dated payment allocation result: " + allocationMessage);
+    throw new Error("admin_future_payment_allocation_result_mismatch");
   }
   console.log("Future-dated payment allocation eligibility was verified.");
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
