@@ -22,22 +22,29 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         @Volatile var removed = false
         @Volatile var requestCount = 0
         @Volatile var removeCount = 0
+        private val activeListeners = java.util.Collections.newSetFromMap(
+            java.util.IdentityHashMap<LocationListener, Boolean>(),
+        )
 
         override fun bestProvider(): String = "gps"
 
-        override fun requestLocationUpdates(provider: String, listener: LocationListener, looper: Looper) {
+        @Synchronized override fun requestLocationUpdates(provider: String, listener: LocationListener, looper: Looper) {
             assertEquals("Overlay GPS callbacks must be delivered on the main looper", Looper.getMainLooper(), looper)
             requestCount += 1
+            activeListeners.add(listener)
             this.listener = listener
         }
 
-        override fun removeUpdates(listener: LocationListener) {
-            if (this.listener === listener) this.listener = null
+        @Synchronized override fun removeUpdates(listener: LocationListener) {
+            activeListeners.remove(listener)
+            if (this.listener === listener) this.listener = activeListeners.firstOrNull()
             removeCount += 1
-            removed = true
+            removed = activeListeners.isEmpty()
         }
 
-        fun deliver(location: Location) {
+        @Synchronized fun activeListenerCount(): Int = activeListeners.size
+
+        @Synchronized fun deliver(location: Location) {
             val active = listener ?: error("overlay_location_listener_not_registered")
             active.onLocationChanged(location)
         }
@@ -115,6 +122,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         DriverWorkflowStore.snapshot(db).optString("state") == nextState &&
                             DriverWorkflowStore.listEvents(db).size == initialEventCount + index + 1
                     })
+                    assertEquals("$eventType must create exactly one event-scoped GPS request",
+                        requestsBefore + 1, locationSource.requestCount)
+                    assertEquals("$eventType must leave no event-scoped GPS listener registered",
+                        0, locationSource.activeListenerCount())
                     val event = DriverWorkflowStore.listEvents(db).single { it.optString("eventId") == eventId }
                     val gps = event.getJSONObject("gps")
                     assertEquals(eventType, event.getJSONObject("command").getString("eventType"))
