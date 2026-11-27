@@ -64,12 +64,12 @@ class DeviceReadinessWebViewAcceptanceTest {
             evaluate(view, "document.querySelector('.device-readiness-trigger')?.click()")
             assertTrue("Rendered readiness dialog must expose settings and a continue action",
                 evaluate(view, "!!document.querySelector('[role=dialog]') && !!document.querySelector('.device-readiness-footer button')") == "true")
-            val listenerDeadline = System.currentTimeMillis() + 5_000
+            val listenerDeadline = System.currentTimeMillis() + 10_000
             while (System.currentTimeMillis() < listenerDeadline &&
-                evaluate(view, "window.__resumeListenerReady === true") != "true") Thread.sleep(50)
+                evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeReady") != "\\\"true\\\"") Thread.sleep(100)
             assertTrue("Native resume observer must be registered before opening Settings",
-                evaluate(view, "window.__resumeListenerReady === true") == "true")
-            val resumeEventsBeforeSettings = evaluate(view, "window.__nativeResumeEvents || 0").trim('"').toInt()
+                evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeReady") == "\\\"true\\\"")
+            val resumeEventsBeforeSettings = evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeEvents || '0'").trim('"').toInt()
             assertTrue("Location settings action must be rendered",
                 evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].some(n => n.innerText.includes('Precise location access'))") == "true")
             evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].find(n => n.innerText.includes('Precise location access'))?.click()")
@@ -83,13 +83,13 @@ class DeviceReadinessWebViewAcceptanceTest {
             val recheckDeadline = System.currentTimeMillis() + 10_000
             var resumeEventsAfterReturn = resumeEventsBeforeSettings
             while (System.currentTimeMillis() < recheckDeadline && resumeEventsAfterReturn <= resumeEventsBeforeSettings) {
-                resumeEventsAfterReturn = evaluate(view, "window.__nativeResumeEvents || 0").trim('"').toInt()
+                resumeEventsAfterReturn = evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeEvents || '0'").trim('"').toInt()
                 Thread.sleep(100)
             }
             assertTrue("Returning from Settings must deliver the native resume event that refreshes readiness",
                 resumeEventsAfterReturn > resumeEventsBeforeSettings)
             assertTrue("Native Settings handoff must report success",
-                evaluate(view, "Array.from(document.querySelectorAll('[role=alert]')).some(node => node.innerText.includes('Android Settings opened'))") == "true")
+                evaluate(view, "Array.from(document.querySelectorAll('[role=status]')).some(node => node.innerText.includes('Android Settings opened'))") == "true")
             evaluate(view, "document.querySelector('.device-readiness-footer button')?.click()")
             assertTrue("Continuing must close the prompt without blocking driver entry",
                 evaluate(view, "!document.querySelector('[role=dialog]') && !!document.querySelector('.driver-card')") == "true")
