@@ -146,6 +146,17 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     })
                     assertEquals("$eventType must create exactly one event-scoped GPS request",
                         requestsBefore + 1, locationSource.requestCount)
+                    val listenerReleased = waitUntil(5_000) {
+                        locationSource.removeCount >= removalsBefore + 1 &&
+                            locationSource.activeListenerCount() == 0 &&
+                            locationSource.listener == null
+                    }
+                    if (!listenerReleased) {
+                        val diagnostic = "removeCountAdvanced=${locationSource.removeCount >= removalsBefore + 1} " +
+                            "activeListenerSetEmpty=${locationSource.activeListenerCount() == 0} " +
+                            "listenerReferenceCleared=${locationSource.listener == null}"
+                        assertTrue("$eventType must release its event-scoped GPS listener; $diagnostic", listenerReleased)
+                    }
                     assertEquals("$eventType must leave no event-scoped GPS listener registered",
                         0, locationSource.activeListenerCount())
                     val event = DriverWorkflowStore.listEvents(db).single { it.optString("eventId") == eventId }
@@ -154,9 +165,6 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     assertTrue("Each accepted event has a distinct fix timestamp", fixTimes.add(gps.getString("fixAt")))
                     assertTrue("Each accepted event has a distinct location", latitudes.add(gps.getDouble("latitude")))
                     assertEquals(fix.latitude, gps.getDouble("latitude"), 0.000001)
-                    assertTrue("$eventType releases its GPS listener", waitUntil(5_000) {
-                        locationSource.removeCount >= removalsBefore + 1 && locationSource.listener == null
-                    })
                     // Cancellation creates a durable fee obligation. Resolve it before
                     // asserting that the next Work transition is available.
                     if (eventType == "cancel_ride") {
