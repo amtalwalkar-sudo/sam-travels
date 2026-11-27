@@ -85,8 +85,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           .put("vehicleId", vehicleId).put("assignedAt", now)))
       database.records().put(maintenanceEnvelope(assignmentId, now, assignmentData))
       val selectedDriverData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
-      database.records().put(StoredRecord("work:selected-driver",
-        maintenanceEnvelope("work:selected-driver", now, selectedDriverData))
+      database.records().put(maintenanceEnvelope("work:selected-driver", now, selectedDriverData))
       AdminTestUiControlSupport.resetDriverStateToIdle(database, now)
       NativeStartupRecovery.invalidate(database)
       activity = instrumentation.startActivitySync(
