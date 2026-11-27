@@ -234,6 +234,7 @@ describe("PerformanceCalculationServiceV1", () => {
     });
     await repository.put(internal("__sam_travels_recovery_checkpoint__:restore-1", 1));
     await repository.put(internal("__sam_travels_recovery_journal__:restore-1", 1));
+    await repository.put(internal("timeline-enrichment:fuel:feature:business-expenses:fuel:source-1", 1));
     await repository.put({
       id: "feature:business-expenses:fuel:source-1", schemaVersion: 1,
       createdAt: timestamp, updatedAt: timestamp, source: "integration", revision: 1,
@@ -244,6 +245,10 @@ describe("PerformanceCalculationServiceV1", () => {
 
     await repository.put(internal("__sam_travels_recovery_checkpoint__:restore-1", 2));
     await repository.put(internal("__sam_travels_recovery_journal__:restore-1", 2));
+    await repository.put(internal("timeline-enrichment:fuel:feature:business-expenses:fuel:source-1", 2));
+    const afterNonFinancialEnrichment = await boundary.capture();
+    expect(afterNonFinancialEnrichment.identity).toBe(before.identity);
+
     const afterRecoveryMetadata = await boundary.capture();
     expect(afterRecoveryMetadata.identity).toBe(before.identity);
 
