@@ -58,7 +58,9 @@ export function DeviceReadinessPrompt() {
   const openPhoneSetting = async (item: ReadinessItem) => {
     setMessage("");
     try {
-      await openDeviceReadinessSetting(item.id);
+      const result = await openDeviceReadinessSetting(item.id);
+      if (!result.opened) throw new Error("Android did not open the requested settings page");
+      setMessage("Android Settings opened. Return here to recheck phone settings.");
     } catch {
       setMessage("Could not open that settings page. In Android Settings, open Apps and select Sam Travels.");
     }
