@@ -76,12 +76,12 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                 val latitudes = mutableSetOf<Double>()
                 expected.forEachIndexed { index, (eventType, nextState) ->
                     assertTrue("Overlay exposes the next action for $eventType; hierarchy=${describeNodes(ui)}", waitUntil(10_000) {
-                        findNode(ui) {
+                        findOverlayNode(ui) {
                             it.className?.toString() == "android.widget.SeekBar" &&
                                 it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
                         } != null
                     })
-                    val slider = findNode(ui) {
+                    val slider = findOverlayNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
                             it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
                     } ?: error("overlay_action_missing:$eventType")
@@ -204,7 +204,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     assertEquals("Isolated overlay fixture starts without queued workflow intents", 0, intentsBefore)
                     assertEquals("Overlay must not request GPS before an explicit swipe", 0, locationSource.requestCount)
                     val removalsBefore = locationSource.removeCount
-                    val slider = findNode(ui) {
+                    val slider = findOverlayNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
                             it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
                     }
