@@ -202,8 +202,7 @@ try {
       committedTripFinancials.data.parkingPayer !== "driver" ||
       committedTripFinancials.data.tripContext?.vehicleId !== vehicleId ||
       committedTripFinancials.data.tripContext?.operationalDate !== today) {
-    throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record:" +
-      JSON.stringify(committedTripFinancials));
+    throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record");
   }
 
   await page.getByRole("navigation", { name: "Primary navigation" })
@@ -289,14 +288,14 @@ try {
   const eligibleCostText = await eligibleCostsCard.innerText();
   const eligibleCostRupees = Number((eligibleCostText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
   if (eligibleCostRupees < 720) {
-    throw new Error("corrected_driver_paid_parking_or_customer_paid_toll_not_reflected_once_in_full_performance_calculation:" + eligibleCostText);
+    throw new Error("corrected_driver_paid_parking_or_customer_paid_toll_not_reflected_once_in_full_performance_calculation");
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
   const configuredTargetPaise = Number(targetRupees) * 100;
   const selectedTarget = proratedTargetPaise(configuredTargetPaise, businessStartDate, today);
   if (!(await targetCard.innerText()).includes(moneyFromPaise(selectedTarget))) {
-    throw new Error("selected_period_target_does_not_match_calendar_day_proration:" + selectedTarget);
+    throw new Error("selected_period_target_does_not_match_calendar_day_proration");
   }
   await page.getByRole("button", { name: "Explain Lifetime target position", exact: true }).waitFor();
   await page.getByText("Lifetime eligible costs", { exact: true }).waitFor();
@@ -308,7 +307,7 @@ try {
   const distanceSummaryText = await distanceHistory.locator(".performance-recovery-summary").innerText();
   if (!distanceSummaryText.includes("42 km") || !distanceSummaryText.includes("Qualifying active driving days") ||
       !distanceSummaryText.includes("1") || !distanceSummaryText.includes("Complete")) {
-    throw new Error("confirmed_distance_summary_or_active_day_average_missing:" + distanceSummaryText);
+    throw new Error("confirmed_distance_summary_or_active_day_average_missing");
   }
   const dailyDistance = distanceHistory.locator(".performance-table").filter({
     has: page.locator("caption", { hasText: "Daily distance from confirmed Work allocations" }),
@@ -322,7 +321,7 @@ try {
   for (const table of [dailyDistance, weeklyDistance, monthlyDistance]) {
     const tableText = await table.innerText();
     if (!tableText.includes("42 km")) {
-      throw new Error("distance_period_rollup_missing_confirmed_business_km:" + tableText);
+      throw new Error("distance_period_rollup_missing_confirmed_business_km");
     }
   }
   if ((await dailyDistance.innerText()).includes("49 km")) {
@@ -336,7 +335,7 @@ try {
   await recovery.locator("td").filter({ hasText: note }).first().waitFor();
   const summary = await recovery.locator(".performance-recovery-summary").innerText();
   if (!summary.includes(businessStartDate) || !summary.includes(recoveryToExclusive)) {
-    throw new Error("recovery_window_does_not_match_exact_18_month_anniversary:" + summary);
+    throw new Error("recovery_window_does_not_match_exact_18_month_anniversary");
   }
   const recoveryDates = await recovery.locator("small.performance-subtext").allTextContents();
   if (recoveryDates.some(date => date > today)) {
@@ -351,7 +350,7 @@ try {
   const monthKeys = [...new Set([businessStartDate.slice(0, 7), today.slice(0, 7)])];
   for (const month of monthKeys) {
     const expected = moneyFromPaise(monthTargetPaise(month, businessStartDate, today, configuredTargetPaise));
-    if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration:" + month + ":" + expected);
+    if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration");
   }
   console.log("Monthly roll-up target values reconcile to calendar-day proration for each partial month.");
 
