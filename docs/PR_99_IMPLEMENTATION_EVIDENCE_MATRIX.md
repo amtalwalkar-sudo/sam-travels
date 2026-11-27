@@ -828,3 +828,32 @@ This checkpoint records exact source/test mapping and current execution status. 
 Manual gates, not CI passes: physical OEM/device certification and owner visual/usability approval; full OS reboot where emulator coverage is not deterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; repository branch-protection/ruleset verification.
 
 **Whole-contract status: INCOMPLETE.**
+
+## 9.58 — Android Compliance interaction failure, correction and retest status — 2026-11-27
+This checkpoint supersedes current-execution status in §9.57. The requirement-to-test mapping and assertion requirements remain unchanged.
+
+- **Failed run:** [#46018147927](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46018147927), SHA e8e3170ef033c416ac1541d798251f9c5a08ec8c. Architecture and Web passed; Android failed at ComplianceCorrectionCapacitorAcceptanceTest line 128, “Correction button clicked”. The test had awaited the button's rendered state, then used a one-shot evaluateJavascript call to click it. That call did not return true. The log does not establish a Room exception or a failed persisted correction; it establishes an interaction assertion failure.
+- **Downstream not executed:** the Android shell step stopped at this isolated Compliance test, before Maintenance correction, Device Readiness Settings-return, PerformanceCalculationRoomParityTest, PerformanceActiveDrivingDayRoomParityTest, RestoredRoomPerformanceWebViewAcceptanceTest and SharedSevenDomainBackupLifecycleTest. Cross-platform encrypted backup restore was **SKIPPED** and Integrated regression **FAILED** because the Android prerequisite failed. No current-head proof of encrypted restore in both directions can be claimed from this run.
+- **Fix:** commit 9a191aa123aedb8593129543a5a5ab97f850295b changes the test interaction to poll for an enabled rendered control, mark the test click as dispatched before clicking so a poll cannot toggle it twice, and then separately await the actual .compliance-correction-editor. It preserves the editor-open assertion and all later correction, lineage, readback and backup checks.
+- **Retest:** push run #46020055556 was queued on SHA 9a191aa123aedb8593129543a5a5ab97f850295b at this checkpoint. Do not mark the fix accepted until the PR workflow passes and all later Android phases execute.
+
+Correction/recovery assertions remain mandatory: restored source IDs/revisions, correction IDs and chain heads; daily-km source ID/revision; Performance allocation provenance; same-intent correction replay idempotency; exactly-once Work outbox replay; and pre-restore baseline rollback after injected interruption.
+
+Backup assertions remain mandatory: inclusive/first-over record-count and encrypted-size limits; rejection before mutation/checkpoint; exact multibyte UTF-8/envelope preflight; TypeScript encrypted package → Room; Android encrypted package → Dexie; and interrupted-restore rollback. The Android→Dexie job is a required result and a skipped job is not a pass.
+
+### Current §1A disposition
+
+| Condition | Status |
+|---|---|
+| 1. Entry-path mapping and UI/action-to-command audit | **INCOMPLETE** — Compliance correction Android interaction failed on e8; fix pushed, retest pending. |
+| 2. Independent Dexie/Room authority and workflow requirements | **SCOPED CORE PROVEN; CURRENT STAGE 6 ANDROID VALIDATION PENDING**. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **SCOPED CORE PROVEN; CURRENT-HEAD AND BOTH-DIRECTION ENCRYPTED RESTORE PENDING**. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction approved; dependency audit on e8 is zero; count/size enforcement implemented; representative peak-memory/time evidence open. |
+| 5. Negative/boundary/interruption/recovery | **STAGE 5 ACCEPTED; NEW BOUNDARY ASSERTIONS AWAIT RETEST**. |
+| 6. Four project records and PR description agree | **RECONCILED** by this checkpoint. |
+| 7. Required five-job CI on exact final SHA | **PENDING**. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+Manual gates (not CI passes): physical OEM/device certification and owner visual/usability approval; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; branch-protection/ruleset verification.
+
+**Whole-contract status: INCOMPLETE.**
