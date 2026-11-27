@@ -97,9 +97,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
       assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
       assertNotNull("Driver–Vehicle assignment persisted", db.records().get(assignmentRecordId!!))
 
-      // Historical backfill intentionally lists inactive historical Drivers only.
-      // Use an inactive profile for that workflow; keep the newly configured active
-      // Work Driver for the submitted-trip correction path below.
       val historicalDriver = db.records().list().firstOrNull { row ->
           row.id.startsWith("feature:driver-records:driver:") &&
               JSONObject(row.json).getJSONObject("data").optString("lifecycleState") == "inactive"
