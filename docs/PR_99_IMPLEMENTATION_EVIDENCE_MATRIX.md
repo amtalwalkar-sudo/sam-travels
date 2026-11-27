@@ -763,7 +763,7 @@ This checkpoint supersedes only the corresponding pending implementation descrip
 
 **Android failure triage**
 - Previous exact-head run #4933 on becec6809276d2a9af40af324b5b9088b478ca23 failed 8 of 181 Android instrumentation tests. Seven failures reported the rendered Work workspace missing; one overlay transition did not expose the expected action. The Admin label matcher change alone did not resolve the failures.
-- Added a visible, retryable bootstrap-failure surface in the web entry point. Android acceptance assertions now include rendered page content; the overlay transition assertion includes the accessibility hierarchy. These changes improve diagnosis and are not passing evidence.
+- Added a visible, retryable bootstrap-failure surface in the web entry point. Android acceptance assertions now include rendered page content; the overlay transition assertion includes the accessibility hierarchy. The Admin test selector now clones each label and removes its form controls before matching, preserving nested visible label text while excluding selected option values. These changes improve diagnosis and are not passing evidence.
 - The new exact-head workflow must be inspected for the concrete startup/overlay state, then the underlying implementation or fixture defect must be fixed and the five required jobs repeated.
 
 **Whole-contract §1A status**
