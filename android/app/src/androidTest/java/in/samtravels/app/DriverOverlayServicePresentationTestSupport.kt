@@ -113,6 +113,23 @@ abstract class DriverOverlayServicePresentationTestSupport {
     protected fun findNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? =
         allNodes(ui).firstOrNull(predicate)
 
+    /** Resolve controls only from the native overlay window, never the WebView beneath it. */
+    protected fun findOverlayNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        for (window in ui.windows) {
+            val nodes = mutableListOf<AccessibilityNodeInfo>()
+            fun visit(node: AccessibilityNodeInfo?) {
+                if (node == null) return
+                nodes.add(node)
+                for (index in 0 until node.childCount) visit(node.getChild(index))
+            }
+            visit(window.root)
+            if (nodes.any { it.text?.toString() == "Sam Travels · Driver" }) {
+                return nodes.firstOrNull(predicate)
+            }
+        }
+        return null
+    }
+
     protected fun describeNodes(ui: UiAutomation): String = allNodes(ui).map { node ->
         val bounds = android.graphics.Rect()
         node.getBoundsInScreen(bounds)
