@@ -52,7 +52,10 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
           .find(node => node.textContent.includes('Field to correct'));
         const select = label?.querySelector('select');
         if (!select) return false;
-        select.value = 'totalCostPaise';
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        if (!setter) return false;
+        setter.call(select, 'totalCostPaise');
+        select.dispatchEvent(new Event('input', { bubbles: true }));
         select.dispatchEvent(new Event('change', { bubbles: true }));
         return true;
       })()
