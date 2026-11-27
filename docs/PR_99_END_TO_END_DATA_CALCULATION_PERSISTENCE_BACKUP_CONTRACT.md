@@ -799,3 +799,28 @@ This checkpoint supersedes the current-execution statements in §1C only where u
 Manual gates remain physical OEM/device certification and owner visual/usability approval; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; and repository branch-protection/ruleset verification. These are not CI passes.
 
 **Disposition:** whole-contract status remains **INCOMPLETE**. PR #99 remains open, draft and unmerged.
+
+
+## 1E. 2026-11-27 exact-head CI and whole-contract reconciliation
+
+This checkpoint supersedes prior pending/failure statements in §§1B–1D only where the same requirement is explicitly updated below. The eight normative §1A conditions remain authoritative.
+
+Run [#46036999823](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46036999823) passed on code SHA `deb211117283ac10cdfbc11d3486181404909ea3`. Required jobs: Architecture, Web, Android, Cross-platform encrypted backup restore, Integrated regression — all **success**. Production geocoder verification was **skipped** with `REQUIRE_PRODUCTION_GEOCODER=false` and is optional, not a required PR gate. Android instrumentation completed 178/178 with zero skipped; Web regression completed 825 passed and one skipped Android-produced-package test, which was separately executed and passed (1/1) in the required cross-platform job.
+
+| §1A condition | Current disposition at deb211117283ac10cdfbc11d3486181404909ea3 |
+|---|---|
+| 1. Normative mapping and supported entry-path audit | **AUTOMATED ENTRY-PATH EVIDENCE PASSED** — rendered PWA and Android entry-path acceptance completed in the Web/Android jobs; detailed mapping remains in the evidence matrix and owning contracts. Physical-device/OEM checks remain separate manual gates. |
+| 2. Independent Browser/Dexie and Android/Room authority | **SCOPED CORE PROVEN ON THIS SHA** — Web regression/rendered PWA and Android Room/WebView instrumentation passed; Android completed 178/178 instrumentation tests with zero skipped. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **BOTH DIRECTIONS PASSED ON THIS SHA** — TypeScript-produced populated package restored through production Room lifecycle; Android-produced package restored through production Dexie (cross-platform job 1/1 passed); restored records/calculations/provenance were checked. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction is owner-approved; full and production npm audit artifacts report zero vulnerabilities; record-count and UTF-8/envelope preflight enforcement and boundary tests passed. Representative peak-memory/time acceptance on supported browser and Android devices remains open; no lower device cap is assumed. |
+| 5. Negative, boundary, interruption and recovery proof | **STAGE 5 ACCEPTED; CURRENT BOUNDARY/RESTORE REGRESSION PASSED** — count/size boundary tests, pre-mutation rejection, encrypted restore and interrupted-restore rollback assertions passed in the required Web/Android/cross-platform gates. No assertion was weakened. |
+| 6. Evidence matrix, gap register, contract and PR description agree | **RECONCILIATION IN PROGRESS** — this checkpoint is being applied to all four project records and the PR description; verify after the final documentation update. |
+| 7. Required CI on exact final PR head | **PASSED ON CODE SHA; FINAL DOCUMENTATION-HEAD RERUN REQUIRED** — all five required jobs passed in run #46036999823. Rerun after the five-record reconciliation commits so the final SHA itself is green. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED** — no merge or close is authorized. |
+
+Correction/recovery and backup assertions remain fail-closed: restored source IDs/revisions, correction-chain heads, allocation source provenance, idempotent correction retries, exactly-once Work outbox replay, inclusive/first-over record and encrypted-size boundaries, pre-mutation rejection, both encrypted restore directions, and interrupted-restore rollback. The CI logs show the required jobs completed successfully; a test skipped in the general Web suite is not counted when it is separately executed in the mandatory cross-platform job.
+
+
+**Separate manual/administrative gates (not CI passes):** physical OEM/device certification and owner visual/usability approval; full OS reboot persistence where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; and repository branch-protection/ruleset verification. The remaining critical automated evidence gap is representative peak-memory/time measurement for the plaintext preflight and large-snapshot path on supported browser and Android devices. Do not choose a smaller mobile cap without a documented supported-device target and measurements.
+
+**Whole-contract disposition: INCOMPLETE. PR #99 remains OPEN · DRAFT · UNMERGED.**
