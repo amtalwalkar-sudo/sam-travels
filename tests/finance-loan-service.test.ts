@@ -129,11 +129,6 @@ describe("FinanceLoanService", () => {
     expect(await scoped.list()).toEqual([]);
   });
 
-    await expect(scoped.getForReadOnly(created.id)).resolves.toBeUndefined();
-    await expect(scoped.get(created.id)).rejects.toThrow("finance_loan_operating_vehicle_mismatch");
-    expect(await scoped.list()).toEqual([]);
-  });
-
   it("retains historical loan dates independent of business start date", async () => {
     const { service } = setup();
     const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
