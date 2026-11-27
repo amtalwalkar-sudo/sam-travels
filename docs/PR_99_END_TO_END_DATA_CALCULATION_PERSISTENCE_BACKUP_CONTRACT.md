@@ -776,3 +776,26 @@ Backup boundaries remain fail-closed: Browser and Android record-count limits ar
 **External/manual and repository-administration gates (not CI passes):** physical OEM/device certification and owner usability/visual approval; full OS reboot persistence where emulator coverage is not deterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; and repository branch-protection/ruleset verification.
 
 **Disposition:** whole-contract status remains **INCOMPLETE**. PR #99 remains open, draft and unmerged.
+
+## 1D. Android acceptance failure and retry checkpoint — 2026-11-27
+This checkpoint supersedes the current-execution statements in §1C only where updated below.
+
+- Run [#46018147927](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46018147927) on e8e3170ef033c416ac1541d798251f9c5a08ec8c completed **FAILURE**. Architecture and Web passed. Android failed at ComplianceCorrectionCapacitorAcceptanceTest line 128 while dispatching the rendered correction-button click. The preceding assertion had found the control rendered; the one-shot evaluateJavascript read/click path did not return true. This is an Android UI-acceptance automation failure, not evidence of a Room persistence exception.
+- The Android gate stopped at this first isolated Compliance correction test. It therefore did not execute the later Maintenance correction, Settings-return, Performance shared-fixture parity, active-driving-day parity, restored-Room WebView Performance or populated Room lifecycle phases. Cross-platform encrypted backup restore was **SKIPPED** because Android failed; Integrated regression failed because Android was failure and cross-platform restore was skipped. Neither skipped nor downstream-blocked checks count as passes.
+- Fix pushed at 9a191aa123aedb8593129543a5a5ab97f850295b: the test waits for an enabled rendered correction control, dispatches its click at most once, and independently waits for the correction editor to appear. No business correction, provenance, retry or backup assertion was removed or relaxed.
+- The new code-head workflow is pending. The four project records now classify this Android acceptance as **FAILURE ON e8 / FIX PUSHED / RETEST PENDING**. The next run must reach and pass all later Android phases; the cross-platform restore job must execute and pass rather than skip.
+
+| §1A condition | Current status |
+|---|---|
+| 1. Entry-path mapping and audit | **INCOMPLETE** — rendered Compliance correction interaction failed on e8; retry is pending. |
+| 2. Independent Dexie/Room authority | **SCOPED CORE PROVEN; CURRENT STAGE 6 ANDROID VALIDATION PENDING**. |
+| 3. Populated cross-runtime parity | **SCOPED CORE PROVEN; CURRENT-HEAD AND BOTH-DIRECTION ENCRYPTED RESTORE PENDING**. |
+| 4. Critical gaps | **PARTIAL** — Trip Financial correction owner-approved; dependency artifact on e8 reports zero advisories; count/size enforcement implemented; representative peak-memory/time evidence remains open. |
+| 5. Negative/boundary/recovery | **STAGE 5 ACCEPTED; NEW BOUNDARY ASSERTIONS AWAIT RETEST**. |
+| 6. Evidence reconciliation | **RECONCILED** across the four project records and PR description at this checkpoint. |
+| 7. Exact-final-head CI | **PENDING** — all five required jobs must pass on the same final SHA. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+Manual gates remain physical OEM/device certification and owner visual/usability approval; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; and repository branch-protection/ruleset verification. These are not CI passes.
+
+**Disposition:** whole-contract status remains **INCOMPLETE**. PR #99 remains open, draft and unmerged.
