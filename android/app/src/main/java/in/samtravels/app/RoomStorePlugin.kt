@@ -153,18 +153,11 @@ class RoomStorePlugin : Plugin() {
 
     // Reads preserve historical rows; application services validate typed records before use.
     private fun decodeStoredRow(row: StoredRecord): JSONObject {
-        // Room rows created by the original browser-to-native bridge can contain
-        // either an object envelope or a JSON-encoded envelope string. Decode
-        // the outer JSON value first, then unwrap the legacy string form once.
-        // Never use JSONObject(Object): it treats non-object values as beans.
-        val tokener = JSONTokener(row.json)
-        val decoded = tokener.nextValue()
-        val payload = when (decoded) {
-            is JSONObject -> decoded
-            is String -> JSONTokener(decoded).nextValue() as? JSONObject
-            else -> null
-        } ?: error("room_record_payload_not_object:" + row.id + ":"
-            + (decoded?.javaClass?.simpleName ?: "null"))
+        // Room's persisted contract is one JSON object envelope. Parse the
+        // column explicitly as JSON text and reject strings/other JSON values;
+        // JSONObject(Object) would invoke reflective bean conversion.
+        val payload = JSONTokener(row.json).nextValue() as? JSONObject
+            ?: error("room_record_payload_not_object:" + row.id)
         if (!payload.has("id")) payload.put("id", row.id)
         return payload
     }
