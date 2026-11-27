@@ -14,6 +14,8 @@ import java.time.Instant
 import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class MaintenanceCorrectionCapacitorAcceptanceTest {
+  private fun assertTrue(message: String, javascriptBoolean: String) = org.junit.Assert.assertTrue(message, javascriptBoolean == "true")
+
   @Test
   fun adminMaintenanceCorrectionUsesLiveCapacitorRepositoryAndPreservesOriginal() {
   val instrumentation = InstrumentationRegistry.getInstrumentation()
