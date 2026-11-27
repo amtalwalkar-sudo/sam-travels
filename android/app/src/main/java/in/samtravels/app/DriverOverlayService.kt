@@ -67,8 +67,17 @@ class DriverOverlayService:Service(){
    startForeground(notificationId,notification)
   }
  }
- private val db by lazy{DriverOverlayDatabaseFactory.open(applicationContext)}
- private val locationSource by lazy{DriverLocationSourceFactory.create(this)}
+ // Snapshot mutable test-factory overrides at Service creation. A retiring
+ // Service must never observe the next test's Room database or GPS fake later
+ // through a lazy read of process-global test state.
+ private var databaseNameForService:String?=null
+ private lateinit var locationSource:DriverLocationSource
+ private val db by lazy{DriverOverlayDatabaseFactory.open(applicationContext,databaseNameForService)}
+ override fun onCreate(){
+  super.onCreate()
+  databaseNameForService=DriverOverlayDatabaseFactory.databaseNameOverrideForTests
+  locationSource=DriverLocationSourceFactory.create(this)
+ }
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
