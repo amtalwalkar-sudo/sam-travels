@@ -153,7 +153,8 @@ export async function assertBrowserWorkDistanceThroughUi(page) {
     return row?.value ?? null;
   });
   if (state?.state !== "idle" || state?.revision !== 2) {
-    throw new Error("stage3_work_distance_not_confirmed_through_rendered_ui:" + JSON.stringify(state));
+    throw new Error("stage3_work_distance_not_confirmed_through_rendered_ui:" +
+      JSON.stringify({ statePresent: Boolean(state), revision: state?.revision ?? null }));
   }
   const gpsCalls = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
   if (gpsCalls < 2) throw new Error("stage3_work_shift_did_not_capture_event_scoped_gps:" + gpsCalls);
@@ -204,7 +205,7 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   const match = eligibleCosts.match(/₹([\d,]+\.\d{2})/);
   const paise = Math.round(Number((match?.[1] ?? "0").replaceAll(",", "")) * 100);
   if (paise < 172500) {
-    throw new Error("stage3_performance_does_not_include_corrected_fuel_interval_spend:" + eligibleCosts);
+    throw new Error("stage3_performance_does_not_include_corrected_fuel_interval_spend");
   }
   for (const purchase of purchases) {
     if (!golden.uiSourceIds.includes(purchase.id)) {
@@ -214,7 +215,7 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   // The opening full-tank checkpoint is a baseline, not consumed interval
   // spend. The partial refill and closing full checkpoint fund the rate.
   if (golden.calculationSnapshot.provenance.includes(purchases[0].id)) {
-    throw new Error("stage3_fuel_opening_baseline_must_not_be_interval_spend:" + purchases[0].id);
+    throw new Error("stage3_fuel_opening_baseline_must_not_be_interval_spend");
   }
   for (const purchase of purchases.slice(1)) {
     if (!golden.calculationSnapshot.provenance.includes(purchase.id)) {
