@@ -64,23 +64,6 @@ class DeviceReadinessWebViewAcceptanceTest {
             evaluate(view, "document.querySelector('.device-readiness-trigger')?.click()")
             assertTrue("Rendered readiness dialog must expose settings and a continue action",
                 evaluate(view, "!!document.querySelector('[role=dialog]') && !!document.querySelector('.device-readiness-footer button')") == "true")
-            evaluate(view, """
-                (() => {
-                  const plugin = window.Capacitor?.Plugins?.DeviceReadiness;
-                  if (!plugin) return false;
-                  window.__nativeResumeEvents = 0;
-                  window.__resumeListenerReady = false;
-                  plugin.addListener("appResume", () => {
-                    window.__nativeResumeEvents += 1;
-                  }).then(() => { window.__resumeListenerReady = true; });
-                  const openSetting = plugin.openSetting.bind(plugin);
-                  plugin.openSetting = options => openSetting(options).then(result => {
-                    window.__settingResult = result;
-                    return result;
-                  });
-                  return true;
-                })()
-            """.trimIndent())
             val listenerDeadline = System.currentTimeMillis() + 5_000
             while (System.currentTimeMillis() < listenerDeadline &&
                 evaluate(view, "window.__resumeListenerReady === true") != "true") Thread.sleep(50)
@@ -106,7 +89,7 @@ class DeviceReadinessWebViewAcceptanceTest {
             assertTrue("Returning from Settings must deliver the native resume event that refreshes readiness",
                 resumeEventsAfterReturn > resumeEventsBeforeSettings)
             assertTrue("Native Settings handoff must report success",
-                evaluate(view, "window.__settingResult?.opened === true") == "true")
+                evaluate(view, "Array.from(document.querySelectorAll('[role=alert]')).some(node => node.innerText.includes('Android Settings opened'))") == "true")
             evaluate(view, "document.querySelector('.device-readiness-footer button')?.click()")
             assertTrue("Continuing must close the prompt without blocking driver entry",
                 evaluate(view, "!document.querySelector('[role=dialog]') && !!document.querySelector('.driver-card')") == "true")
