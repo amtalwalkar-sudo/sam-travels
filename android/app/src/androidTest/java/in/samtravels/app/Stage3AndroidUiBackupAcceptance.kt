@@ -75,6 +75,38 @@ internal object Stage3AndroidUiBackupAcceptance {
         val fuelSources = (fuelRecordIds + listOfNotNull(fuelRecordId)).distinct()
         assertTrue("Performance provenance names a UI-created Fuel source " + fuelSources,
             fuelSources.any(calculationBeforeRestore::contains))
+
+        // Fuel location capture is deliberately asynchronous so an offline or
+        // slow GPS request never blocks purchase submission. Its durable
+        // Timeline evidence is nevertheless part of the backup contract. Wait
+        // for each capture record and for the capture outcome to leave "pending"
+        // before taking the point-in-time backup snapshot; otherwise a late
+        // callback can legitimately append a Room row during restore and make
+        // the live-database comparison race the snapshot boundary.
+        val expectedEnrichmentIds = fuelSources.map { "timeline-enrichment:fuel:" + it }
+        val enrichmentDeadline = android.os.SystemClock.uptimeMillis() + 30_000
+        var enrichmentRows = emptyMap<String, StoredRecord>()
+        while (android.os.SystemClock.uptimeMillis() < enrichmentDeadline) {
+            enrichmentRows = db.records().list()
+                .filter { it.id in expectedEnrichmentIds }
+                .associateBy { it.id }
+            val settled = expectedEnrichmentIds.all { id ->
+                val row = enrichmentRows[id] ?: return@all false
+                runCatching {
+                    val data = JSONObject(row.json).getJSONObject("data")
+                    data.has("captureStatus") && data.optString("status") != "pending"
+                }.getOrDefault(false)
+            }
+            if (settled) break
+            android.os.SystemClock.sleep(100)
+        }
+        assertEquals("Every UI-created Fuel purchase has a settled durable location-capture record before backup",
+            expectedEnrichmentIds.size, enrichmentRows.values.count { row ->
+                runCatching {
+                    val data = JSONObject(row.json).getJSONObject("data")
+                    data.has("captureStatus") && data.optString("status") != "pending"
+                }.getOrDefault(false)
+            })
         adminFeeRecordId?.let { id ->
             assertTrue("Performance provenance names the exact UI-created Admin expense record",
                 calculationBeforeRestore.contains(id))
