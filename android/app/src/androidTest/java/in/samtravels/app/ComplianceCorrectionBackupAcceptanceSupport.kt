@@ -45,7 +45,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     page: MainActivity,
     await: (MainActivity, String, Long) -> Boolean,
     read: (MainActivity, String) -> String,
-  ): String {
+  ): Boolean {
     val selected = read(page, """
       (() => {
         const label = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
@@ -60,10 +60,10 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         return true;
       })()
     """)
-    if (selected != "true") return "field_selection_failed"
+    if (selected != "true") throw AssertionError("Compliance correction input stage: field selection failed")
     if (!await(page,
         "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
-        10_000)) return "corrected_input_not_rendered"
+        10_000)) throw AssertionError("Compliance correction input stage: corrected input was not rendered")
     val fieldsEntered = read(page, """
       (() => {
         const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
@@ -80,7 +80,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         return true;
       })()
     """) == "true"
-    if (!fieldsEntered) return "input_controls_not_found"
+    if (!fieldsEntered) throw AssertionError("Compliance correction input stage: required controls were not found")
     val controlledStateCommitted = await(page, """
       (() => {
         const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
@@ -95,6 +95,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
           reason.value === 'Final premium verified against insurer receipt';
       })()
     """, 10_000)
-    return if (controlledStateCommitted) "ready" else "controlled_input_state_not_committed"
+    if (!controlledStateCommitted) throw AssertionError("Compliance correction input stage: controlled values and enabled submit state did not settle")
+    return true
   }
 }
