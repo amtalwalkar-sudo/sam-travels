@@ -23,7 +23,8 @@ internal object AdminTestUiControlSupport {
         // A label's textContent includes the selected <option> text. Matching
         // that combined string can accidentally target a different field (for
         // example, a historical inactive Driver option) when labels overlap.
-        // Match the label's own text nodes and, for selects, the exact option.
+        // Clone the label and strip controls: this preserves nested visible label text
+        // without allowing the selected option's text to contaminate field matching.
         val ready = """(() => {
             const labelText = n => {
                 const clone = n.cloneNode(true);
