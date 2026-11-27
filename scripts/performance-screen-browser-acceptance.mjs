@@ -76,8 +76,8 @@ try {
       row.data?.lifecycleState === "active");
     const drivers = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
       row.data?.lifecycleState === "active");
-    if (vehicles.length !== 1) throw new Error("initial_profile_active_vehicle_count_invalid:" + vehicles.length);
-    if (drivers.length !== 1) throw new Error("initial_profile_active_driver_count_invalid:" + drivers.length);
+    if (vehicles.length !== 1) throw new Error("initial_profile_active_vehicle_count_invalid");
+    if (drivers.length !== 1) throw new Error("initial_profile_active_driver_count_invalid");
     return {
       vehicleId: vehicles[0].id,
       registration: vehicles[0].data.registrationNumber,
