@@ -66,10 +66,10 @@ class DeviceReadinessWebViewAcceptanceTest {
                 evaluate(view, "!!document.querySelector('[role=dialog]') && !!document.querySelector('.device-readiness-footer button')") == "true")
             val listenerDeadline = System.currentTimeMillis() + 10_000
             while (System.currentTimeMillis() < listenerDeadline &&
-                evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeReady") != "\\\"true\\\"") Thread.sleep(100)
+                evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeReady === 'true'") != "true") Thread.sleep(100)
             assertTrue("Native resume observer must be registered before opening Settings",
-                evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeReady") == "\\\"true\\\"")
-            val resumeEventsBeforeSettings = evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeEvents || '0'").trim('"').toInt()
+                evaluate(view, "document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeReady === 'true'") == "true")
+            val resumeEventsBeforeSettings = evaluate(view, "Number(document.querySelector('.device-readiness-trigger')?.dataset.nativeResumeEvents || 0)").toInt()
             assertTrue("Location settings action must be rendered",
                 evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].some(n => n.innerText.includes('Precise location access'))") == "true")
             evaluate(view, "[...document.querySelectorAll('.device-readiness-item')].find(n => n.innerText.includes('Precise location access'))?.click()")
