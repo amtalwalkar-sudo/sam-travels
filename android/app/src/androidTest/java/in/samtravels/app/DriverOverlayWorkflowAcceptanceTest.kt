@@ -68,6 +68,9 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                 expectedFormLabel = null,
             ) { ui, db ->
                 val initialEventCount = DriverWorkflowStore.listEvents(db).size
+                assertEquals("Isolated overlay fixture starts without queued workflow intents", 0,
+                    DriverWorkflowStore.listIntents(db).size)
+                assertEquals("Overlay must not request GPS before an explicit action", 0, locationSource.requestCount)
                 val eventIds = mutableListOf<String>()
                 val fixTimes = mutableSetOf<String>()
                 val latitudes = mutableSetOf<Double>()
@@ -190,6 +193,8 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
                     val eventsBefore = DriverWorkflowStore.listEvents(db).size
                     val intentsBefore = DriverWorkflowStore.listIntents(db).size
+                    assertEquals("Isolated overlay fixture starts without queued workflow intents", 0, intentsBefore)
+                    assertEquals("Overlay must not request GPS before an explicit swipe", 0, locationSource.requestCount)
                     val removalsBefore = locationSource.removeCount
                     val slider = findNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
@@ -249,7 +254,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                             "activeListenerSetEmpty" to (locationSource.activeListenerCount() == 0),
                             "listenerReferenceCleared" to (locationSource.listener == null),
                             "requestCountAdvanced" to (locationSource.requestCount == 1),
-                        ).joinToString(" ") { "${it.first}=${it.second}" }
+                            "requestCountIsSingle" to (locationSource.requestCount == 1),
+                            "activeListenerCountIsSingle" to (locationSource.activeListenerCount() == 1),
+                        ).joinToString(" ") { "${it.first}=${it.second}" } +
+                            " requestCount=${locationSource.requestCount} activeListenerCount=${locationSource.activeListenerCount()}"
                         assertTrue("Completed GPS request must release its listener; $diagnostic", listenerReleased)
                     }
             }
