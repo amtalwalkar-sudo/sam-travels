@@ -124,6 +124,15 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     assertTrue("$eventType releases its GPS listener", waitUntil(5_000) {
                         locationSource.removeCount >= removalsBefore + 1 && locationSource.listener == null
                     })
+                    // Cancellation creates a durable fee obligation. Resolve it before
+                    // asserting that the next Work transition is available.
+                    if (eventType == "cancel_ride") {
+                        setText(ui, "Required cancellation fee in rupees", "0")
+                        clickText(ui, "SAVE CANCELLATION FEE")
+                        assertTrue("Cancellation fee obligation is resolved", waitUntil {
+                            DriverCancellationFeeStore.pendingObligation(db) == null
+                        })
+                    }
                 }
                 assertEquals("Every overlay-supported Work transition acquires GPS independently", 5, locationSource.requestCount)
                 assertTrue("Every completed acquisition releases its listener", locationSource.removeCount >= 5 && locationSource.listener == null)
