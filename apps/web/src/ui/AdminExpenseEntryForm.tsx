@@ -23,18 +23,27 @@ function ExpenseEntryForm({ definition, heading, description }: {
     const [drafts, operatingVehicle] = await Promise.all([
       services.formRuntime.listDrafts(definition as FormDefinition), services.operatingConfiguration.getVehicleForReadOnly(),
     ]);
-    const resumable = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    const expectedVehicleId = operatingVehicle.vehicleId;
+    // A draft belongs to the operating context in which it was created. A
+    // vehicle switch must not make an older, unrelated draft block the form.
+    // Pending submissions are immutable: only replay one whose frozen payload
+    // already targets the currently configured vehicle.
+    const resumable = [...drafts]
+      .filter(draft => {
+        if (!definition.fields.some(item => item.id === "vehicleId")) return true;
+        if (draft.status === "pending") {
+          return draft.submission?.values.vehicleId === expectedVehicleId;
+        }
+        return draft.values.vehicleId === undefined || draft.values.vehicleId === expectedVehicleId;
+      })
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     let next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
     for (const field of ["vehicleId"] as const) {
       if (!definition.fields.some(item => item.id === field)) continue;
-      const expected = operatingVehicle.vehicleId;
-      if (next.values[field] !== undefined && next.values[field] !== expected) {
-        throw new Error("business_expense_draft_operating_context_mismatch");
-      }
       if (next.status !== "pending" && next.values[field] === undefined) {
-        next = await services.formRuntime.update(definition as FormDefinition, next, field, expected);
+        next = await services.formRuntime.update(definition as FormDefinition, next, field, expectedVehicleId);
       }
-      if (next.status === "pending" && next.values[field] !== expected) {
+      if (next.status === "pending" && next.submission?.values[field] !== expectedVehicleId) {
         throw new Error("business_expense_pending_operating_context_mismatch");
       }
     }
