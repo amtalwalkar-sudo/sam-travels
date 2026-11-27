@@ -92,14 +92,34 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         swipeAt(ui, bounds.left + 6, bounds.centerY(), bounds.right - 6, bounds.centerY())
                     }
 
-                    assertTrue("Each $eventType transition starts a fresh native GPS request", waitUntil(10_000) {
+                    val gpsRequestStarted = waitUntil(10_000) {
                         locationSource.requestCount == requestsBefore + 1 &&
                             locationSource.listener != null &&
                             DriverWorkflowStore.listIntents(db).any { intent ->
                                 intent.optJSONObject("command")?.optString("eventType") == eventType &&
                                     intent.optString("status") == "pending_location"
                             }
-                    })
+                    }
+                    if (!gpsRequestStarted) {
+                        // Failure-only diagnostics deliberately expose only stage booleans,
+                        // never event IDs, fixture values, coordinates, or persisted payloads.
+                        val eventIntents = DriverWorkflowStore.listIntents(db).filter { intent ->
+                            intent.optJSONObject("command")?.optString("eventType") == eventType
+                        }
+                        val diagnostic = listOf(
+                            "intentQueued" to eventIntents.isNotEmpty(),
+                            "intentPendingLocation" to eventIntents.any { it.optString("status") == "pending_location" },
+                            "intentNeedsAttention" to eventIntents.any { it.optString("status") == "needs_attention" },
+                            "gpsRequestCountAdvanced" to (locationSource.requestCount == requestsBefore + 1),
+                            "gpsListenerActive" to (locationSource.listener != null),
+                            "gpsPermissionGranted" to (ui.serviceInfo != null &&
+                                InstrumentationRegistry.getInstrumentation().targetContext.checkSelfPermission(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED),
+                            "providerAvailable" to (runCatching { locationSource.bestProvider() }.getOrNull() != null),
+                        ).joinToString(" ") { "${it.first}=${it.second}" }
+                        assertTrue("Each $eventType transition starts a fresh native GPS request; $diagnostic", gpsRequestStarted)
+                    }
                     val intent = DriverWorkflowStore.listIntents(db).last { row ->
                         row.optJSONObject("command")?.optString("eventType") == eventType &&
                             row.optString("status") == "pending_location"
