@@ -128,7 +128,23 @@ export class PerformanceCalculationServiceV1 {
     const repositorySnapshotAfter = await this.snapshotBoundary?.capture();
     if (repositorySnapshotBefore && repositorySnapshotAfter &&
         repositorySnapshotBefore.identity !== repositorySnapshotAfter.identity) {
-      throw new Error("performance_global_source_snapshot_changed_during_calculation");
+      // Preserve the strict fence while making the exact concurrent mutations
+      // observable in CI. IDs are diagnostic only; no changed record is ignored.
+      const beforeRows = new Map<string, string>(
+        (JSON.parse(repositorySnapshotBefore.identity) as Array<[string, number, string, string | null]>)
+          .map(row => [row[0], JSON.stringify(row.slice(1))]),
+      );
+      const afterRows = new Map<string, string>(
+        (JSON.parse(repositorySnapshotAfter.identity) as Array<[string, number, string, string | null]>)
+          .map(row => [row[0], JSON.stringify(row.slice(1))]),
+      );
+      const changedIds = [...new Set([...beforeRows.keys(), ...afterRows.keys()])]
+        .filter(id => beforeRows.get(id) !== afterRows.get(id))
+        .sort()
+        .slice(0, 20);
+      throw new Error(
+        "performance_global_source_snapshot_changed_during_calculation:" + changedIds.join(","),
+      );
     }
 
     if (emiCosts.some(row => row.kind !== "emi")) throw new Error("performance_emi_read_model_kind_invalid");
