@@ -915,3 +915,12 @@ This checkpoint supersedes earlier status summaries only where the same PR #99 r
 External/manual or repository-administration gates remain physical OEM/device certification and owner visual/usability approval; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; and branch-protection/ruleset verification. These are not CI passes.
 
 **Disposition:** whole-contract acceptance remains **INCOMPLETE**. PR #99 remains open, draft and unmerged.
+
+## 9.57 — PR #99 Android correction interaction failure and retest — 2026-11-27
+Run #46018147927 on e8e3170ef033c416ac1541d798251f9c5a08ec8c failed Android at ComplianceCorrectionCapacitorAcceptanceTest line 128. The rendered correction button was observed, but the one-shot WebView click evaluation returned false. The failure is not evidence of a Room exception or a business correction persistence failure. The Android step stopped before the later Maintenance, Settings-return, Performance parity and populated Room lifecycle phases. Cross-platform encrypted restore was skipped and Integrated regression failed because Android did not pass.
+
+Fix commit 9a191aa123aedb8593129543a5a5ab97f850295b now polls for an enabled rendered button, dispatches the click once, and independently waits for the correction editor. It does not relax the editor-open assertion or any correction, source-revision, chain-head or backup assertion. Retest pending on push run #46020055556; a PR workflow and final exact-head five-job run are still required.
+
+Correction/recovery and backup assertions remain mandatory as mapped in matrix §§9.57–9.58. Both encrypted restore directions must execute and pass; a skipped cross-platform restore job is not evidence. External/manual gates remain physical OEM/device certification, full OS reboot where nondeterministic, live Dropbox account operations, owner visual/usability approval and branch-protection/ruleset verification.
+
+§1A status: 1 INCOMPLETE; 2 SCOPED CORE PROVEN / current Android pending; 3 SCOPED CORE PROVEN / both-direction restore pending; 4 PARTIAL (Trip Financial approved, dependency audit zero on e8, count/size enforcement implemented, representative backup performance evidence open); 5 Stage 5 accepted / new boundaries pending retest; 6 reconciled; 7 pending; 8 verified open/draft/unmerged. Whole-contract acceptance remains INCOMPLETE.
