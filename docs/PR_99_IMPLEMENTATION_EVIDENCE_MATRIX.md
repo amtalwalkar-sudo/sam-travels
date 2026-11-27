@@ -779,3 +779,52 @@ This checkpoint supersedes only the corresponding pending implementation descrip
 | 8. PR open, draft and unmerged | **VERIFIED** — PR #99 remains open, draft and unmerged; no merge is authorized. |
 
 **Disposition:** Stage 6 remains **ACTIVE / NOT ACCEPTED** and the whole contract remains **INCOMPLETE**. Physical OEM/device certification, full OS reboot where nondeterministic, live Dropbox account tests, owner visual approval and branch-protection verification remain separate manual/administrative gates.
+
+## 9.57 — Correction/recovery integrity, backup boundaries and eight-condition reconciliation — 2026-11-27
+This checkpoint records exact source/test mapping and current execution status. Test existence is not passing evidence. It supersedes conflicting status summaries in earlier checkpoints only for the same requirements.
+
+### Correction and recovery integrity
+
+| Contract property | Exact implementation / assertion | Status |
+|---|---|---|
+| Stable restored source IDs and revisions | tests/helpers/semantic-fixture-calculation-parity.ts assembles provenance from authoritative records and rejects missing/mismatched source revisions; tests/helpers/assert-restored-domain-calculation-parity.ts checks restored correction targets and Finance/Maintenance/Compliance source revisions. | **ASSERTIONS PRESENT; CURRENT-HEAD CI PENDING** |
+| Correction-chain heads and immutable originals | assert-restored-domain-calculation-parity.ts reconstructs correction projections from restored rows and asserts chain revision/head correction ID for Maintenance and Compliance; Fuel correction chain and interval/rate projection are asserted. tests/historical-correction.test.ts proves append-only correction and idempotent replay. | **ASSERTIONS PRESENT; CURRENT-HEAD CI PENDING** |
+| Maintenance allocation provenance | Restored accruals retain dailyBusinessKmRecordId and dailyBusinessKmRevision; helper reads that exact restored row, checks revision equality, allocated business km and zero unallocated km. | **ASSERTIONS PRESENT; CURRENT-HEAD CI PENDING** |
+| Performance allocation provenance | semantic-fixture-calculation-parity.ts verifies each provenance sourceId@revision resolves in the canonical source graph; corrected Compliance references flow through allocation report and Performance recovery rows. | **ASSERTIONS PRESENT; CURRENT-HEAD CI PENDING** |
+| Correction retry idempotency | tests/historical-correction.test.ts — “appends a correction without mutating the original and replays idempotently”; tests/business-expense-correction-retry.test.ts preserves original target/chain revisions across ambiguous UI retry. | **ASSERTIONS PRESENT; CURRENT-HEAD CI PENDING** |
+| Work retry/replay after encrypted restore | tests/stage5-work-outbox-encrypted-restore.test.ts and Android NativeBackupWorkRestoreReplayTest.pendingWorkIntentSurvivesEncryptedRestoreAndCreatesOneEventAndOutboxEffect assert one event/outbox effect after replay and service/process recreation. | **STAGE 5 ACCEPTED; CURRENT-HEAD CI PENDING** |
+| Interrupted restore rollback/recovery | Browser tests/backup-restore-failure-recovery.test.ts; Android NativeEncryptedRestoreInterruptionTestSupport.assertEncryptedRoomRestoreRollbackAfterInterruption, invoked by SharedSevenDomainBackupLifecycleTest, verify pre-restore baseline after injected failure. | **STAGE 5 ACCEPTED; CURRENT-HEAD CI PENDING** |
+
+### Backup boundary and encrypted portability evidence
+
+| Requirement | Browser/Dexie | Android/Room | Current disposition |
+|---|---|---|---|
+| Record count inclusive / first-over | tests/backup-limits.test.ts, tests/backup-crypto.test.ts | BackupPackageLimitsTest, NativeBackupRecordLimitAcceptanceTest, NativeBackupV2PackageTest | **IMPLEMENTED; CURRENT-HEAD CI PENDING** |
+| Pre-mutation restore rejection | backup-limits.test.ts asserts first-over restore rejection before mutation | NativeBackupRecordLimitAcceptanceTest.productionRestoreRejectsRawRecordCountBeforeValidationOrCheckpoint | **IMPLEMENTED; CURRENT-HEAD CI PENDING** |
+| Exact UTF-8 plaintext size and encrypted-envelope overhead | tests/backup-limits.test.ts, tests/backup-crypto.test.ts cover multibyte UTF-8 and inclusive/first-over encrypted byte limits | BackupPackageLimitsTest.utf8PreflightCountsMultibyteTextWithoutEncodingAllocation and plaintextPreflightAccountsForGcmTagBase64AndEnvelopeReserve | **IMPLEMENTED; CURRENT-HEAD CI PENDING; representative peak-memory/time evidence OPEN** |
+| TypeScript encrypted package → Room | Android SharedSevenDomainBackupLifecycleTest restores TypeScript-produced populated package, reopens Room, recomputes and compares provenance | Same | **REQUIRED CURRENT-HEAD ANDROID RESULT PENDING** |
+| Android encrypted package → Dexie | tests/android-produced-backup-restore.test.ts authenticates/restores/reopens/re-exports Android-produced populated package | Android publishes populated package artifact from lifecycle gate | **REQUIRED CROSS-PLATFORM JOB RESULT PENDING; SKIP IS NOT PASS** |
+| Interrupted encrypted restore | Browser rollback test above | Android injected post-replacement failure/rollback support above | **ASSERTIONS PRESENT; CURRENT-HEAD CI PENDING** |
+
+### Exact-head run and dependency audit
+
+- PR workflow [#46018147927](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46018147927), head e8e3170ef033c416ac1541d798251f9c5a08ec8c: Architecture **passed**, Web **passed**, Android **in progress** at checkpoint. Cross-platform encrypted restore and Integrated regression have not yet reported final outcomes.
+- Artifact dependency-advisory-reports from that run was inspected: npm-audit-full.json and npm-audit-production.json each contain zero vulnerabilities (0 moderate/high/critical). Dependency advisory re-audit is **CLOSED for this SHA**.
+- Performance snapshot fence excludes only the confirmed Room recovery checkpoint/journal namespaces (__sam_travels_recovery_checkpoint__:, __sam_travels_recovery_journal__:) and calculation-owned allocation provenance rows. Regression test “ignores restore checkpoint and journal churn but still fences business-record revisions” asserts recovery metadata changes do not invalidate a stable business snapshot while a business-record revision does. The business-record fence is not relaxed.
+
+### §1A eight-condition status
+
+| Condition | Reconciled status |
+|---|---|
+| 1. Entry-path mapping and UI/action-to-command audit | **INCOMPLETE** — mapped implementation and rendered tests exist; current Android acceptance must pass and failures must be fixed. |
+| 2. Independent Dexie/Room authority and workflow requirements | **SCOPED CORE PROVEN; CURRENT STAGE 6 ANDROID VALIDATION PENDING**. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **SCOPED CORE PROVEN; CURRENT-HEAD CROSS-PLATFORM REGRESSION PENDING**. Both encrypted directions are mandatory. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction approved; dependency advisory audit is zero on this SHA; backup count/size enforcement implemented; representative peak-memory/time evidence remains open. |
+| 5. Negative/boundary/interruption/recovery proof | **STAGE 5 ACCEPTED; NEW BACKUP BOUNDARY EXECUTION PENDING**. |
+| 6. Four project records and PR description agree | **RECONCILED BY THIS CHECKPOINT**; recheck after final docs commit. |
+| 7. Required five-job CI on exact final SHA | **PENDING** — Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression must all pass on one final SHA. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+Manual gates, not CI passes: physical OEM/device certification and owner visual/usability approval; full OS reboot where emulator coverage is not deterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; repository branch-protection/ruleset verification.
+
+**Whole-contract status: INCOMPLETE.**
