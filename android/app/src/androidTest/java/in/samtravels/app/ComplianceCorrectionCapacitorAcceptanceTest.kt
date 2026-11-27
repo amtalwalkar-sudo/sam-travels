@@ -123,9 +123,21 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertTrue("Compliance overview", awaitMaintenanceJavascript(page, "document.querySelector('.compliance-fleet-overview') !== null", 15_000))
       assertTrue("Compliance record", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.compliance-fleet-overview .admin-capability-record')).some(node => node.textContent.includes('Acceptance insurance'))", 10_000))
-      assertTrue("Correction editor", awaitMaintenanceJavascript(page, """
-        (() => { const button = Array.from(document.querySelectorAll('.compliance-correction > button')).find(node => node.textContent.includes('Correct details / history')); if (!button) return false; button.click(); return document.querySelector('.compliance-correction-editor') !== null; })()
-      """, 10_000))
+      assertTrue("Correction button rendered", awaitMaintenanceJavascript(page,
+        "Array.from(document.querySelectorAll('.compliance-correction > button')).some(node => node.textContent.includes('Correct details / history'))",
+        10_000))
+      assertTrue("Correction button clicked", readMaintenanceWebViewText(page, """
+        (() => {
+          const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+            .find(node => node.textContent.includes('Correct details / history'));
+          if (!button) return false;
+          button.click();
+          return true;
+        })()
+      """))
+      assertTrue("Correction editor", awaitMaintenanceJavascript(page,
+        "document.querySelector('.compliance-correction-editor') !== null",
+        10_000))
       assertTrue("Correction input", readMaintenanceWebViewText(page, """
         (() => { const selectLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label')).find(node => node.textContent.includes('Field to correct')); const select = selectLabel?.querySelector('select'); if (!select) return false; select.value = 'totalCostPaise'; select.dispatchEvent(new Event('change', { bubbles: true })); const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label')).find(node => node.textContent.includes('Corrected total cost')); const amount = amountLabel?.querySelector('input'); const reasonLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label')).find(node => node.textContent.includes('Reason for correction')); const reason = reasonLabel?.querySelector('textarea'); if (!amount || !reason) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(amount, '730.00'); amount.dispatchEvent(new Event('input', { bubbles: true })); const textSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; textSetter.call(reason, 'Final premium verified against insurer receipt'); reason.dispatchEvent(new Event('input', { bubbles: true })); return true; })()
       """))
