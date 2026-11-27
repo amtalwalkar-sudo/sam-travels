@@ -94,7 +94,7 @@ internal object Stage3AndroidUiBackupAcceptance {
                 val row = enrichmentRows[id] ?: return@all false
                 runCatching {
                     val data = JSONObject(row.json).getJSONObject("data")
-                    data.has("captureStatus") && data.optString("status") != "pending"
+                    data.has("captureStatus") && data.optString("captureStatus") != "pending"
                 }.getOrDefault(false)
             }
             if (settled) break
@@ -104,7 +104,7 @@ internal object Stage3AndroidUiBackupAcceptance {
             expectedEnrichmentIds.size, enrichmentRows.values.count { row ->
                 runCatching {
                     val data = JSONObject(row.json).getJSONObject("data")
-                    data.has("captureStatus") && data.optString("status") != "pending"
+                    data.has("captureStatus") && data.optString("captureStatus") != "pending"
                 }.getOrDefault(false)
             })
         adminFeeRecordId?.let { id ->
