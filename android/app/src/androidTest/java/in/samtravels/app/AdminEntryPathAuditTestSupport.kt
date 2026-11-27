@@ -25,10 +25,8 @@ internal object AdminEntryPathAuditTestSupport {
         val l = label.replace("'", "\\'")
         val v = value.replace("'", "\\'")
         val ready = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$h');const label=[...p?.querySelectorAll('label')??[]].find(n=>n.textContent.trim().startsWith('$l'));const control=label?.querySelector('input,select,textarea');return !!control&&!control.disabled})()"""
-        val diagnostic = support.javascriptValue(activity,
-            """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$h');return JSON.stringify({panel:p?.innerText??null,body:document.body.innerText.slice(0,3000)})})()""")
-        assertTrue("Missing field $label in $heading; rendered state=$diagnostic",
-            support.await(activity, ready, 15000))
+        val page = support.javascriptValue(activity, "document.body.innerText.slice(0,1200)")
+        assertTrue("Missing field $label in $heading; page=$page", support.await(activity, ready, 15000))
         val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$h');const l=[...p.querySelectorAll('label')].find(n=>n.textContent.trim().startsWith('$l'));const c=l?.querySelector('input,select,textarea');if(!c)return false;const q=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(q,'value').set.call(c,'$v');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
         check(support.javascriptValue(activity, script) == "true") { "Could not set $label in $heading" }
     }
