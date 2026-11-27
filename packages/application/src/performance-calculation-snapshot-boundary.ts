@@ -30,6 +30,10 @@ export class PerformanceCalculationSnapshotBoundaryV1 {
       // calculations over an otherwise identical business graph.
       .filter(row =>
         !row.id.startsWith("reporting:business-start-date-cost-allocation:provenance:") &&
+        // Reverse-geocoding metadata is a non-financial sidecar. Its async GPS
+        // capture/provider status must not invalidate a calculation over the
+        // unchanged purchase, allocation and correction source records.
+        !row.id.startsWith("timeline-enrichment:") &&
         !row.id.startsWith("__sam_travels_recovery_checkpoint__:") &&
         !row.id.startsWith("__sam_travels_recovery_journal__:"))
       .map((row: RecordEnvelope<unknown>) => [
