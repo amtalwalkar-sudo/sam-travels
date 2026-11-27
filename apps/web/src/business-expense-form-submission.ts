@@ -124,9 +124,14 @@ export function createBusinessExpenseFormSubmissionHandler(
     });
     sourceCommitted = true;
     if (captureOutcome && locationEnrichment) {
+      // The purchase is already durable. Persist a capture placeholder before
+      // returning to the UI so a WebView/process restart cannot lose an
+      // outstanding geolocation callback.
+      const eventId = "fuel:" + created.id;
+      await locationEnrichment.beginFuelLocationCapture(eventId);
       void captureOutcome
         .then(({ outcome, captureTiming }) => locationEnrichment.recordFuelLocationCapture({
-          eventId: "fuel:" + created.id, outcome, captureTiming,
+          eventId, outcome, captureTiming,
         }))
         .then(() => {
           if (typeof window !== "undefined") {
