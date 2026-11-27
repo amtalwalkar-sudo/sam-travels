@@ -45,7 +45,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     page: MainActivity,
     await: (MainActivity, String, Long) -> Boolean,
     read: (MainActivity, String) -> String,
-  ): Boolean {
+  ): String {
     val selected = read(page, """
       (() => {
         const label = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
@@ -60,11 +60,11 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         return true;
       })()
     """)
-    if (selected != "true") return false
+    if (selected != "true") return "field_selection_failed"
     if (!await(page,
         "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
-        10_000)) return false
-    return read(page, """
+        10_000)) return "corrected_input_not_rendered"
+    val fieldsEntered = read(page, """
       (() => {
         const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
           .find(node => node.textContent.includes('Corrected total cost'));
@@ -80,5 +80,21 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         return true;
       })()
     """) == "true"
+    if (!fieldsEntered) return "input_controls_not_found"
+    val controlledStateCommitted = await(page, """
+      (() => {
+        const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
+          .find(node => node.textContent.includes('Corrected total cost'));
+        const reasonLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
+          .find(node => node.textContent.includes('Reason for correction'));
+        const amount = amountLabel?.querySelector('input');
+        const reason = reasonLabel?.querySelector('textarea');
+        const submit = document.querySelector('.compliance-correction-editor button.admin-primary');
+        return !!amount && !!reason && !!submit && !submit.disabled &&
+          amount.value === '730.00' &&
+          reason.value === 'Final premium verified against insurer receipt';
+      })()
+    """, 10_000)
+    return if (controlledStateCommitted) "ready" else "controlled_input_state_not_committed"
   }
 }
