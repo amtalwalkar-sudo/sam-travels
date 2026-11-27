@@ -86,10 +86,10 @@ export async function assertBrowserStage3GoldenJourney(page) {
     if (JSON.stringify(before) !== JSON.stringify(after)) {
       const afterById = new Map(after.map(row => [row.id, row]));
       const mismatches = before.filter(row => JSON.stringify(row) !== JSON.stringify(afterById.get(row.id)))
-        .slice(0, 5).map(row => ({ before: row, after: afterById.get(row.id) ?? null }));
-      const missing = after.filter(row => !before.some(source => source.id === row.id)).map(row => row.id).slice(0, 5);
+        .length;
+      const missing = after.filter(row => !before.some(source => source.id === row.id)).length;
       throw new Error("stage3_golden_journey_record_identity_revision_or_payload_changed_after_restore:" +
-        JSON.stringify({ mismatches, missing }));
+        JSON.stringify({ mismatchCount: mismatches.length, missingCount: missing.length }));
     }
     if (!uiSourceIds.every(id => after.some(row => row.id === id))) {
       throw new Error("stage3_golden_journey_ui_record_missing_after_restore");
@@ -108,15 +108,23 @@ export async function assertBrowserStage3GoldenJourney(page) {
   }, undefined, { timeout: 30000 });
   const calculationAfterRestore = await captureCalculation();
   if (JSON.stringify(calculationBeforeRestore) !== JSON.stringify(calculationAfterRestore)) {
+    const changedSections = ["dashboard", "provenance"].filter(key =>
+      calculationBeforeRestore[key] !== calculationAfterRestore[key]);
     throw new Error("stage3_golden_journey_calculation_output_or_provenance_changed_after_restore:" +
-      JSON.stringify({ before: calculationBeforeRestore, after: calculationAfterRestore }));
+      changedSections.join(","));
   }
   const evidence = {
     ...goldenJourney, calculationOutputAndProvenanceStable: true,
     calculationSnapshot: calculationBeforeRestore,
     calculationSourceRecords: goldenJourney.uiSourceIds,
   };
-  console.log("Stage 3 same-record golden journey passed:", JSON.stringify(evidence));
+  console.log("Stage 3 same-record golden journey passed:", JSON.stringify({
+    sourceRecordCount: evidence.sourceRecordCount,
+    uiSourceCount: evidence.uiSourceCount,
+    restoredCount: evidence.restoredCount,
+    calculationOutputAndProvenanceStable: evidence.calculationOutputAndProvenanceStable,
+    calculationSourceRecordCount: evidence.calculationSourceRecords.length,
+  }));
   return evidence;
 }
 
@@ -200,7 +208,7 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   }
   for (const purchase of purchases) {
     if (!golden.uiSourceIds.includes(purchase.id)) {
-      throw new Error("stage3_backup_restore_lost_ui_fuel_source:" + purchase.id);
+      throw new Error("stage3_backup_restore_lost_ui_fuel_source_at_index:" + purchases.indexOf(purchase));
     }
   }
   // The opening full-tank checkpoint is a baseline, not consumed interval
@@ -210,11 +218,11 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   }
   for (const purchase of purchases.slice(1)) {
     if (!golden.calculationSnapshot.provenance.includes(purchase.id)) {
-      throw new Error("stage3_calculation_provenance_missing_fuel_interval_source:" + purchase.id);
+      throw new Error("stage3_calculation_provenance_missing_fuel_interval_source_at_index:" + purchases.indexOf(purchase));
     }
   }
   console.log("PWA Fuel → confirmed Work distance → Performance → encrypted restore passed:",
-    JSON.stringify({ purchaseIds: purchases.map(p => p.id), businessKilometres: 42, eligibleCostsPaise: paise }));
+    JSON.stringify({ purchaseCount: purchases.length, businessKilometres: 42, eligibleCostsVerified: true }));
   return golden;
 }
 
