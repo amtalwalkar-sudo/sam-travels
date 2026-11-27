@@ -38,6 +38,8 @@ class DriverOverlayService:Service(){
  }
  @Volatile private var intervalStartedAt:String?=null
  private var activeLocationEventId:String?=null
+ // Main-thread gate: one overlay transition may be queued, awaiting GPS, or committing at a time.
+ private var transitionInFlight=false
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -194,7 +196,10 @@ class DriverOverlayService:Service(){
   }
  }
  private fun runTransition(event:String){
+  if(Looper.myLooper()!=Looper.getMainLooper()){main.post{runTransition(event)};return}
+  if(transitionInFlight)return
   if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
+  transitionInFlight=true
   presentation.setSavingStatus()
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
@@ -205,7 +210,7 @@ class DriverOverlayService:Service(){
     .put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",snapshot.optString("state"))
     .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id).put("workflowVersion",2)
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
-  }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
+  }catch(e:Exception){main.post{transitionInFlight=false;refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }
  /**
   * All location-request state and LocationManager lifecycle operations are main-thread
@@ -280,7 +285,7 @@ class DriverOverlayService:Service(){
     startupRecoveryReady=false
     startupRecoveryFailed=true
    }
-   main.post{refresh("Action retained · "+effectiveReason)}
+   main.post{transitionInFlight=false;refresh("Action retained · "+effectiveReason)}
   }
  }
  private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){
@@ -291,7 +296,7 @@ class DriverOverlayService:Service(){
      .put("provider",location.provider?:"android")
     NativeStartupRecovery.ensure(db)
     DriverWorkflowStore.complete(db,id,gps)
-    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
+    main.post{transitionInFlight=false;refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
    }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
   }
  }
