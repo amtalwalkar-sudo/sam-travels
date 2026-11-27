@@ -50,6 +50,7 @@ async function bootstrap(): Promise<void> {
   const operatingConfiguration = new OperatingConfigurationServiceV1(repository);
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
   const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
+  await businessExpenseEnrichmentQueue.recoverInterruptedFuelLocationCaptures();
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   const currentAuthor = async () => {
     const actor = await getPersonIdentityService().currentActor();
