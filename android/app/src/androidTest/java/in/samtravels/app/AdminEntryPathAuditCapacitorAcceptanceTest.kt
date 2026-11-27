@@ -190,6 +190,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
       assertEquals("One Loan record", 1, loanRows.size)
       val loan = loanRows.single()
       val loanUuid = loan.id.removePrefix("feature:finance:loan:")
+      financeRecordIds.add(loan.id)
       val paymentLedgerId = "feature:finance:payments:" + loanUuid
       financeRecordIds.add(paymentLedgerId)
       val originalSchedule = JSONObject(loan.json).getJSONObject("data").getJSONArray("scheduleVersions").getJSONObject(0).getJSONObject("output")
