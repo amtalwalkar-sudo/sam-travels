@@ -19,6 +19,7 @@ describe("initial Admin profile import", () => {
         create: vi.fn(async (input: { data: { complianceName: string } }) => { created.push("compliance:" + input.data.complianceName); }),
       },
       financeLoans: {
+        hasRecord: vi.fn(async () => false),
         getForReadOnly: vi.fn(async () => undefined),
         create: vi.fn(async (input: { details: { lenderName: string; firstEmiDate: string } }) => { created.push("loan:" + input.details.lenderName + ":" + input.details.firstEmiDate); }),
       },
@@ -55,6 +56,7 @@ describe("initial Admin profile import", () => {
         create: vi.fn(async () => { created.push("compliance"); }),
       },
       financeLoans: {
+        hasRecord: vi.fn(async () => false),
         getForReadOnly: vi.fn(async () => undefined),
         create: vi.fn(async () => { created.push("loan"); }),
       },
@@ -78,7 +80,7 @@ describe("initial Admin profile import", () => {
       },
       drivers: { get: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
       compliance: { get: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
-      financeLoans: { getForReadOnly: vi.fn(async () => ({ revision: 2 })), create: vi.fn() },
+      financeLoans: { hasRecord: vi.fn(async () => true), getForReadOnly: vi.fn(async () => undefined), create: vi.fn() },
     };
 
     await seedInitialAdminProfile(services as never);
@@ -86,6 +88,8 @@ describe("initial Admin profile import", () => {
     expect(services.vehicles.create).not.toHaveBeenCalled();
     expect(services.drivers.create).not.toHaveBeenCalled();
     expect(services.compliance.create).not.toHaveBeenCalled();
+    expect(services.financeLoans.hasRecord).toHaveBeenCalled();
+    expect(services.financeLoans.getForReadOnly).not.toHaveBeenCalled();
     expect(services.financeLoans.create).not.toHaveBeenCalled();
   });
 });
