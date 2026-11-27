@@ -9,6 +9,8 @@ export function DeviceReadinessPrompt() {
   const [showRecommended, setShowRecommended] = useState(false);
   const [message, setMessage] = useState("");
   const [settingsOpened, setSettingsOpened] = useState(false);
+  const [nativeResumeEvents, setNativeResumeEvents] = useState(0);
+  const [nativeResumeReady, setNativeResumeReady] = useState(false);
   const [checking, setChecking] = useState(true);
   const dismissed = useRef(false);
   const autoOpened = useRef(false);
@@ -42,7 +44,8 @@ export function DeviceReadinessPrompt() {
     document.addEventListener("visibilitychange", onResume);
     let active = true;
     let removeNativeResume: (() => Promise<void>) | undefined;
-    void addDeviceReadinessResumeListener(() => { void refresh(); }).then((handle) => {
+    void addDeviceReadinessResumeListener(() => { setNativeResumeEvents((count) => count + 1); void refresh(); }).then((handle) => {
+      if (active) setNativeResumeReady(true);
       if (active) removeNativeResume = () => handle.remove();
       else void handle.remove();
     }).catch(() => {
@@ -77,7 +80,7 @@ export function DeviceReadinessPrompt() {
 
   return (
     <>
-      <button className="device-readiness-trigger" type="button" onClick={() => {
+      <button className="device-readiness-trigger" type="button" data-native-resume-ready={nativeResumeReady} data-native-resume-events={nativeResumeEvents} onClick={() => {
         dismissed.current = false;
         setShowRecommended(true);
         setOpen(true);
