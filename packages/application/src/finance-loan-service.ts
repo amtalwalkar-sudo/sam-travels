@@ -145,9 +145,9 @@ export class FinanceLoanService {
     const record = await this.records.get(id);
     if (!record) return undefined;
     const operatingVehicle = await this.operatingConfiguration?.getVehicleForReadOnly?.();
-    if (operatingVehicle && operatingVehicle.vehicleId !== record.data.details.vehicleId) {
-      throw new Error("finance_loan_operating_vehicle_mismatch");
-    }
+    // Match list(): a read-only lookup outside the configured vehicle is not visible.
+    // Command-side get()/create() still fail closed on a vehicle mismatch.
+    if (operatingVehicle && operatingVehicle.vehicleId !== record.data.details.vehicleId) return undefined;
     const vehicle = await this.vehicles.getById(record.data.details.vehicleId);
     if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
     if (vehicle.id !== record.data.details.vehicleId || !record.data.details.vehicleId.startsWith("feature:vehicle:")) {
