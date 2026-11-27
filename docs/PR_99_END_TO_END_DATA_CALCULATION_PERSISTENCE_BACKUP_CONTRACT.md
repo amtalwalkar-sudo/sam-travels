@@ -752,3 +752,27 @@ This checkpoint supersedes the status table in §1B where later implementation, 
 | 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
 
 **Whole-contract disposition: INCOMPLETE.** No whole-contract completion or merge is authorized. Physical OEM/device certification, nondeterministic full OS reboot, live Dropbox account operations, owner visual approval and branch-protection/ruleset verification remain explicit manual/administrative gates and are not CI passes.
+
+## 1C. 2026-11-27 correction, recovery and final-validation reconciliation
+This section supersedes earlier pending/open statements only where the same requirement is explicitly re-evaluated below. The eight acceptance conditions in §1A remain authoritative.
+
+| §1A condition | Reconciled status at head e8e3170ef033c416ac1541d798251f9c5a08ec8c | Evidence / remaining gate |
+|---|---|---|
+| 1. Every supported entry path mapped and audited | **INCOMPLETE** | Implementation and rendered-path assertions are mapped in evidence matrix §§9.54–9.57. Current Android instrumentation is still executing; test source is not passing evidence. Any failing rendered entry path must be fixed at its production boundary. |
+| 2. Independent Browser/Dexie and Android/Room authority | **SCOPED CORE PROVEN; CURRENT STAGE 6 ANDROID VALIDATION PENDING** | Previously accepted Stages 1–5 remain valid for their exact recorded heads. Current Android Room/WebView validation is run [#46018147927](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46018147927); it is not passed while in progress. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **SCOPED CORE PROVEN; CURRENT-HEAD REGRESSION PENDING** | Shared populated fixture and production restore/reopen/recovery/re-export tests cover stable IDs, revisions, correction-chain heads, allocation source revisions and calculation provenance. Both encrypted directions are required: TypeScript package → Room and Android package → Dexie. Current cross-platform restore must pass; a skipped job is not evidence. |
+| 4. Every critical gap closed or owner-accepted | **PARTIAL** | Trip Financial correction is owner-approved. Full and production dependency audit artifacts for this head both report zero advisories. Record-count and UTF-8 plaintext-size enforcement and focused boundary tests are implemented. Representative peak-memory/time acceptance remains open; no unapproved deferral is implied. |
+| 5. Negative, boundary, interruption and recovery proof | **STAGE 5 ACCEPTED; NEW BOUNDARY ENFORCEMENT AWAITS CURRENT-HEAD EXECUTION** | Stage 5 evidence remains mapped in matrix §9.51. Current record-count, UTF-8 size, encrypted restore and interruption/rollback assertions are mapped in §9.57; current-head execution is still required. |
+| 6. Evidence matrix, gap register, contract and PR description agree | **RECONCILED IN THIS CHECKPOINT** | Matrix §9.57, execution plan, gap register §9.56 and this table use the same status vocabulary and remaining gates. The PR description mirrors this checkpoint. |
+| 7. Required CI green on exact final PR head | **PENDING** | Run #46018147927 on the code head is in progress; Architecture and Web passed, Android is running. A new complete five-required-job run is mandatory after documentation and PR-description updates. |
+| 8. PR metadata open, draft and unmerged | **VERIFIED** | PR #99 remains open, draft and unmerged. No merge is authorized. |
+
+### Correction, provenance and recovery assertions retained
+
+The restored semantic calculation helper asserts exact Maintenance and Compliance source IDs/revisions, correction IDs, chain revisions and chain heads; daily Maintenance accruals retain the authoritative daily-kilometre record ID and revision; Performance allocation provenance resolves to restored source revisions. Fuel interval/rate history and daily expense outputs are recomputed from restored source records. The correction service replay test verifies the same correction intent returns the original correction, while Work outbox restore/replay tests assert one event/effect after service recreation.
+
+Backup boundaries remain fail-closed: Browser and Android record-count limits are inclusive and reject the first record over the limit before mutation/checkpoint; plaintext preflight counts exact UTF-8 bytes (including multibyte text) and rejects the first byte over the encrypted package limit before byte-array allocation/encryption. Browser and Android interruption tests preserve or roll back to the pre-restore graph. None of these assertions may be weakened to obtain a green run.
+
+**External/manual and repository-administration gates (not CI passes):** physical OEM/device certification and owner usability/visual approval; full OS reboot persistence where emulator coverage is not deterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; and repository branch-protection/ruleset verification.
+
+**Disposition:** whole-contract status remains **INCOMPLETE**. PR #99 remains open, draft and unmerged.
