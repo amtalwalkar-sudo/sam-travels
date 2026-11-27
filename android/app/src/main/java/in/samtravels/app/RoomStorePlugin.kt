@@ -279,7 +279,13 @@ class RoomStorePlugin : Plugin() {
                 out.put("records", arr)
                 call.resolve(out)
             } catch (error: Exception) {
-                call.reject("Room list failed", error)
+                // Preserve the stable production error while exposing the native
+                // cause in debug acceptance builds so WebView startup failures
+                // identify the failing Room/recovery operation.
+                val detail = if (BuildConfig.DEBUG) {
+                    " (" + error.javaClass.simpleName + ": " + (error.message ?: "no detail") + ")"
+                } else ""
+                call.reject("Room list failed" + detail, error)
             }
         }
     }
