@@ -120,9 +120,9 @@ describe("FinanceLoanService", () => {
     const scoped = new FinanceLoanService(repository, {
       async getById(id) { return id === vehicle.id ? vehicle as RecordEnvelope<{ lifecycleState: string }> : undefined; },
     }, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, () => "2026-01-10T10:00:00.000Z", {
-      async get() { return { driverId: "driver", vehicleId: "feature:vehicle:MH02CD5678", assignmentId: "assignment", selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1 }; },
+      async get() { return { schemaVersion: 1, driverId: "driver", vehicleId: "feature:vehicle:MH02CD5678", assignmentId: "assignment", selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1 }; },
       async assertCurrent() { throw new Error("not_used"); },
-      async getVehicleForReadOnly() { return { vehicleId: "feature:vehicle:MH02CD5678", vehicleRevision: 1 }; },
+      async getVehicleForReadOnly() { return { schemaVersion: 1, vehicleId: "feature:vehicle:MH02CD5678", vehicleRevision: 1 }; },
     });
     await expect(scoped.getForReadOnly(created.id)).resolves.toBeUndefined();
     await expect(scoped.get(created.id)).rejects.toThrow("finance_loan_operating_vehicle_mismatch");
