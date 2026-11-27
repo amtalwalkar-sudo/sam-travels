@@ -192,6 +192,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
                     val eventsBefore = DriverWorkflowStore.listEvents(db).size
                     val intentsBefore = DriverWorkflowStore.listIntents(db).size
+                    val removalsBefore = locationSource.removeCount
                     val slider = findNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
                             it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
@@ -239,7 +240,20 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         .getString("status"))
                     assertNotNull("Committed native action must have a durable outbox row",
                         db.records().get("driver-outbox:${revisionBefore + 1}"))
-                    assertTrue("Completed GPS request must release its listener", locationSource.removed)
+                    val listenerReleased = waitUntil(5_000) {
+                        locationSource.removeCount == removalsBefore + 1 &&
+                            locationSource.activeListenerCount() == 0 &&
+                            locationSource.listener == null
+                    }
+                    if (!listenerReleased) {
+                        val diagnostic = listOf(
+                            "removeCountAdvanced" to (locationSource.removeCount == removalsBefore + 1),
+                            "activeListenerSetEmpty" to (locationSource.activeListenerCount() == 0),
+                            "listenerReferenceCleared" to (locationSource.listener == null),
+                            "requestCountAdvanced" to (locationSource.requestCount == 1),
+                        ).joinToString(" ") { "${it.first}=${it.second}" }
+                        assertTrue("Completed GPS request must release its listener; $diagnostic", listenerReleased)
+                    }
             }
         } finally {
             DriverLocationSourceFactory.overrideForTests = null
