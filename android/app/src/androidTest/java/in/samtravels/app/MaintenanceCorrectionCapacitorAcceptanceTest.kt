@@ -94,8 +94,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .put("vehicleId", vehicleId).put("assignedAt", now)))
     database.records().put(maintenanceEnvelope(assignmentId, now, assignmentData))
     val selectedDriverData = JSONObject().put("schemaVersion", 1).put("driverId", "driver-one")
-    database.records().put(StoredRecord("work:selected-driver",
-        maintenanceEnvelope("work:selected-driver", now, selectedDriverData))
+    database.records().put(maintenanceEnvelope("work:selected-driver", now, selectedDriverData))
     AdminTestUiControlSupport.resetDriverStateToIdle(database, now)
     listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
         val row = database.records().get("identity:person:$personId")!!
