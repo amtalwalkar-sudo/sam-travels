@@ -24,7 +24,14 @@ export class PerformanceCalculationSnapshotBoundaryV1 {
   async capture(): Promise<PerformanceRepositorySnapshotV1> {
     const rows = await this.records.list<unknown>();
     const canonicalRows = rows
-      .filter(row => !row.id.startsWith("reporting:business-start-date-cost-allocation:provenance:"))
+      // Restore checkpoints and journals are transaction-control metadata, not
+      // Performance inputs. A verified restore remains pending until the UI
+      // confirms its readback, so these rows legitimately change between two
+      // calculations over an otherwise identical business graph.
+      .filter(row =>
+        !row.id.startsWith("reporting:business-start-date-cost-allocation:provenance:") &&
+        !row.id.startsWith("__sam_travels_recovery_checkpoint__:") &&
+        !row.id.startsWith("__sam_travels_recovery_journal__:"))
       .map((row: RecordEnvelope<unknown>) => [
         row.id, row.revision, row.updatedAt, row.deletedAt ?? null,
       ])
