@@ -48,19 +48,30 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
   ): Boolean {
     val selected = read(page, """
       (() => {
-        const label = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
-          .find(node => node.textContent.includes('Field to correct'));
+        const editor = document.querySelector('.compliance-correction-editor');
+        const labels = Array.from(editor?.querySelectorAll('label') ?? []);
+        const label = labels.find(node => node.textContent.includes('Field to correct'));
         const select = label?.querySelector('select');
-        if (!select) return false;
         const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
-        if (!setter) return false;
-        setter.call(select, 'totalCostPaise');
-        select.dispatchEvent(new Event('input', { bubbles: true }));
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
+        const optionAvailable = !!select && Array.from(select.options).some(option => option.value === 'totalCostPaise');
+        if (select && setter && optionAvailable) {
+          setter.call(select, 'totalCostPaise');
+          select.dispatchEvent(new Event('input', { bubbles: true }));
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        return JSON.stringify({
+          editorPresent: !!editor,
+          labelPresent: !!label,
+          selectPresent: !!select,
+          setterPresent: !!setter,
+          optionAvailable,
+          selectionApplied: !!select && select.value === 'totalCostPaise',
+        });
       })()
     """)
-    if (selected != "true") throw AssertionError("Compliance correction input stage: field selection failed")
+    if (!selected.contains("\"selectionApplied\":true")) {
+      throw AssertionError("Compliance correction input stage: field selection did not apply: " + selected)
+    }
     if (!await(page,
         "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
         10_000)) throw AssertionError("Compliance correction input stage: corrected input was not rendered")
