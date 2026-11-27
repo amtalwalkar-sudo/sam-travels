@@ -405,3 +405,16 @@ This checkpoint aligns the execution plan with contract §1A, evidence matrix §
 - **External/manual gates:** physical OEM/device certification and owner usability/visual approval; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; repository branch-protection/ruleset verification. None is a CI pass.
 
 **Execution control:** remain on this PR branch; no new PR, no merge, no weakening assertions. Whole-contract status remains **INCOMPLETE**.
+
+### Stage 6 retest checkpoint — Android correction interaction — 2026-11-27
+Run #46018147927 on e8e3170ef033c416ac1541d798251f9c5a08ec8c failed the Android gate at ComplianceCorrectionCapacitorAcceptanceTest line 128. The rendered correction button was found, but the one-shot evaluateJavascript click assertion returned false. The Android script stopped before Maintenance correction, Settings-return, Performance parity, restored-Room WebView and populated Room lifecycle checks. Cross-platform encrypted restore was skipped and Integrated regression failed; neither is evidence of a pass.
+
+Commit 9a191aa123aedb8593129543a5a5ab97f850295b changes the click path to wait for an enabled rendered control, dispatch once with a DOM marker preventing repeated toggles, and independently wait for the correction editor to open. The assertion is not weakened. Push run #46020055556 was queued on this code SHA; retest pending.
+
+Keep the sequence active at Android acceptance until the Compliance correction editor assertion passes and all subsequent Android phases execute. Then verify Maintenance correction, Settings-return event delivery, Performance browser/Room parity, restored Room WebView calculation, Room populated lifecycle and the generated Android backup artifact. Cross-platform encrypted restore must execute and pass; skip is not acceptable. Finally inspect Integrated regression and rerun all five required jobs after the final documentation update.
+
+Correction/recovery and backup acceptance remains as mapped in matrix §9.57–§9.58: exact restored IDs/revisions, correction-chain heads, allocation provenance, idempotent correction and Work replay, count/UTF-8 boundaries, both encrypted restore directions and interruption rollback. Do not weaken assertions.
+
+§1A status: 1 INCOMPLETE; 2 SCOPED CORE PROVEN / current Android pending; 3 SCOPED CORE PROVEN / both-direction current restore pending; 4 PARTIAL (Trip Financial approved, dependency audit zero on e8, count/size enforcement implemented, representative peak-memory/time evidence open); 5 Stage 5 accepted / new boundaries pending retest; 6 reconciled; 7 pending final five-job exact-head CI; 8 verified open/draft/unmerged.
+
+Physical OEM/device certification, full OS reboot where emulator coverage is nondeterministic, live Dropbox account operations, owner visual/usability approval and branch-protection/ruleset verification remain manual/administrative gates, not CI passes. PR #99 remains draft and unmerged.
