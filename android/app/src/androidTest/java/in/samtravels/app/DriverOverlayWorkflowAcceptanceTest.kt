@@ -53,7 +53,6 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
     @Test fun eachNativeOverlaySupportedTransitionAcquiresAndReleasesItsOwnGpsFix() {
         val tripId = "overlay-six-event-gps-matrix"
         val locationSource = FakeLocationSource()
-        DriverLocationSourceFactory.overrideForTests = locationSource
         val expected = listOf(
             "trip_create" to "going_to_pickup",
             "cancel_ride" to "shift_active",
@@ -64,7 +63,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         try {
             withAttachedOverlay(
                 tripId,
-                { _, _ -> },
+                { _, _ -> DriverLocationSourceFactory.overrideForTests = locationSource },
                 databaseName = "overlay-six-event-gps-matrix.db",
                 expectedFormLabel = null,
             ) { ui, db ->
@@ -181,11 +180,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         val databaseName = "overlay-native-workflow-acceptance.db"
         val tripId = "overlay-native-workflow-acceptance"
         val locationSource = FakeLocationSource()
-        DriverLocationSourceFactory.overrideForTests = locationSource
         try {
             withAttachedOverlay(
                 tripId,
-                { _, _ -> },
+                { _, _ -> DriverLocationSourceFactory.overrideForTests = locationSource },
                 databaseName = databaseName,
                 expectedFormLabel = null,
             ) { ui, db ->
