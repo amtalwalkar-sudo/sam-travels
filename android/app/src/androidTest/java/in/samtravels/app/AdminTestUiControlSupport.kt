@@ -29,7 +29,7 @@ internal object AdminTestUiControlSupport {
                 .filter(c => c.nodeType === Node.TEXT_NODE)
                 .map(c => c.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
             const labels = [...document.querySelectorAll('label')]
-                .filter(n => ownText(n).includes('$name'));
+                .filter(n => labelText(n).includes('$name'));
             return labels.some(n => {
                 const c = n.querySelector('select,input,textarea');
                 return c instanceof HTMLSelectElement
@@ -43,9 +43,9 @@ internal object AdminTestUiControlSupport {
                 .filter(c => c.nodeType === Node.TEXT_NODE)
                 .map(c => c.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
             let labels = [...document.querySelectorAll('label')]
-                .filter(n => ownText(n).trim() === '$name');
+                .filter(n => labelText(n).trim() === '$name');
             if (!labels.length) labels = [...document.querySelectorAll('label')]
-                .filter(n => ownText(n).includes('$name'));
+                .filter(n => labelText(n).includes('$name'));
             labels = labels.filter(n => {
                 const c = n.querySelector('select,input,textarea');
                 return c instanceof HTMLSelectElement
