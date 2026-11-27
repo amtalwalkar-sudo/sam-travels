@@ -246,7 +246,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
 
       ComplianceOverlapReviewAcceptanceSupport.assertRoomBackedOverlapReview(
         page, database, complianceId, validFrom, validTo, renewalFrom,
-        evaluate = { target, script -> readMaintenanceWebViewText(target, script) },
+        evaluate = { target, script -> readMaintenanceWebViewText(target, script) == "true" },
         await = { target, expression, timeout -> awaitMaintenanceJavascript(target, expression, timeout) },
       )
 
