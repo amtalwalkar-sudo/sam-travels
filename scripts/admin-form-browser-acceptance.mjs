@@ -74,7 +74,7 @@ try {
     db.close();
     const matches = rows.filter(row => row.id.startsWith("feature:vehicle:") &&
       row.data?.lifecycleState === "active");
-    if (matches.length !== 1) throw new Error("initial_profile_vehicle_count_invalid:" + matches.length);
+    if (matches.length !== 1) throw new Error("initial_profile_vehicle_count_invalid");
     const vehicle = matches[0];
     const registrationNumber = vehicle.data.registrationNumber;
     if (typeof registrationNumber !== "string" || !registrationNumber.trim()) {
@@ -103,7 +103,7 @@ try {
     db.close();
     const active = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
       row.data?.lifecycleState === "active");
-    if (active.length !== 1) throw new Error("initial_profile_active_driver_count_invalid:" + active.length);
+    if (active.length !== 1) throw new Error("initial_profile_active_driver_count_invalid");
     return { name: active[0].data.name, driverId: active[0].data.driverId };
   });
   const activeDriverName = activeDriver.name;
