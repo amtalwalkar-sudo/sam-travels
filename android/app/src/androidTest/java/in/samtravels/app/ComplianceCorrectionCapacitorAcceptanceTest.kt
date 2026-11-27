@@ -17,6 +17,12 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ComplianceCorrectionCapacitorAcceptanceTest {
+  // evaluateJavascript returns JSON-encoded booleans ("true"/"false"); keep
+  // the DOM-control helper usable directly in JUnit assertions.
+  private fun assertTrue(message: String, javascriptBoolean: String) {
+    org.junit.Assert.assertTrue(message, javascriptBoolean == "true")
+  }
+
   @Test
   fun adminComplianceCorrectionRefreshesRoomDailyCostAndSurvivesBackupRestore() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
