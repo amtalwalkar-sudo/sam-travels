@@ -881,3 +881,37 @@ Run [#46036999823](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/
 **Remaining critical evidence gap:** representative peak-memory/time measurements on supported browser and Android devices for large snapshot/preflight. The 512 MiB serialized-package ceiling is not represented as a device-RAM certification; no lower mobile cap is inferred. Physical OEM/device, full OS reboot, live Dropbox and owner visual approval remain separate manual gates.
 
 **Disposition:** conditions 1–3 and 5 have current-head automated evidence; condition 4 remains partial due the benchmark evidence; condition 6 is being reconciled in the four docs and PR body; condition 7 passed on the code SHA but requires a new run after docs update; condition 8 remains verified. Whole-contract status remains **INCOMPLETE** and PR #99 remains open, draft and unmerged.
+
+
+## 9.60 — PR #99 CI log privacy correction and exact-head retest — 2026-11-27
+
+**Current code SHA:** `21eee884b14e065c2e9c91aab2cd3a71e0a7cd73` (browser acceptance log-redaction change; required CI rerun pending).
+
+**Privacy/logging audit finding and correction**
+- The Stage 3 same-record journey previously wrote its complete calculation snapshot, provenance text and UI source IDs to CI stdout. Failure diagnostics in the Admin form and Performance browser acceptance scripts could also print raw dashboard text, form values, status text or HTML.
+- Updated `scripts/stage3-browser-golden-journey.mjs`, `scripts/admin-form-browser-acceptance.mjs` and `scripts/performance-screen-browser-acceptance.mjs` to emit counts/boolean summaries only. Full before/after comparisons and provenance assertions remain in memory and unchanged; mismatch diagnostics report changed section/count summaries rather than source payloads or IDs.
+- Source review confirms those three scripts no longer pass rendered text, values, raw IDs or full calculation objects to console logging. This is a targeted remediation; final CI on the resulting SHA and broader artifact/privacy review remain required. Do not claim historical workflow logs have been retroactively redacted.
+
+**Latest completed evidence before this logging-only change**
+- Run [#46036999823](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46036999823) on `deb211117283ac10cdfbc11d3486181404909ea3`: Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression all passed.
+- Android instrumentation: 178/178, zero skipped. Web: 825 passed, one Android-package test skipped in the general suite; the mandatory cross-platform job executed that test separately and passed 1/1.
+- TypeScript-produced populated package → production Room lifecycle passed; Android-produced populated package → production Dexie restore passed 1/1. Full and production npm audit artifacts each report zero vulnerabilities. The optional production geocoder job was skipped by explicit workflow configuration and is not a required PR gate.
+- This run is not final validation of `21eee884b14e065c2e9c91aab2cd3a71e0a7cd73`; all required jobs must rerun after the logging changes and this documentation/PR-body reconciliation.
+
+**§1A status**
+| Condition | Disposition |
+|---|---|
+| 1. Normative mapping and entry-path audit | **AUTOMATED ENTRY-PATH EVIDENCE PASSED ON deb2111**; final-head rerun pending. Physical-device/OEM acceptance remains separate. |
+| 2. Independent Browser/Dexie and Android/Room authority | **SCOPED CORE PROVEN ON deb2111**; final-head rerun pending. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **BOTH ENCRYPTED DIRECTIONS PASSED ON deb2111**; final-head rerun pending. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction owner-approved; dependency audits zero; count and UTF-8/envelope preflight tests passed. Representative large-snapshot peak-memory/time evidence remains open. Browser acceptance log redaction is committed but awaits CI. |
+| 5. Negative, boundary, interruption and recovery proof | **PASSED ON deb2111** — count/size boundaries, pre-mutation rejection, encrypted restore and rollback assertions passed; final-head rerun pending. |
+| 6. Evidence matrix, gap register, contract and PR description agree | **RECONCILIATION IN PROGRESS** — this update is being applied to all four project records and the PR body. |
+| 7. Required CI on exact final PR head | **PENDING** — the previous code SHA passed all five required jobs; rerun after current code and docs changes is mandatory. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+**Repository administration observation:** branch metadata reports `main.protected=false`; the repository rulesets endpoint returned an empty list. The detailed branch-protection endpoint returned 403 to the connected GitHub integration, so an owner/admin must confirm the intended enforcement policy in repository settings. No settings were changed.
+
+**Remaining external/manual gates:** supported physical-device/OEM certification; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; final owner visual/usability approval; and owner/admin confirmation of branch protection. These are not CI passes.
+
+**Whole-contract disposition: INCOMPLETE. PR #99 remains OPEN · DRAFT · UNMERGED. No merge is authorized.**
