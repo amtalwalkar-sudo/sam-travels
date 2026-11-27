@@ -25,9 +25,11 @@ internal object AdminTestUiControlSupport {
         // example, a historical inactive Driver option) when labels overlap.
         // Match the label's own text nodes and, for selects, the exact option.
         val ready = """(() => {
-            const ownText = n => [...n.childNodes]
-                .filter(c => c.nodeType === Node.TEXT_NODE)
-                .map(c => c.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
+            const labelText = n => {
+                const clone = n.cloneNode(true);
+                clone.querySelectorAll('input,select,textarea').forEach(control => control.remove());
+                return (clone.textContent || '').replace(/\s+/g, ' ').trim();
+            };
             const labels = [...document.querySelectorAll('label')]
                 .filter(n => labelText(n).includes('$name'));
             return labels.some(n => {
@@ -39,9 +41,11 @@ internal object AdminTestUiControlSupport {
         })()"""
         assertTrue("Admin field/options load: " + label, await(ready, 15000))
         val js = """(() => {
-            const ownText = n => [...n.childNodes]
-                .filter(c => c.nodeType === Node.TEXT_NODE)
-                .map(c => c.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
+            const labelText = n => {
+                const clone = n.cloneNode(true);
+                clone.querySelectorAll('input,select,textarea').forEach(control => control.remove());
+                return (clone.textContent || '').replace(/\s+/g, ' ').trim();
+            };
             let labels = [...document.querySelectorAll('label')]
                 .filter(n => labelText(n).trim() === '$name');
             if (!labels.length) labels = [...document.querySelectorAll('label')]
