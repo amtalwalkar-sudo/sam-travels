@@ -8,6 +8,7 @@ export function DeviceReadinessPrompt() {
   const [open, setOpen] = useState(false);
   const [showRecommended, setShowRecommended] = useState(false);
   const [message, setMessage] = useState("");
+  const [settingsOpened, setSettingsOpened] = useState(false);
   const [checking, setChecking] = useState(true);
   const dismissed = useRef(false);
   const autoOpened = useRef(false);
@@ -57,9 +58,11 @@ export function DeviceReadinessPrompt() {
 
   const openPhoneSetting = async (item: ReadinessItem) => {
     setMessage("");
+    setSettingsOpened(false);
     try {
       const result = await openDeviceReadinessSetting(item.id);
       if (!result.opened) throw new Error("Android did not open the requested settings page");
+      setSettingsOpened(true);
       setMessage("Android Settings opened. Return here to recheck phone settings.");
     } catch {
       setMessage("Could not open that settings page. In Android Settings, open Apps and select Sam Travels.");
@@ -107,7 +110,7 @@ export function DeviceReadinessPrompt() {
                 </button>
               ))}
             </div>
-            {message && <p className="device-readiness-error" role="alert">{message}</p>}
+            {message && <p className={settingsOpened ? "device-readiness-success" : "device-readiness-error"} role={settingsOpened ? "status" : "alert"}>{message}</p>}
             {recommendedMissing.length > 0 && requiredMissing.length > 0 && (
               <button className="device-readiness-more" type="button" onClick={() => setShowRecommended((value) => !value)}>
                 {showRecommended ? "Show essential settings only" : `Also show ${recommendedMissing.length} recommended setting(s)`}
