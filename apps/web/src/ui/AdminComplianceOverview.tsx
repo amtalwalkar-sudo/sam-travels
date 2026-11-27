@@ -34,6 +34,22 @@ export function AdminComplianceOverview() {
   const [dailyCosts, setDailyCosts] = useState<Array<{ vehicleId: string; result: Awaited<ReturnType<AdminPresentationServices["complianceAnalysis"]["getDailyCost"]>> }>>([]);
   const [busyKey, setBusyKey] = useState("");
   const [message, setMessage] = useState("");
+  const dailyCostRequest = useRef(0);
+  const refreshDailyCosts = useCallback(async (data: Overview) => {
+    const request = ++dailyCostRequest.current;
+    const vehicleIds = [...new Set(data.records.map(record => record.data.vehicleId))]
+      .filter(id => vehicleFilter === "all" || id === vehicleFilter);
+    try {
+      const rows = await Promise.all(vehicleIds.map(async vehicleId => ({
+        vehicleId, result: await services.complianceAnalysis.getDailyCost(vehicleId, dailyDate),
+      })));
+      if (request === dailyCostRequest.current) setDailyCosts(rows);
+    } catch (error) {
+      if (request === dailyCostRequest.current) {
+        setMessage(error instanceof Error ? error.message : "Could not calculate daily Compliance costs.");
+      }
+    }
+  }, [dailyDate, vehicleFilter, services]);
   const refresh = useCallback(async () => {
     try {
       const [vehicleRows, data] = await Promise.all([
@@ -42,22 +58,18 @@ export function AdminComplianceOverview() {
       setVehicles(vehicleRows);
       setOverview(data);
       setMessage("");
+      // Refresh the daily allocation from the same newly projected correction
+      // snapshot before reporting the correction workflow as complete.
+      await refreshDailyCosts(data);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load Compliance analysis.");
     }
-  }, [services]);
+  }, [services, refreshDailyCosts]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     if (!overview) return;
-    const vehicleIds = [...new Set(overview.records.map(record => record.data.vehicleId))]
-      .filter(id => vehicleFilter === "all" || id === vehicleFilter);
-    let active = true;
-    void Promise.all(vehicleIds.map(async vehicleId => ({
-      vehicleId, result: await services.complianceAnalysis.getDailyCost(vehicleId, dailyDate),
-    }))).then(rows => { if (active) setDailyCosts(rows); })
-      .catch(error => { if (active) setMessage(error instanceof Error ? error.message : "Could not calculate daily Compliance costs."); });
-    return () => { active = false; };
-  }, [overview, dailyDate, vehicleFilter, services]);
+    void refreshDailyCosts(overview);
+  }, [overview, refreshDailyCosts]);
 
   const records = useMemo(() => (overview?.records ?? []).filter(record =>
     vehicleFilter === "all" || record.data.vehicleId === vehicleFilter,
