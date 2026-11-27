@@ -75,8 +75,10 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         if (!amount || !reason) return false;
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(amount, '730.00');
         amount.dispatchEvent(new Event('input', { bubbles: true }));
+        amount.dispatchEvent(new Event('change', { bubbles: true }));
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(reason, 'Final premium verified against insurer receipt');
         reason.dispatchEvent(new Event('input', { bubbles: true }));
+        reason.dispatchEvent(new Event('change', { bubbles: true }));
         return true;
       })()
     """) == "true"
@@ -95,7 +97,25 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
           reason.value === 'Final premium verified against insurer receipt';
       })()
     """, 10_000)
-    if (!controlledStateCommitted) throw AssertionError("Compliance correction input stage: controlled values and enabled submit state did not settle")
+    if (!controlledStateCommitted) {
+      val diagnostic = read(page, """
+        (() => {
+          const labels = Array.from(document.querySelectorAll('.compliance-correction-editor label'));
+          const amount = labels.find(node => node.textContent.includes('Corrected total cost'))?.querySelector('input');
+          const reason = labels.find(node => node.textContent.includes('Reason for correction'))?.querySelector('textarea');
+          const submit = document.querySelector('.compliance-correction-editor button.admin-primary');
+          return JSON.stringify({
+            amountPresent: !!amount,
+            reasonPresent: !!reason,
+            submitPresent: !!submit,
+            submitEnabled: !!submit && !submit.disabled,
+            amountMatches: !!amount && amount.valueAsNumber === 730,
+            reasonMatches: !!reason && reason.value === 'Final premium verified against insurer receipt',
+          });
+        })()
+      """)
+      throw AssertionError("Compliance correction input stage did not settle: " + diagnostic)
+    }
     return true
   }
 }
