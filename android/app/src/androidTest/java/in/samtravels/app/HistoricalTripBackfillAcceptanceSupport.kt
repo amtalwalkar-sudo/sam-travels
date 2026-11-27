@@ -28,7 +28,7 @@ internal object HistoricalTripBackfillAcceptanceSupport {
         support.set(activity, "Reason / source of historical information", marker + " reconciled paper trip")
         val invalidFields = support.javascriptValue(activity,
             "Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill')?.querySelector('form')?.querySelectorAll(':invalid') ? Array.from(Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill').querySelector('form').querySelectorAll(':invalid')).map(e=>e.closest('label')?.textContent||e.name||e.type).join(',') : 'form-not-open'")
-        assertTrue("Historical trip form has no invalid fields: $invalidFields", invalidFields.orEmpty().isBlank())
+        assertTrue("Historical trip form has no invalid fields: $invalidFields", invalidFields == "\"\"" || invalidFields.orEmpty().isBlank())
         val saveEnabled = support.javascriptValue(activity,
             "Array.from(document.querySelectorAll('section')).find(s=>s.getAttribute('aria-label')==='Historical trip backfill')?.querySelector('button[type=submit]')?.disabled===false")
         assertTrue("Historical trip Save button is enabled", saveEnabled == "true")
