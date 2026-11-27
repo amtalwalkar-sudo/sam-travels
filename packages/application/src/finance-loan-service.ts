@@ -140,6 +140,12 @@ export class FinanceLoanService {
     });
   }
 
+  /** Identity-only existence check for import/recovery; unlike getForReadOnly it is not scoped to the current operating vehicle. */
+  async hasRecord(id: string): Promise<boolean> {
+    assertRecordId(id);
+    return (await this.records.get(id)) !== undefined;
+  }
+
   async getForReadOnly(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> {
     assertRecordId(id);
     const record = await this.records.get(id);
