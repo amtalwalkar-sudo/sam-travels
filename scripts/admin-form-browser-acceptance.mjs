@@ -306,7 +306,7 @@ try {
     console.log("Performance dashboard alert count:", await page.locator("[role=alert]").count());
     console.log("Performance dashboard status count:", await page.locator("[role=status]").count());
     console.log("Performance dashboard present:", (await page.locator(".performance-dashboard").count()) === 1);
-    throw new Error("performance_dashboard_results_not_rendered:" + (error instanceof Error ? error.message : String(error)));
+    throw new Error("performance_dashboard_results_not_rendered");
   }
   await page.getByText("Target for selected period", { exact: true }).first().waitFor({ state: "visible" });
   await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
