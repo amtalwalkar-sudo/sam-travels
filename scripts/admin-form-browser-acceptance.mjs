@@ -85,7 +85,7 @@ try {
   vehicleId = initialProfileVehicle.id;
   registration = initialProfileVehicle.registrationNumber;
   await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
-  console.log("Initial Admin vehicle profile rendered and verified:", vehicleId);
+  console.log("Initial Admin vehicle profile rendered and verified.");
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
   const activeDriver = await page.evaluate(async () => {
@@ -191,16 +191,16 @@ try {
   try {
     await paymentPanel.getByText("Review before confirmation", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
   } catch (error) {
-    console.log("Prepayment preview status:", await paymentPanel.locator("[role=status]").allTextContents());
-    console.log("Prepayment form markup:", await paymentPanel.locator("form.loan-form").allInnerTexts());
+    console.log("Prepayment preview status element count:", await paymentPanel.locator("[role=status]").count());
+    console.log("Prepayment form present:", (await paymentPanel.locator("form.loan-form").count()) === 1);
     throw new Error("admin_prepayment_preview_failed:" + (error instanceof Error ? error.message : String(error)));
   }
   await paymentPanel.getByRole("button", { name: "Confirm prepayment", exact: true }).click();
   try {
     await paymentPanel.getByRole("status").filter({ hasText: "Principal prepayment and revised schedule committed atomically." }).waitFor({ state: "visible", timeout: 15000 });
   } catch (error) {
-    console.log("Prepayment commit status:", await paymentPanel.locator("[role=status]").allTextContents());
-    console.log("Prepayment history rows:", await paymentPanel.locator(".loan-payment-list").allInnerTexts());
+    console.log("Prepayment commit status element count:", await paymentPanel.locator("[role=status]").count());
+    console.log("Prepayment history row count:", await paymentPanel.locator(".loan-payment-list > *").count());
     throw new Error("admin_prepayment_commit_failed:" + (error instanceof Error ? error.message : String(error)));
   }
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
@@ -217,7 +217,7 @@ try {
   if (!allocationMessage.includes("No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.")) {
     throw new Error("Unexpected future-dated payment allocation result: " + allocationMessage);
   }
-  console.log("Future-dated payment allocation respects EMI due-date eligibility: " + allocationMessage);
+  console.log("Future-dated payment allocation eligibility was verified.");
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
   await paymentPanel.getByText("EMI-FUTURE-ACCEPTANCE-1", { exact: false }).waitFor({ state: "visible" });
@@ -236,7 +236,7 @@ try {
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).click();
   await paymentPanel.getByRole("button", { name: "Checking…", exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).waitFor({ state: "visible", timeout: 10000 });
-  console.log("Settlement preview status:", await paymentPanel.locator("[role=status]").allTextContents());
+  console.log("Settlement preview status element count:", await paymentPanel.locator("[role=status]").count());
   await paymentPanel.getByText("Settlement amount:", { exact: false }).waitFor({ state: "visible", timeout: 15000 });
   await paymentPanel.getByRole("button", { name: "Confirm settlement and close Loan", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Final settlement recorded and Loan closed." }).waitFor({ state: "visible" });
@@ -303,9 +303,9 @@ try {
   try {
     await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
   } catch (error) {
-    console.log("Performance dashboard visible alerts:", await page.locator("[role=alert]").allTextContents());
-    console.log("Performance dashboard visible statuses:", await page.locator("[role=status]").allTextContents());
-    console.log("Performance dashboard text:", (await page.locator("main").innerText()).slice(-12000));
+    console.log("Performance dashboard alert count:", await page.locator("[role=alert]").count());
+    console.log("Performance dashboard status count:", await page.locator("[role=status]").count());
+    console.log("Performance dashboard present:", (await page.locator(".performance-dashboard").count()) === 1);
     throw new Error("performance_dashboard_results_not_rendered:" + (error instanceof Error ? error.message : String(error)));
   }
   await page.getByText("Target for selected period", { exact: true }).first().waitFor({ state: "visible" });
