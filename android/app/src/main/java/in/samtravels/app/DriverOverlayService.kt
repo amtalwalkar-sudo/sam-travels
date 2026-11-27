@@ -126,7 +126,13 @@ class DriverOverlayService:Service(){
      return@execute
     }
     val resumed=DriverWorkflowStore.reactivate(db,id)
-    main.post{acquireLocation(id,command,resumed)}
+    main.post{
+     // Startup recovery may race a just-submitted overlay action. Its GPS
+     // callback releases the listener before the Room commit completes; do
+     // not reacquire that still-pending intent in this commit window.
+     if(transitionInFlight||activeLocationEventId!=null)return@post
+     acquireLocation(id,command,resumed)
+    }
    }catch(error:Exception){
     main.post{refresh("Pending action retained · "+(error.message?:"recovery deferred"))}
    }
@@ -178,7 +184,7 @@ class DriverOverlayService:Service(){
   }
  }}}
  private fun runRecovery(){
-  if(!startupRecoveryReady||activeLocationEventId!=null)return
+  if(!startupRecoveryReady||activeLocationEventId!=null||transitionInFlight)return
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
    startupRecoveryReady=true
@@ -190,7 +196,11 @@ class DriverOverlayService:Service(){
     main.post{refresh("GPS evidence window expired · reissue the action when ready")}
     return@execute
    }
-   val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
+   val resumed=DriverWorkflowStore.reactivate(db,id)
+   main.post{
+    if(transitionInFlight||activeLocationEventId!=null)return@post
+    acquireLocation(id,command,resumed)
+   }
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
  private fun runSwipeTransition(){
