@@ -219,6 +219,20 @@ describe("durable single-driver workflow",()=>{
   expect(readTripHistoryProjection()[0].status).toBe("completed");
  });
 
+ it("leaves native-overlay GPS recovery to the Android overlay service",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const transitionAt=new Date().toISOString();
+  const command=createDriverCommand(await repo.getSnapshot(),"shift_start","native_overlay","cmd-native-overlay-owner",transitionAt);
+  await repo.queueIntent({command,status:"pending_location",createdAt:transitionAt,updatedAt:transitionAt});
+  let captures=0;
+  const service=new DriverWorkflowService(repo,{capture:async()=>{captures++;return {...gps,fixAt:transitionAt};}});
+  const pending=await service.resumePendingBackground();
+  expect(captures).toBe(0);
+  expect(pending).toHaveLength(1);
+  expect(pending[0].command.originSurface).toBe("native_overlay");
+  expect(pending[0].status).toBe("pending_location");
+ });
+
  it("returns a saved driver action before GPS finishes and commits it in the background",async()=>{
   const repo=new DexieDriverWorkflowRepository();
   const transitionAt=new Date().toISOString();
