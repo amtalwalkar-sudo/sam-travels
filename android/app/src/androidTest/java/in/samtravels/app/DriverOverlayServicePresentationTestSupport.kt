@@ -98,6 +98,17 @@ abstract class DriverOverlayServicePresentationTestSupport {
     protected fun shell(ui: UiAutomation, command: String): String =
         ParcelFileDescriptor.AutoCloseInputStream(ui.executeShellCommand(command)).bufferedReader().use { it.readText() }
 
+    private fun latestOverlayServiceInstance(ui: UiAutomation): String? {
+        val logs = shell(ui, "logcat -d -s DriverOverlayService:I | grep 'service_created' | tail -n 1")
+        return Regex("instance=([0-9]+)").find(logs)?.groupValues?.get(1)
+    }
+
+    private fun overlayServiceDestroyed(ui: UiAutomation, instance: String?): Boolean {
+        if (instance == null) return true
+        return shell(ui, "logcat -d -s DriverOverlayService:I | grep 'service_destroyed instance=$instance'").isNotBlank()
+    }
+
+
     protected fun allNodes(ui: UiAutomation): List<AccessibilityNodeInfo> {
         val result = mutableListOf<AccessibilityNodeInfo>()
         fun visit(node: AccessibilityNodeInfo?) {
@@ -282,9 +293,10 @@ abstract class DriverOverlayServicePresentationTestSupport {
         val previousOverlayEnabled = overlayPreferences.getBoolean("overlay_enabled", false)
         val previousActivationPending = overlayPreferences.getBoolean("overlay_activation_pending", false)
         val previousBootResumeDeferred = overlayPreferences.getBoolean("boot_resume_deferred", false)
+        val previousServiceInstance = latestOverlayServiceInstance(ui)
         app.stopService(Intent(app, DriverOverlayService::class.java))
-        assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
-            !isOverlayServiceRunning(app)
+        assertTrue("Previous overlay service must finish teardown before fixture setup", waitUntil(10_000) {
+            !isOverlayServiceRunning(app) && overlayServiceDestroyed(ui, previousServiceInstance)
         })
         // Prevent MainActivity.onResume from racing the explicit fixture start
         // with a persisted production auto-resume preference from an earlier test.
@@ -347,14 +359,15 @@ abstract class DriverOverlayServicePresentationTestSupport {
             exerciseWebView?.invoke(startedActivity, db)
             exercise(ui, db)
         } finally {
+            val activeServiceInstance = latestOverlayServiceInstance(ui)
             activity?.let { current ->
                 instrumentation.runOnMainSync {
                     current.stopService(Intent(current, DriverOverlayService::class.java))
                     current.finish()
                 }
             } ?: app.stopService(Intent(app, DriverOverlayService::class.java))
-            assertTrue("Overlay service must stop after instrumentation case", waitUntil(10_000) {
-                !isOverlayServiceRunning(app)
+            assertTrue("Overlay service must finish teardown after instrumentation case", waitUntil(10_000) {
+                !isOverlayServiceRunning(app) && overlayServiceDestroyed(ui, activeServiceInstance)
             })
             db.records().remove("work:trip-financial-obligation:$tripId")
             db.records().remove("__sam_travels_form_working_copy__:${if (tripId.endsWith("cancel")) "work.trip-cancellation-fee" else "work.trip-completed-financials"}:$tripId")
