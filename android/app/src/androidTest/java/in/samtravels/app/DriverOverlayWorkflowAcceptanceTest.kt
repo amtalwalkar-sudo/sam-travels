@@ -61,9 +61,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
             "end_ride" to "shift_active",
         )
         try {
+            DriverLocationSourceFactory.overrideForTests = locationSource
             withAttachedOverlay(
                 tripId,
-                { _, _ -> DriverLocationSourceFactory.overrideForTests = locationSource },
+                { _, _ -> Unit },
                 databaseName = "overlay-six-event-gps-matrix.db",
                 expectedFormLabel = null,
             ) { ui, db ->
@@ -232,9 +233,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         val tripId = "overlay-native-workflow-acceptance"
         val locationSource = FakeLocationSource()
         try {
+            DriverLocationSourceFactory.overrideForTests = locationSource
             withAttachedOverlay(
                 tripId,
-                { _, _ -> DriverLocationSourceFactory.overrideForTests = locationSource },
+                { _, _ -> Unit },
                 databaseName = databaseName,
                 expectedFormLabel = null,
             ) { ui, db ->
