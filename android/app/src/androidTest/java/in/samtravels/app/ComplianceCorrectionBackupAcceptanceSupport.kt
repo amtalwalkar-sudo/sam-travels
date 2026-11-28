@@ -95,7 +95,9 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         const optionAvailable = !!select && Array.from(select.options).some(option => option.value === 'totalCostPaise');
         if (select && setter && optionAvailable) {
           setter.call(select, 'totalCostPaise');
-          select.dispatchEvent(new Event('input', { bubbles: true }));
+          // A native select emits change (not input) for user selection.
+          // Dispatching input first can make React restore the controlled
+          // value before its delegated change handler sees the selection.
           select.dispatchEvent(new Event('change', { bubbles: true }));
         }
         return !!select && select.value === 'totalCostPaise';
@@ -120,9 +122,27 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
       """)
       throw AssertionError("Compliance correction input stage: field selection did not apply: " + diagnostic)
     }
-    if (!await(page,
-        "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
-        10_000)) throw AssertionError("Compliance correction input stage: corrected input was not rendered")
+    val correctedInputRendered = await(page,
+      "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
+      10_000)
+    if (!correctedInputRendered) {
+      val diagnostic = read(page, """
+        (() => {
+          const editor = document.querySelector('.compliance-correction-editor');
+          const label = Array.from(editor?.querySelectorAll('label') ?? [])
+            .find(node => node.textContent.includes('Field to correct'));
+          const select = label?.querySelector('select');
+          return JSON.stringify({
+            editorPresent: !!editor,
+            selectPresent: !!select,
+            selectedOptionMatches: !!select && select.value === 'totalCostPaise',
+            correctedInputPresent: !!Array.from(editor?.querySelectorAll('label') ?? [])
+              .find(node => node.textContent.includes('Corrected total cost'))?.querySelector('input'),
+          });
+        })()
+      """)
+      throw AssertionError("Compliance correction input stage: corrected input was not rendered: " + diagnostic)
+    }
     val fieldsEntered = read(page, """
       (() => {
         const labels = Array.from(document.querySelectorAll('.compliance-correction-editor label'));
