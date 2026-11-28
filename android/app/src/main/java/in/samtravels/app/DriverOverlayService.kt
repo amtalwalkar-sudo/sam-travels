@@ -81,7 +81,7 @@ class DriverOverlayService:Service(){
   super.onCreate()
   databaseNameForService=DriverOverlayDatabaseFactory.databaseNameOverrideForTests
   locationSource=DriverLocationSourceFactory.create(this)
-  android.util.Log.i("DriverOverlayService", "service_created isolatedDatabaseOverridePresent=${databaseNameForService != null} testLocationSource=${DriverLocationSourceFactory.overrideForTests != null}")
+  android.util.Log.i("DriverOverlayService", "service_created instance=${System.identityHashCode(this)} source=${System.identityHashCode(locationSource)} isolatedDatabaseOverridePresent=${databaseNameForService != null} testLocationSource=${DriverLocationSourceFactory.overrideForTests != null}")
  }
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
@@ -239,7 +239,11 @@ class DriverOverlayService:Service(){
    return
   }
   if(!startupRecoveryReady||!startupPendingRecoverySettled||
-    transitionInFlight||activeLocationEventId!=null||swipeDispatchInFlight)return
+    transitionInFlight||activeLocationEventId!=null||swipeDispatchInFlight){
+   android.util.Log.i("DriverOverlayService", "swipe_dispatch_rejected instance=${System.identityHashCode(this)} transitionInFlight=$transitionInFlight active=${activeLocationEventId != null} dispatchInFlight=$swipeDispatchInFlight startupRecoverySettled=$startupPendingRecoverySettled")
+   return
+  }
+  android.util.Log.i("DriverOverlayService", "swipe_dispatch_accepted instance=${System.identityHashCode(this)}")
   swipeDispatchInFlight=true
   executor.execute{
    try{
@@ -268,6 +272,7 @@ class DriverOverlayService:Service(){
   swipeDispatchInFlight=false
   if(!startupRecoveryReady||!startupPendingRecoverySettled){refresh("Recovery required · actions disabled");return}
   transitionInFlight=true
+  android.util.Log.i("DriverOverlayService", "transition_dispatch_accepted instance=${System.identityHashCode(this)} eventType=$event")
   presentation.setSavingStatus()
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
@@ -294,7 +299,7 @@ class DriverOverlayService:Service(){
   acquireLocationOnMain(id,command,intent)
  }
  private fun acquireLocationOnMain(id:String,command:JSONObject,intent:JSONObject){
-  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" };android.util.Log.i("DriverOverlayService", "gps_acquire_attempt instance=${System.identityHashCode(this)} eventType=${command.optString("eventType")} active=${activeLocationEventId != null} previouslyRequested=${locationRequestEventIds.contains(id)} transitionInFlight=$transitionInFlight startupRecoverySettled=$startupPendingRecoverySettled")
+  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" };android.util.Log.i("DriverOverlayService", "gps_acquire_attempt instance=${System.identityHashCode(this)} source=${System.identityHashCode(locationSource)} eventType=${command.optString("eventType")} active=${activeLocationEventId != null} previouslyRequested=${locationRequestEventIds.contains(id)} transitionInFlight=$transitionInFlight startupRecoverySettled=$startupPendingRecoverySettled")
   try{
    if(locationRequestEventIds.contains(id)){
     android.util.Log.i("DriverOverlayService", "gps_request_duplicate_suppressed")
