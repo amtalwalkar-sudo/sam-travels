@@ -174,6 +174,8 @@ class DriverOverlayService:Service(){
    // alongside presentation updates, rather than from the database executor.
    val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&
     swipePresentation.action(state)!=null&&(state!="shift_active"||s.has("shiftContext"))
+   if (!canSwipe) android.util.Log.i("DriverOverlayService",
+    "swipe_readiness pending=$pending financialPending=$financialPending activeLocationRequest=${activeLocationEventId != null} shiftContext=${s.has("shiftContext")} actionPresent=${swipePresentation.action(state) != null} recoveryReady=$startupRecoveryReady")
    presentation.updateTimer(elapsedInterval())
    presentation.render(
     state,s.optInt("revision"),pending,expiredPending,financialPending,canSwipe,
