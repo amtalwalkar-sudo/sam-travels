@@ -907,3 +907,40 @@ Correction/recovery and backup assertions remain fail-closed: restored source ID
 - **Repository administration:** owner/admin confirmation of branch-protection/ruleset policy. Previously observed metadata showed `main.protected=false` and no rulesets; the detailed protection endpoint was not readable through the integration. No protection setting was changed.
 
 **Whole-contract disposition remains INCOMPLETE.** Stages 1–5 remain accepted at their recorded exact heads; Stage 6 automated acceptance is now evidenced on this SHA but the whole-contract external/performance gates above remain open. PR #99 stays **OPEN · DRAFT · UNMERGED**. No new PR, merge, or scope expansion is authorized by this checkpoint.
+
+
+## 2026-11-28 — cross-runtime GPS recovery ownership and repeated exact-head CI
+
+**Validated implementation head:** `a1e4ab8313b84d64b80e82cd73dc2d0670c12a61`.
+
+The overlay GPS duplicate-registration failure was traced to an ownership race, not an emulator flake: if WebView/Work initialization completed after a native overlay action was queued, PWA startup recovery could also resume the same `pending_location` intent and request a second GPS fix. The two runtime paths now filter by the durable command's `originSurface`:
+
+- PWA `resumePendingBackground()` skips `native_overlay` intents; Android's `DriverOverlayService` owns their GPS recovery.
+- Android overlay startup/retry recovery selects only `native_overlay` intents.
+- Android overlay readiness still sees all pending intents, so a PWA-owned pending action continues to block a conflicting native transition.
+- Browser restart recovery remains covered for PWA-owned intents; a new regression test proves PWA startup does not reacquire GPS for a native-overlay-owned intent.
+- No business assertion was weakened. The test-only GPS fake now retains caller traces on failure, which exposed the competing `DriverWorkflowPlugin.requestReliableFix` path.
+
+**All five required CI gates passed twice on this implementation head:**
+
+- Run [#46146495179](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46146495179): Architecture, Web, Android, Cross-platform encrypted backup restore, Integrated regression — all success.
+- Run [#46146491507](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46146491507): same five gates — all success.
+- Android: 178/178 instrumentation tests, zero skipped, in each run. This includes Compliance and Maintenance correction WebView tests, overlay GPS/transition lifecycle, process restart/recovery, Room/Performance parity and populated Room backup lifecycle.
+- Web: 827 passed, one skipped in each run. The Android-produced populated-package restore test skipped in the general Web suite was separately executed and passed 1/1 in each required cross-platform restore job.
+- Both encrypted cross-runtime restore directions and the integrated regression gate passed in both runs. Full and production dependency audits reported zero vulnerabilities.
+- Optional Production geocoder verification was skipped by workflow configuration; it is not one of the five required gates.
+
+**This documentation reconciliation creates a new PR head.** The five required gates must run again on that documentation-updated SHA before that SHA is treated as the final validated head.
+
+### Current contract disposition
+
+- Automated calculation, persistence, backup/restore, recovery, correction lineage, 04:00 operational boundary and cross-runtime parity gates in scope for PR #99 have repeatable CI evidence on the implementation head above.
+- Whole contract remains **INCOMPLETE** because external and target-device acceptance is still outstanding:
+  1. Representative large-snapshot peak-memory and elapsed-time benchmarks for Browser and Android preflight/export/restore on owner-confirmed supported target classes. The repository still has no normative minimum Android RAM/device class or supported-browser version recorded.
+  2. Physical Android/OEM certification for GPS, overlay, background restrictions, process death and lifecycle.
+  3. Full OS reboot persistence on supported hardware where emulator evidence is insufficient.
+  4. Live Dropbox account authentication, upload, download, scheduled backup and restore; mocked OAuth/transport tests do not close this.
+  5. Owner visual/usability approval for Admin, Work, Performance and Backup flows.
+  6. Owner/admin confirmation of branch-protection/ruleset policy. Previously observed repository metadata showed `main.protected=false` and no rulesets; the detailed protection endpoint was not accessible through the integration. No protection setting was changed.
+
+PR #99 remains **OPEN · DRAFT · UNMERGED**. No merge is authorized by this checkpoint.
