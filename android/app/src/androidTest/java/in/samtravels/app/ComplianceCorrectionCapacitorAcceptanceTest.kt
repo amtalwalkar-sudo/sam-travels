@@ -185,7 +185,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertTrue("Renewal draft saved", awaitMaintenanceJavascript(page,
         "document.querySelector('form.admin-capability-form small.admin-hint')?.textContent.includes('revision 6')",
         30_000))
-      assertTrue("Renewal record; form=" + readMaintenanceWebViewText(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
+      assertTrue("Renewal record", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-form label')).some(label => label.textContent.includes('Renewing previous record') && Array.from(label.querySelectorAll('option')).some(option => option.value === '$complianceId'))",
         10_000))
       assertTrue("Renewal links to the previous record", readMaintenanceWebViewText(page, """
@@ -219,22 +219,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return Boolean(button);
         })()
       """)
-      assertTrue("Renewal saved; state=" + readMaintenanceWebViewText(page, """
-        JSON.stringify({
-          status: document.querySelector('.admin-capability-panel [role=status]')?.textContent ?? null,
-          complianceMessage: document.querySelector('.admin-capability-panel .admin-message')?.textContent ?? null,
-          form: [...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.innerText ?? null,
-          values: [...([...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.querySelectorAll('input') ?? [])].map(input => ({name:input.previousSibling?.textContent ?? input.type,value:input.value})),
-          buttons: [...([...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.querySelectorAll('button') ?? [])].map(button => ({text:button.textContent,disabled:button.disabled}))
-        })
-      """) + "; Room form drafts=" + database.records().list()
-        .filter { it.id.startsWith("__sam_travels_form_working_copy__:admin.compliance:") }
-        .joinToString { row -> row.id + "=" + JSONObject(row.json).getJSONObject("data").toString() }
-        + "; compliance rows=" + database.records().list().filter { it.id.startsWith("feature:compliance:") }
-        .joinToString { it.id + "=" + it.json }
-        + "; operation receipts=" + database.records().list().filter { it.id.startsWith("__sam_travels_feature_operation__:") }
-        .joinToString { it.id },
-        awaitMaintenanceJavascript(page,
+      assertTrue("Renewal saved",         awaitMaintenanceJavascript(page,
         "document.querySelector('.admin-capability-panel .admin-message')?.textContent.includes('Compliance record saved')",
         45_000))
       val renewal = database.records().list().firstOrNull { row ->
