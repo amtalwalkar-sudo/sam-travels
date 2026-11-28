@@ -121,25 +121,46 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     if (!await(page,
         "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
         10_000)) throw AssertionError("Compliance correction input stage: corrected input was not rendered")
-    val fieldsEntered = read(page, """
+    val fieldsEnteredResult = read(page, """
       (() => {
-        const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
-          .find(node => node.textContent.includes('Corrected total cost'));
-        const amount = amountLabel?.querySelector('input');
-        const reasonLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
-          .find(node => node.textContent.includes('Reason for correction'));
+        const editor = document.querySelector('.compliance-correction-editor');
+        const labels = Array.from(editor?.querySelectorAll('label') ?? []);
+        const amountLabel = labels.find(node => node.textContent.includes('Corrected total cost'));
+        const amount = amountLabel?.querySelector('input[type="number"]');
+        const reasonLabel = labels.find(node => node.textContent.includes('Reason for correction'));
         const reason = reasonLabel?.querySelector('textarea');
-        if (!amount || !reason) return false;
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(amount, '730.00');
+        const amountSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        const reasonSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        if (!amount || !reason || !amountSetter || !reasonSetter) {
+          return JSON.stringify({
+            editorPresent: !!editor,
+            amountLabelPresent: !!amountLabel,
+            amountControlPresent: !!amount,
+            reasonLabelPresent: !!reasonLabel,
+            reasonControlPresent: !!reason,
+            amountSetterPresent: !!amountSetter,
+            reasonSetterPresent: !!reasonSetter,
+          });
+        }
+        amountSetter.call(amount, '730.00');
         amount.dispatchEvent(new Event('input', { bubbles: true }));
         amount.dispatchEvent(new Event('change', { bubbles: true }));
-        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(reason, 'Final premium verified against insurer receipt');
+        reasonSetter.call(reason, 'Final premium verified against insurer receipt');
         reason.dispatchEvent(new Event('input', { bubbles: true }));
         reason.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
+        return JSON.stringify({
+          editorPresent: true,
+          amountControlPresent: true,
+          reasonControlPresent: true,
+          amountSetterPresent: true,
+          reasonSetterPresent: true,
+        });
       })()
-    """) == "true"
-    if (!fieldsEntered) throw AssertionError("Compliance correction input stage: required controls were not found")
+    """)
+    if (!fieldsEnteredResult.contains("\\"amountControlPresent\\":true") ||
+        !fieldsEnteredResult.contains("\\"reasonControlPresent\\":true")) {
+      throw AssertionError("Compliance correction input stage: controls unavailable: " + fieldsEnteredResult)
+    }
     val controlledStateCommitted = await(page, """
       (() => {
         const amountLabel = Array.from(document.querySelectorAll('.compliance-correction-editor label'))
