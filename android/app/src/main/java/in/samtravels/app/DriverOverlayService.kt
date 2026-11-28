@@ -49,6 +49,11 @@ class DriverOverlayService:Service(){
  @Volatile private var startupRecoveryReady=false
  @Volatile private var startupRecoveryFailed=false
  @Volatile private var pendingIntentRecoveryChecked=false
+ // Do not enable a fresh overlay action until the one-time startup scan has
+ // either found no pending intent or has resumed the durable pending request.
+ // This closes the gap where a swipe could race startup recovery and cause a
+ // second GPS listener to be acquired for the same action.
+ @Volatile private var startupPendingRecoverySettled=false
  private val notificationChannelId="sam_travels_driver_controls"
  private val notificationId=7301
  private fun enterForeground(){
@@ -121,6 +126,10 @@ class DriverOverlayService:Service(){
     startupRecoveryReady=true
     val intent=DriverWorkflowStore.firstPendingLocation(db)?:run{
      android.util.Log.i("DriverOverlayService", "startup_recovery_no_pending_intent")
+     main.post{
+      startupPendingRecoverySettled=true
+      refresh()
+     }
      return@execute
     }
     android.util.Log.i("DriverOverlayService", "startup_recovery_pending_intent_found")
@@ -128,19 +137,32 @@ class DriverOverlayService:Service(){
     val id=command.optString("eventId")
     if(!DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))){
      DriverWorkflowStore.markNeedsAttention(db,id,"gps_recovery_window_expired")
-     main.post{refresh("Action retained · GPS evidence window expired; review required")}
+     main.post{
+      startupPendingRecoverySettled=true
+      refresh("Action retained · GPS evidence window expired; review required")
+     }
      return@execute
     }
     val resumed=DriverWorkflowStore.reactivate(db,id)
     main.post{
-     // Startup recovery may race a just-submitted overlay action. Its GPS
-     // callback releases the listener before the Room commit completes; do
-     // not reacquire that still-pending intent in this commit window.
-     if(transitionInFlight||activeLocationEventId!=null)return@post
+     // Keep fresh overlay actions disabled until this startup decision is
+     // complete. If another surface or a just-completed transition won the
+     // race, do not blindly reacquire the stale snapshot returned above.
+     if(transitionInFlight||activeLocationEventId!=null){
+      startupPendingRecoverySettled=true
+      refresh()
+      return@post
+     }
      acquireLocation(id,command,resumed)
+     startupPendingRecoverySettled=true
+     refresh()
     }
    }catch(error:Exception){
-    main.post{refresh("Pending action retained · "+(error.message?:"recovery deferred"))}
+    main.post{
+     startupRecoveryReady=false
+     startupPendingRecoverySettled=false
+     refresh("Pending action retained · "+(error.message?:"recovery deferred"))
+    }
    }
   }
  }
@@ -172,7 +194,8 @@ class DriverOverlayService:Service(){
    if(state=="idle"){main.post{presentation.removePanel();stopSelf()};return@post}
    // Location-request state is owned by the main thread. Read it only here,
    // alongside presentation updates, rather than from the database executor.
-   val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&
+   val canSwipe=startupPendingRecoverySettled&&!pending&&!financialPending&&
+    activeLocationEventId==null&&!transitionInFlight&&
     swipePresentation.action(state)!=null&&(state!="shift_active"||s.has("shiftContext"))
    if (!canSwipe) android.util.Log.i("DriverOverlayService",
     "swipe_readiness pending=$pending financialPending=$financialPending activeLocationRequest=${activeLocationEventId != null} shiftContext=${s.has("shiftContext")} actionPresent=${swipePresentation.action(state) != null} recoveryReady=$startupRecoveryReady")
@@ -212,7 +235,7 @@ class DriverOverlayService:Service(){
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
  private fun runSwipeTransition(){
-  if(!startupRecoveryReady)return
+  if(!startupRecoveryReady||!startupPendingRecoverySettled||transitionInFlight||activeLocationEventId!=null)return
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
@@ -224,8 +247,8 @@ class DriverOverlayService:Service(){
  }
  private fun runTransition(event:String){
   if(Looper.myLooper()!=Looper.getMainLooper()){main.post{runTransition(event)};return}
-  if(transitionInFlight)return
-  if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
+  if(transitionInFlight||activeLocationEventId!=null)return
+  if(!startupRecoveryReady||!startupPendingRecoverySettled){refresh("Recovery required · actions disabled");return}
   transitionInFlight=true
   presentation.setSavingStatus()
   executor.execute{try{
