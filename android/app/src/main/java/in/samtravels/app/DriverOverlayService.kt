@@ -169,7 +169,7 @@ class DriverOverlayService:Service(){
   startupRecoveryFailed=false
   val s=DriverWorkflowStore.snapshot(db)
   val intents=DriverWorkflowStore.listIntents(db)
-  val pending=DriverWorkflowStore.firstRecoverableIntent(db, "native_overlay")!=null
+  val pending=DriverWorkflowStore.firstRecoverableIntent(db)!=null
   val expiredPending=intents.any{it.optString("reason")=="gps_recovery_window_expired"}
   val feeData=DriverCancellationFeeStore.pendingObligation(db)?.optJSONObject("data")
   val feeTripId=feeData?.optString("tripId")?.takeIf{!it.isNullOrBlank()}
