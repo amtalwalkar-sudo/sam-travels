@@ -238,7 +238,9 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         val tripId = "overlay-native-workflow-acceptance"
         val locationSource = FakeLocationSource()
         try {
-            DriverLocationSourceFactory.overrideForTests = locationSource
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                DriverLocationSourceFactory.overrideForTests = locationSource
+            }
             withAttachedOverlay(
                 tripId,
                 { _, _ -> Unit },
