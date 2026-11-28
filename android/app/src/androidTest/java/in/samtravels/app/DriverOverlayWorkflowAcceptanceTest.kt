@@ -170,7 +170,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     })
                     if (locationSource.requestCount != requestsBefore + 1) {
                         val serviceDiagnostics = shell(ui, "logcat -d -v brief | grep -E 'DriverOverlayService|OverlayGpsFake' | tail -n 40")
-                        assertEquals("$eventType must create exactly one event-scoped GPS request; service=$serviceDiagnostics",
+                        assertEquals("$eventType must create exactly one event-scoped GPS request; requests=${locationSource.requestTraces.joinToString(" || ")} service=$serviceDiagnostics",
                             requestsBefore + 1, locationSource.requestCount)
                     }
                     val listenerReleased = waitUntil(5_000) {
@@ -318,7 +318,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         ).joinToString(" ") { "${it.first}=${it.second}" } +
                             " requestCount=${locationSource.requestCount} activeListenerCount=${locationSource.activeListenerCount()}"
                         val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(5000)
-                        assertTrue("Completed GPS request must release its listener; $diagnostic service=$serviceDiagnostics", listenerReleased)
+                        assertTrue("Completed GPS request must release its listener; $diagnostic requests=${locationSource.requestTraces.joinToString(" || ")} service=$serviceDiagnostics", listenerReleased)
                     }
             }
         } finally {
