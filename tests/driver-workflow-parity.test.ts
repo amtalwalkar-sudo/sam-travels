@@ -83,7 +83,7 @@ describe("shared driver workflow parity and interruption contract", () => {
 
     const pendingAt = new Date(base + 2_000).toISOString();
     const pendingCommand = createDriverCommandV2(
-      await repository.getSnapshot(), "start_ride", "native_overlay", parity.interruptedEventId, pendingAt,
+      await repository.getSnapshot(), "start_ride", "pwa", parity.interruptedEventId, pendingAt,
     );
     const pendingIntent = {
       command: pendingCommand, status: "pending_location" as const,
