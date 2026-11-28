@@ -25,6 +25,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
   fun openCorrectionEditor(
     page: MainActivity,
     await: (MainActivity, String, Long) -> Boolean,
+    read: (MainActivity, String) -> String,
   ): Boolean {
     val clickOnce = """
       (() => {
