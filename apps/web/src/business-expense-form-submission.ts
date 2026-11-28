@@ -51,10 +51,22 @@ export function beginFuelLocationCapture(geolocation: Geolocation | undefined =
 }> {
   let completedAt: number | undefined;
   const promise = new Promise<FuelLocationCaptureOutcome>(resolve => {
+    let finished = false;
+    let deadline: ReturnType<typeof globalThis.setTimeout> | undefined;
     const finish = (outcome: FuelLocationCaptureOutcome) => {
+      if (finished) return;
+      finished = true;
+      if (deadline !== undefined) globalThis.clearTimeout(deadline);
       completedAt = Date.now();
       resolve(outcome);
     };
+    // Android WebView may never deliver its geolocation error callback after a
+    // permission/process transition. Keep the purchase non-blocking and close
+    // the durable capture placeholder independently of the provider callback.
+    deadline = globalThis.setTimeout(
+      () => finish({ status: "timeout", reason: "location_timeout" }),
+      7_000,
+    );
     if (!geolocation) {
       finish({ status: "unavailable", reason: "geolocation_unsupported" });
       return;
