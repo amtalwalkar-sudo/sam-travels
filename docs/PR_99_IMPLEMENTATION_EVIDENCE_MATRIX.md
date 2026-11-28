@@ -1001,3 +1001,8 @@ The overlay GPS duplicate-registration failure was traced to an ownership race, 
   6. Owner/admin confirmation of branch-protection/ruleset policy. Previously observed repository metadata showed `main.protected=false` and no rulesets; the detailed protection endpoint was not accessible through the integration. No protection setting was changed.
 
 PR #99 remains **OPEN · DRAFT · UNMERGED**. No merge is authorized by this checkpoint.
+
+
+## 2026-11-28 — supported Android/browser benchmark baseline
+
+Benchmark target agreed for the existing open large-snapshot evidence row: Android 12+, 64-bit ARM, at least 4 GB installed RAM; Chrome for Android Stable (current plus two preceding major versions) for browser-only PWA; Android System WebView Stable (current plus two preceding Chromium major versions) for installed Android. Record exact model/RAM/OS/browser-provider builds, snapshot counts and sizes, elapsed time and peak process memory. The Pixel 2/API 34/x86_64 CI emulator and floating Playwright Chromium are regression/provisional environments, not physical minimum-device evidence. Benchmark both Chrome PWA and installed WebView paths; repeat runs. The 512 MiB package ceiling is not a memory budget. This is clarification of the existing contract gap, not new scope.
