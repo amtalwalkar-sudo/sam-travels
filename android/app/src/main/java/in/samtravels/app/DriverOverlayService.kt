@@ -77,6 +77,7 @@ class DriverOverlayService:Service(){
   super.onCreate()
   databaseNameForService=DriverOverlayDatabaseFactory.databaseNameOverrideForTests
   locationSource=DriverLocationSourceFactory.create(this)
+  android.util.Log.i("DriverOverlayService", "service_created isolatedDatabaseOverridePresent=${databaseNameForService != null} testLocationSource=${DriverLocationSourceFactory.overrideForTests != null}")
  }
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
@@ -84,6 +85,7 @@ class DriverOverlayService:Service(){
   try{enterForeground()}catch(error:Exception){android.util.Log.e("DriverOverlayService","Foreground startup failed",error);stopSelf();return START_NOT_STICKY}
   executor.execute{
    try{
+    android.util.Log.i("DriverOverlayService", "service_database_opened isolatedPath=${databaseNameForService != null} pendingIntents=${DriverWorkflowStore.listIntents(db).count { it.optString("status") == "pending_location" }}")
     NativeStartupRecovery.ensure(db)
     startupRecoveryReady=true
     startupRecoveryFailed=false
@@ -117,7 +119,11 @@ class DriverOverlayService:Service(){
    try{
     NativeStartupRecovery.ensure(db)
     startupRecoveryReady=true
-    val intent=DriverWorkflowStore.firstPendingLocation(db)?:return@execute
+    val intent=DriverWorkflowStore.firstPendingLocation(db)?:run{
+     android.util.Log.i("DriverOverlayService", "startup_recovery_no_pending_intent")
+     return@execute
+    }
+    android.util.Log.i("DriverOverlayService", "startup_recovery_pending_intent_found")
     val command=intent.optJSONObject("command")?:error("pending_command_missing")
     val id=command.optString("eventId")
     if(!DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))){
