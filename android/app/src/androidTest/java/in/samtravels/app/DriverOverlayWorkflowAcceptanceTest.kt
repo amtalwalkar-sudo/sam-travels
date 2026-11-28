@@ -133,7 +133,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         slider != null
                     }
                     if (!sliderStillAttached) {
-                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|service_destroyed|swipe_readiness|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started' | tail -n 30")
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | tail -n 20")
                         val actionAvailable = DriverSwipePresentationContract.fromAssets(
                             InstrumentationRegistry.getInstrumentation().targetContext,
                         ).action(DriverWorkflowStore.snapshot(db).optString("state")) != null
