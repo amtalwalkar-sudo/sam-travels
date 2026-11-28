@@ -155,15 +155,19 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                             "intentQueued" to eventIntents.isNotEmpty(),
                             "intentPendingLocation" to eventIntents.any { it.optString("status") == "pending_location" },
                             "intentNeedsAttention" to eventIntents.any { it.optString("status") == "needs_attention" },
+                            "gpsRequestCount" to locationSource.requestCount,
+                            "gpsRequestCountBefore" to requestsBefore,
                             "gpsRequestCountAdvanced" to (locationSource.requestCount == requestsBefore + 1),
                             "gpsListenerActive" to (locationSource.listener != null),
+                            "activeListenerCount" to locationSource.activeListenerCount(),
                             "gpsPermissionGranted" to (ui.serviceInfo != null &&
                                 InstrumentationRegistry.getInstrumentation().targetContext.checkSelfPermission(
                                     android.Manifest.permission.ACCESS_FINE_LOCATION,
                                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED),
                             "providerAvailable" to (runCatching { locationSource.bestProvider() }.getOrNull() != null),
                         ).joinToString(" ") { "${it.first}=${it.second}" }
-                        assertTrue("Each $eventType transition starts a fresh native GPS request; $diagnostic", gpsRequestStarted)
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|swipe_touch_up|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started|gps_request_duplicate_suppressed' | tail -n 40")
+                        assertTrue("Each $eventType transition starts a fresh native GPS request; $diagnostic service=$serviceDiagnostics", gpsRequestStarted)
                     }
                     val intent = DriverWorkflowStore.listIntents(db).last { row ->
                         row.optJSONObject("command")?.optString("eventType") == eventType &&
