@@ -30,7 +30,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     val clickIfClosed = """
       (() => {
         if (document.querySelector('.compliance-correction-editor')) return true;
-        const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+        const button = Array.from(document.querySelectorAll('.compliance-correction button'))
           .find(node => node.textContent.includes('Correct details / history'));
         if (!button || button.disabled) return false;
         button.click();
@@ -45,7 +45,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
       if (clickDispatched != "true") {
         val diagnostic = read(page, """
           (() => {
-            const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+            const button = Array.from(document.querySelectorAll('.compliance-correction button'))
               .find(node => node.textContent.includes('Correct details / history') ||
                 node.textContent.includes('Close correction'));
             return JSON.stringify({
@@ -62,7 +62,7 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     if (!editorOpened) {
       val diagnostic = read(page, """
         (() => {
-          const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+          const button = Array.from(document.querySelectorAll('.compliance-correction button'))
             .find(node => node.textContent.includes('Correct details / history') ||
               node.textContent.includes('Close correction'));
           const correction = button?.closest('.compliance-correction');
