@@ -126,9 +126,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertTrue("Correction button rendered", awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.compliance-correction > button')).some(node => node.textContent.includes('Correct details / history'))", 10_000))
       assertTrue("Correction editor opens after the rendered button click",
-        ComplianceCorrectionBackupAcceptanceSupport.openCorrectionEditor(page) { target, expression, timeout ->
-          awaitMaintenanceJavascript(target, expression, timeout)
-        })
+        ComplianceCorrectionBackupAcceptanceSupport.openCorrectionEditor(
+        page, ::awaitMaintenanceJavascript, ::readMaintenanceWebViewText,
+      ))
       assertTrue("Correction input", ComplianceCorrectionBackupAcceptanceSupport.fillTotalCostCorrection(
         page, ::awaitMaintenanceJavascript, ::readMaintenanceWebViewText,
       ))
