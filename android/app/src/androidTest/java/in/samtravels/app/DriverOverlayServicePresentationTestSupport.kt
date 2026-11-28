@@ -123,7 +123,18 @@ abstract class DriverOverlayServicePresentationTestSupport {
                 for (index in 0 until node.childCount) visit(node.getChild(index))
             }
             visit(window.root)
-            if (nodes.any { it.text?.toString() == "Sam Travels · Driver" }) {
+            // The overlay header is a live status field and is replaced with
+            // "Sam Travels · <workflow state> · r<revision>" after the first
+            // render. Identify the native window by its stable minimize control
+            // plus the status-header prefix, not the transient initial header text.
+            val hasOverlayHeader = nodes.any {
+                it.text?.toString()?.startsWith("Sam Travels · ") == true
+            }
+            val hasMinimizeControl = nodes.any {
+                it.contentDescription?.toString() == "Minimize controls" ||
+                    it.text?.toString() == "Minimize"
+            }
+            if (hasOverlayHeader && hasMinimizeControl) {
                 return nodes.firstOrNull(predicate)
             }
         }
