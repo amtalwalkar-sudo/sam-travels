@@ -38,6 +38,10 @@ class DriverOverlayService:Service(){
  }
  @Volatile private var intervalStartedAt:String?=null
  private var activeLocationEventId:String?=null
+ // Main-thread idempotency guard. A successful GPS acquisition remains marked
+ // until its Room commit succeeds; this prevents a delayed startup-recovery
+ // callback from reacquiring the same still-pending intent after its first fix.
+ private val locationRequestEventIds=mutableSetOf<String>()
  // Main-thread gate: one overlay transition may be queued, awaiting GPS, or committing at a time.
  private var transitionInFlight=false
  // These request fields are read and written only on the main thread.
@@ -278,6 +282,10 @@ class DriverOverlayService:Service(){
  private fun acquireLocationOnMain(id:String,command:JSONObject,intent:JSONObject){
   check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" }
   try{
+   if(locationRequestEventIds.contains(id)){
+    android.util.Log.i("DriverOverlayService", "gps_request_duplicate_suppressed")
+    return
+   }
    if(activeLocationEventId!=null){if(activeLocationEventId==id)return;markAttention(id,intent,"another_location_request_active");return}
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
    val transitionAt=command.optString("transitionAt")
@@ -285,6 +293,7 @@ class DriverOverlayService:Service(){
    if(remainingMs<=0L){markAttention(id,intent,"gps_recovery_window_expired");return}
    val provider=locationSource.bestProvider()
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
+   locationRequestEventIds.add(id)
    activeLocationEventId=id
    val powerManager=getSystemService(Context.POWER_SERVICE) as PowerManager
    gpsWakeLock=powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:DriverGps").apply{setReferenceCounted(false);acquire(remainingMs.coerceAtMost(30_000L))}
@@ -299,7 +308,10 @@ class DriverOverlayService:Service(){
     try{locationSource.removeUpdates(listener)}catch(_:Exception){}
     activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
     releaseGpsWakeLock()
-    if(location!=null)complete(id,command,intent,location)else markAttention(id,intent,reason)
+    if(location!=null)complete(id,command,intent,location)else{
+     locationRequestEventIds.remove(id)
+     markAttention(id,intent,reason)
+    }
    }
    timeout=Runnable{finish(reason="location_timeout")}
    listener=LocationListener{location:Location->
@@ -314,7 +326,7 @@ class DriverOverlayService:Service(){
    activeLocationListener=listener;activeLocationTimeout=timeout
    locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper())
    main.postDelayed(timeout,remainingMs)
-  }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
+  }catch(e:Exception){locationRequestEventIds.remove(id);activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
  private fun elapsedInterval():String{
   val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
@@ -323,6 +335,8 @@ class DriverOverlayService:Service(){
  }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
+  if(Looper.myLooper()==Looper.getMainLooper())locationRequestEventIds.remove(id)
+  else main.post{locationRequestEventIds.remove(id)}
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
   val effectiveReason=if(!DriverRecoveryPolicy.isWithinGpsWindow(transitionAt))"gps_recovery_window_expired" else reason
   executor.execute{
@@ -357,6 +371,7 @@ class DriverOverlayService:Service(){
   activeLocationTimeout?.let{main.removeCallbacks(it)}
   activeLocationListener?.let{try{locationSource.removeUpdates(it)}catch(_:Exception){}}
   activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
+  locationRequestEventIds.clear()
   releaseGpsWakeLock()
   databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null
   presentation.removePanel();executor.shutdown()
