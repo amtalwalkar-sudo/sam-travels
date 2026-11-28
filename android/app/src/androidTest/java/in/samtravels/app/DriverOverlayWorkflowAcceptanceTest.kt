@@ -81,6 +81,28 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                                 it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
                         } != null
                     })
+                    val sliderReady = waitUntil(10_000) {
+                        findOverlayNode(ui) {
+                            it.className?.toString() == "android.widget.SeekBar" &&
+                                it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
+                        } != null
+                    }
+                    if (!sliderReady) {
+                        val intents = DriverWorkflowStore.listIntents(db)
+                        val snapshot = DriverWorkflowStore.snapshot(db)
+                        val diagnostic = listOf(
+                            "shiftContextPresent" to snapshot.has("shiftContext"),
+                            "recoverableIntentPresent" to (DriverWorkflowStore.firstRecoverableIntent(db) != null),
+                            "pendingLocationPresent" to (DriverWorkflowStore.firstPendingLocation(db) != null),
+                            "financialObligationPresent" to (DriverTripFinancialStore.pendingObligations(db).isNotEmpty() ||
+                                DriverCancellationFeeStore.pendingObligation(db) != null),
+                            "intentSetEmpty" to intents.isEmpty(),
+                            "swipeContractActionPresent" to (DriverSwipePresentationContract.fromAssets(
+                                InstrumentationRegistry.getInstrumentation().targetContext,
+                            ).action(snapshot.optString("state")) != null),
+                        ).joinToString(" ") { "${it.first}=${it.second}" }
+                        assertTrue("Overlay action did not become enabled; $diagnostic", sliderReady)
+                    }
                     val slider = findOverlayNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
                             it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
@@ -204,6 +226,28 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     assertEquals("Isolated overlay fixture starts without queued workflow intents", 0, intentsBefore)
                     assertEquals("Overlay must not request GPS before an explicit swipe", 0, locationSource.requestCount)
                     val removalsBefore = locationSource.removeCount
+                    val sliderReady = waitUntil(10_000) {
+                        findOverlayNode(ui) {
+                            it.className?.toString() == "android.widget.SeekBar" &&
+                                it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
+                        } != null
+                    }
+                    if (!sliderReady) {
+                        val intents = DriverWorkflowStore.listIntents(db)
+                        val snapshot = DriverWorkflowStore.snapshot(db)
+                        val diagnostic = listOf(
+                            "shiftContextPresent" to snapshot.has("shiftContext"),
+                            "recoverableIntentPresent" to (DriverWorkflowStore.firstRecoverableIntent(db) != null),
+                            "pendingLocationPresent" to (DriverWorkflowStore.firstPendingLocation(db) != null),
+                            "financialObligationPresent" to (DriverTripFinancialStore.pendingObligations(db).isNotEmpty() ||
+                                DriverCancellationFeeStore.pendingObligation(db) != null),
+                            "intentSetEmpty" to intents.isEmpty(),
+                            "swipeContractActionPresent" to (DriverSwipePresentationContract.fromAssets(
+                                InstrumentationRegistry.getInstrumentation().targetContext,
+                            ).action(snapshot.optString("state")) != null),
+                        ).joinToString(" ") { "${it.first}=${it.second}" }
+                        assertTrue("Overlay action did not become enabled; $diagnostic", sliderReady)
+                    }
                     val slider = findOverlayNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
                             it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
