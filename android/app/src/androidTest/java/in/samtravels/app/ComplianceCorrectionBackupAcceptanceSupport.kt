@@ -37,8 +37,44 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
         return true;
       })()
     """
-    if (!await(page, clickOnce, 10_000)) return false
-    return await(page, "document.querySelector('.compliance-correction-editor') !== null", 10_000)
+    val clickDispatched = await(page, clickOnce, 10_000)
+    if (!clickDispatched) {
+      val diagnostic = read(page, """
+        (() => {
+          const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+            .find(node => node.textContent.includes('Correct details / history'));
+          return JSON.stringify({
+            buttonPresent: !!button,
+            buttonEnabled: !!button && !button.disabled,
+            clickMarkerPresent: button?.dataset.acceptanceClickDispatched === 'true',
+            editorPresent: !!document.querySelector('.compliance-correction-editor'),
+          });
+        })()
+      """)
+      throw AssertionError("Compliance correction trigger could not be dispatched: " + diagnostic)
+    }
+    val editorOpened = await(page, "document.querySelector('.compliance-correction-editor') !== null", 10_000)
+    if (!editorOpened) {
+      val diagnostic = read(page, """
+        (() => {
+          const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+            .find(node => node.textContent.includes('Correct details / history') ||
+              node.textContent.includes('Close correction'));
+          const correction = button?.closest('.compliance-correction');
+          return JSON.stringify({
+            buttonPresent: !!button,
+            buttonEnabled: !!button && !button.disabled,
+            buttonTextRecognized: !!button && /Correct details \/ history|Close correction/.test(button.textContent),
+            clickMarkerPresent: button?.dataset.acceptanceClickDispatched === 'true',
+            editorPresent: !!correction?.querySelector('.compliance-correction-editor'),
+            correctionContainerPresent: !!correction,
+            statusPresent: !!correction?.querySelector('[role=status]'),
+          });
+        })()
+      """)
+      throw AssertionError("Compliance correction editor did not open after trigger: " + diagnostic)
+    }
+    return true
   }
 
   fun fillTotalCostCorrection(
