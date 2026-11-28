@@ -61,7 +61,9 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
             "end_ride" to "shift_active",
         )
         try {
-            DriverLocationSourceFactory.overrideForTests = locationSource
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                DriverLocationSourceFactory.overrideForTests = locationSource
+            }
             withAttachedOverlay(
                 tripId,
                 { _, _ -> Unit },
