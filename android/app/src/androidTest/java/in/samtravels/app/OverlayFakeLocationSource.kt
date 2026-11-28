@@ -11,6 +11,7 @@ internal class OverlayFakeLocationSource : DriverLocationSource {
     @Volatile var removed = false
     @Volatile var requestCount = 0
     @Volatile var removeCount = 0
+    val requestTraces = java.util.concurrent.CopyOnWriteArrayList<String>()
     private val activeListeners = java.util.Collections.newSetFromMap(
         java.util.IdentityHashMap<LocationListener, Boolean>(),
     )
@@ -22,8 +23,9 @@ internal class OverlayFakeLocationSource : DriverLocationSource {
         requestCount += 1
         activeListeners.add(listener)
         this.listener = listener
-        val caller = Thread.currentThread().stackTrace.takeLast(8)
+        val caller = Thread.currentThread().stackTrace.takeLast(12)
             .joinToString(" <- ") { it.className.substringAfterLast('.') + "." + it.methodName }
+        requestTraces.add(caller)
         android.util.Log.i("OverlayGpsFake", "request registered count=$requestCount caller=$caller")
     }
 
