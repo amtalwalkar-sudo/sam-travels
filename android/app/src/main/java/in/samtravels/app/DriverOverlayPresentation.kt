@@ -198,6 +198,7 @@ internal class DriverOverlayPresentation(
                             .toInt().coerceIn(0, 100)
                     } else 0
                     val confirmed = swipeMoved && completionPercent >= swipePresentation.completionPercent
+                    android.util.Log.i("DriverOverlayService", "swipe_touch_up moved=$swipeMoved completionMet=${completionPercent >= swipePresentation.completionPercent} confirmed=$confirmed")
                     swipeStartX = null
                     swipeMoved = false
                     if (confirmed) onSwipeTransition()
