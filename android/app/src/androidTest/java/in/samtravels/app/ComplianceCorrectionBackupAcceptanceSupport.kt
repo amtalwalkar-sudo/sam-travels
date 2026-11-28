@@ -121,45 +121,40 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     if (!await(page,
         "Array.from(document.querySelectorAll('.compliance-correction-editor label')).some(node => node.textContent.includes('Corrected total cost') && node.querySelector('input'))",
         10_000)) throw AssertionError("Compliance correction input stage: corrected input was not rendered")
-    val fieldsEnteredResult = read(page, """
+    val fieldsEntered = read(page, """
       (() => {
-        const editor = document.querySelector('.compliance-correction-editor');
-        const labels = Array.from(editor?.querySelectorAll('label') ?? []);
-        const amountLabel = labels.find(node => node.textContent.includes('Corrected total cost'));
-        const amount = amountLabel?.querySelector('input[type="number"]');
-        const reasonLabel = labels.find(node => node.textContent.includes('Reason for correction'));
-        const reason = reasonLabel?.querySelector('textarea');
+        const labels = Array.from(document.querySelectorAll('.compliance-correction-editor label'));
+        const amount = labels.find(node => node.textContent.includes('Corrected total cost'))?.querySelector('input[type="number"]');
+        const reason = labels.find(node => node.textContent.includes('Reason for correction'))?.querySelector('textarea');
         const amountSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
         const reasonSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-        if (!amount || !reason || !amountSetter || !reasonSetter) {
-          return JSON.stringify({
-            editorPresent: !!editor,
-            amountLabelPresent: !!amountLabel,
-            amountControlPresent: !!amount,
-            reasonLabelPresent: !!reasonLabel,
-            reasonControlPresent: !!reason,
-            amountSetterPresent: !!amountSetter,
-            reasonSetterPresent: !!reasonSetter,
-          });
-        }
+        if (!amount || !reason || !amountSetter || !reasonSetter) return false;
         amountSetter.call(amount, '730.00');
         amount.dispatchEvent(new Event('input', { bubbles: true }));
         amount.dispatchEvent(new Event('change', { bubbles: true }));
         reasonSetter.call(reason, 'Final premium verified against insurer receipt');
         reason.dispatchEvent(new Event('input', { bubbles: true }));
         reason.dispatchEvent(new Event('change', { bubbles: true }));
-        return JSON.stringify({
-          editorPresent: true,
-          amountControlPresent: true,
-          reasonControlPresent: true,
-          amountSetterPresent: true,
-          reasonSetterPresent: true,
-        });
+        return true;
       })()
     """)
-    if (!fieldsEnteredResult.contains("\\"amountControlPresent\\":true") ||
-        !fieldsEnteredResult.contains("\\"reasonControlPresent\\":true")) {
-      throw AssertionError("Compliance correction input stage: controls unavailable: " + fieldsEnteredResult)
+    if (fieldsEntered != "true") {
+      val diagnostic = read(page, """
+        (() => {
+          const labels = Array.from(document.querySelectorAll('.compliance-correction-editor label'));
+          const amountLabel = labels.find(node => node.textContent.includes('Corrected total cost'));
+          const reasonLabel = labels.find(node => node.textContent.includes('Reason for correction'));
+          return JSON.stringify({
+            amountLabelPresent: !!amountLabel,
+            amountControlPresent: !!amountLabel?.querySelector('input[type="number"]'),
+            reasonLabelPresent: !!reasonLabel,
+            reasonControlPresent: !!reasonLabel?.querySelector('textarea'),
+            amountSetterPresent: typeof Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set === 'function',
+            reasonSetterPresent: typeof Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set === 'function',
+          });
+        })()
+      """)
+      throw AssertionError("Compliance correction input stage: controls unavailable: " + diagnostic)
     }
     val controlledStateCommitted = await(page, """
       (() => {
