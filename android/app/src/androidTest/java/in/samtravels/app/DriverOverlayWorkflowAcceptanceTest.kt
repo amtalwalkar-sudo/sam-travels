@@ -155,8 +155,6 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                             }
                     }
                     if (!gpsRequestStarted) {
-                        // Failure-only diagnostics deliberately expose only stage booleans,
-                        // never event IDs, fixture values, coordinates, or persisted payloads.
                         val eventIntents = DriverWorkflowStore.listIntents(db).filter { intent ->
                             intent.optJSONObject("command")?.optString("eventType") == eventType
                         }
@@ -224,8 +222,6 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     assertTrue("Each accepted event has a distinct fix timestamp", fixTimes.add(gps.getString("fixAt")))
                     assertTrue("Each accepted event has a distinct location", latitudes.add(gps.getDouble("latitude")))
                     assertEquals(fix.latitude, gps.getDouble("latitude"), 0.000001)
-                    // Cancellation creates a durable fee obligation. Resolve it before
-                    // asserting that the next Work transition is available.
                     if (eventType == "cancel_ride") {
                         setText(ui, "Required cancellation fee in rupees", "0")
                         clickText(ui, "SAVE CANCELLATION FEE")
