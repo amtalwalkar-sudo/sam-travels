@@ -101,7 +101,8 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                                 InstrumentationRegistry.getInstrumentation().targetContext,
                             ).action(snapshot.optString("state")) != null),
                         ).joinToString(" ") { "${it.first}=${it.second}" }
-                        assertTrue("Overlay action did not become enabled; $diagnostic", sliderReady)
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(2500)
+                        assertTrue("Overlay action did not become enabled; $diagnostic service=$serviceDiagnostics", sliderReady)
                     }
                     val slider = findOverlayNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
