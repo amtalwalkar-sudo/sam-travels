@@ -17,9 +17,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * CI runs these two methods in separate instrumentation invocations and force-stops
- * both app/test packages between them. This exercises a real target-process death,
- * not merely closing and reopening a Room instance in one process.
+ * CI runs these methods in separate instrumentation invocations, force-stops both
+ * app/test packages, and reboots the Android OS between preparation and recovery.
+ * The persisted Android boot counter proves that recovery follows a full OS reboot,
+ * not merely process death or closing/reopening Room in one process.
  */
 @RunWith(AndroidJUnit4::class)
 class DriverWorkflowProcessRestartTest {
