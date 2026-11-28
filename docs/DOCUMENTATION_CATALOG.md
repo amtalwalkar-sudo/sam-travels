@@ -37,6 +37,7 @@
 | [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) | Effective-date allocation for eligible pre-business costs |
 | [Business Start Date Allocation Implementation Plan](BUSINESS_START_DATE_COST_ALLOCATION_IMPLEMENTATION_PLAN.md) | Historical/superseded source-allocation implementation plan retained for provenance; current downstream recovery policy is owned by the contract |
 | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Breakeven and fixed-rupee driver target calculation semantics |
+| [Central Financial Calculation and Aggregation Contract](CENTRAL_FINANCIAL_CALCULATION_AGGREGATION_CONTRACT.md) | Follow-on technical contract for source-owned outputs, owner-policy reconciliation, completeness, provenance and downstream aggregation; implementation remains separately gated |
 | [Finance Loan Calculation Contract](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI/amortization calculation authority |
 | [Finance and Performance Calculation Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approved calculation decisions and scope |
 | [Calculation Authority and Application Wiring Audit](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) | Historical calculation owner/consumer baseline, policy conflicts and wiring findings |
