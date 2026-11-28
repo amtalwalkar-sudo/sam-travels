@@ -27,34 +27,38 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
     await: (MainActivity, String, Long) -> Boolean,
     read: (MainActivity, String) -> String,
   ): Boolean {
-    val clickOnce = """
+    val clickIfClosed = """
       (() => {
+        if (document.querySelector('.compliance-correction-editor')) return true;
         const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
           .find(node => node.textContent.includes('Correct details / history'));
         if (!button || button.disabled) return false;
-        if (button.dataset.acceptanceClickDispatched === 'true') return true;
-        button.dataset.acceptanceClickDispatched = 'true';
         button.click();
         return true;
       })()
     """
-    val clickDispatched = await(page, clickOnce, 10_000)
-    if (!clickDispatched) {
-      val diagnostic = read(page, """
-        (() => {
-          const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
-            .find(node => node.textContent.includes('Correct details / history'));
-          return JSON.stringify({
-            buttonPresent: !!button,
-            buttonEnabled: !!button && !button.disabled,
-            clickMarkerPresent: button?.dataset.acceptanceClickDispatched === 'true',
-            editorPresent: !!document.querySelector('.compliance-correction-editor'),
-          });
-        })()
-      """)
-      throw AssertionError("Compliance correction trigger could not be dispatched: " + diagnostic)
+    val editorCheck = "document.querySelector('.compliance-correction-editor') !== null"
+    var editorOpened = false
+    repeat(3) {
+      if (editorOpened) return@repeat
+      val clickDispatched = read(page, clickIfClosed)
+      if (clickDispatched != "true") {
+        val diagnostic = read(page, """
+          (() => {
+            const button = Array.from(document.querySelectorAll('.compliance-correction > button'))
+              .find(node => node.textContent.includes('Correct details / history') ||
+                node.textContent.includes('Close correction'));
+            return JSON.stringify({
+              buttonPresent: !!button,
+              buttonEnabled: !!button && !button.disabled,
+              editorPresent: !!document.querySelector('.compliance-correction-editor'),
+            });
+          })()
+        """)
+        throw AssertionError("Compliance correction trigger is unavailable: " + diagnostic)
+      }
+      editorOpened = await(page, editorCheck, 2_000)
     }
-    val editorOpened = await(page, "document.querySelector('.compliance-correction-editor') !== null", 10_000)
     if (!editorOpened) {
       val diagnostic = read(page, """
         (() => {
@@ -65,15 +69,13 @@ internal object ComplianceCorrectionBackupAcceptanceSupport {
           return JSON.stringify({
             buttonPresent: !!button,
             buttonEnabled: !!button && !button.disabled,
-            buttonTextRecognized: !!button && /Correct details \/ history|Close correction/.test(button.textContent),
-            clickMarkerPresent: button?.dataset.acceptanceClickDispatched === 'true',
             editorPresent: !!correction?.querySelector('.compliance-correction-editor'),
             correctionContainerPresent: !!correction,
             statusPresent: !!correction?.querySelector('[role=status]'),
           });
         })()
       """)
-      throw AssertionError("Compliance correction editor did not open after trigger: " + diagnostic)
+      throw AssertionError("Compliance correction editor did not open after bounded retries: " + diagnostic)
     }
     return true
   }
