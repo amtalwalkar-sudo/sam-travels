@@ -38,15 +38,11 @@ class DriverOverlayService:Service(){
  }
  @Volatile private var intervalStartedAt:String?=null
  private var activeLocationEventId:String?=null
- // Main-thread idempotency guard. A successful GPS acquisition remains marked
- // until its Room commit succeeds; this prevents a delayed startup-recovery
- // callback from reacquiring the same still-pending intent after its first fix.
+ // Main-thread idempotency guard prevents stale recovery reacquiring an event after its first fix.
  private val locationRequestEventIds=mutableSetOf<String>()
  // Main-thread gate: one overlay transition may be queued, awaiting GPS, or committing at a time.
  private var transitionInFlight=false
- // Reserve the swipe dispatch synchronously before reading Room on the executor.
- // This prevents duplicate ACTION_UP delivery from queuing two commands before
- // transitionInFlight can be set by the eventual main-thread callback.
+ // Reserve swipe dispatch before Room lookup so duplicate ACTION_UP events cannot queue two commands.
  private var swipeDispatchInFlight=false
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
@@ -57,10 +53,7 @@ class DriverOverlayService:Service(){
  @Volatile private var startupRecoveryReady=false
  @Volatile private var startupRecoveryFailed=false
  @Volatile private var pendingIntentRecoveryChecked=false
- // Do not enable a fresh overlay action until the one-time startup scan has
- // either found no pending intent or has resumed the durable pending request.
- // This closes the gap where a swipe could race startup recovery and cause a
- // second GPS listener to be acquired for the same action.
+ // Keep fresh actions disabled until the startup pending-intent scan settles.
  @Volatile private var startupPendingRecoverySettled=false
  private val notificationChannelId="sam_travels_driver_controls"
  private val notificationId=7301
@@ -80,9 +73,7 @@ class DriverOverlayService:Service(){
    startForeground(notificationId,notification)
   }
  }
- // Snapshot mutable test-factory overrides at Service creation. A retiring
- // Service must never observe the next test's Room database or GPS fake later
- // through a lazy read of process-global test state.
+ // Snapshot test-factory overrides so a retiring service cannot observe later test globals.
  private var databaseNameForService:String?=null
  private lateinit var locationSource:DriverLocationSource
  private val db by lazy{DriverOverlayDatabaseFactory.open(applicationContext,databaseNameForService)}
