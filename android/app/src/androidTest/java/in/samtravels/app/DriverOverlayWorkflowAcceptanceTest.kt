@@ -98,7 +98,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                                 InstrumentationRegistry.getInstrumentation().targetContext,
                             ).action(snapshot.optString("state")) != null),
                         ).joinToString(" ") { "${it.first}=${it.second}" }
-                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(2500)
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|swipe_touch_up|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started|gps_request_duplicate_suppressed' | tail -n 40")
                         assertTrue("Overlay action unavailable for $eventType; $diagnostic service=$serviceDiagnostics", initialActionReady)
                     }
                     val sliderReady = waitUntil(10_000) {
@@ -188,7 +188,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                             DriverWorkflowStore.listEvents(db).size == initialEventCount + index + 1
                     })
                     if (locationSource.requestCount != requestsBefore + 1) {
-                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(5000)
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|swipe_touch_up|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started|gps_request_duplicate_suppressed' | tail -n 40")
                         assertEquals("$eventType must create exactly one event-scoped GPS request; service=$serviceDiagnostics",
                             requestsBefore + 1, locationSource.requestCount)
                     }
