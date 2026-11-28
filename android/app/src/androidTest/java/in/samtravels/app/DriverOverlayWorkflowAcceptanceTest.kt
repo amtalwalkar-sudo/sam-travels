@@ -17,42 +17,9 @@ import java.time.Instant
 /** Exercises the real overlay gesture, service command path, GPS callback and Room commit. */
 @RunWith(AndroidJUnit4::class)
 class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTestSupport() {
-    private class FakeLocationSource : DriverLocationSource {
-        @Volatile var listener: LocationListener? = null
-        @Volatile var removed = false
-        @Volatile var requestCount = 0
-        @Volatile var removeCount = 0
-        private val activeListeners = java.util.Collections.newSetFromMap(
-            java.util.IdentityHashMap<LocationListener, Boolean>(),
-        )
-
-        override fun bestProvider(): String = "gps"
-
-        @Synchronized override fun requestLocationUpdates(provider: String, listener: LocationListener, looper: Looper) {
-            assertEquals("Overlay GPS callbacks must be delivered on the main looper", Looper.getMainLooper(), looper)
-            requestCount += 1
-            activeListeners.add(listener)
-            this.listener = listener
-        }
-
-        @Synchronized override fun removeUpdates(listener: LocationListener) {
-            activeListeners.remove(listener)
-            if (this.listener === listener) this.listener = activeListeners.firstOrNull()
-            removeCount += 1
-            removed = activeListeners.isEmpty()
-        }
-
-        @Synchronized fun activeListenerCount(): Int = activeListeners.size
-
-        @Synchronized fun deliver(location: Location) {
-            val active = listener ?: error("overlay_location_listener_not_registered")
-            active.onLocationChanged(location)
-        }
-    }
-
     @Test fun eachNativeOverlaySupportedTransitionAcquiresAndReleasesItsOwnGpsFix() {
         val tripId = "overlay-six-event-gps-matrix"
-        val locationSource = FakeLocationSource()
+        val locationSource = OverlayFakeLocationSource()
         val expected = listOf(
             "trip_create" to "going_to_pickup",
             "cancel_ride" to "shift_active",
@@ -98,7 +65,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                                 InstrumentationRegistry.getInstrumentation().targetContext,
                             ).action(snapshot.optString("state")) != null),
                         ).joinToString(" ") { "${it.first}=${it.second}" }
-                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|swipe_touch_up|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started|gps_request_duplicate_suppressed' | tail -n 40")
+                        val serviceDiagnostics = shell(ui, "logcat -d -v brief | grep -E 'DriverOverlayService|OverlayGpsFake' | tail -n 40")
                         assertTrue("Overlay action unavailable for $eventType; $diagnostic service=$serviceDiagnostics", initialActionReady)
                     }
                     val sliderReady = waitUntil(10_000) {
@@ -176,7 +143,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED),
                             "providerAvailable" to (runCatching { locationSource.bestProvider() }.getOrNull() != null),
                         ).joinToString(" ") { "${it.first}=${it.second}" }
-                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|swipe_touch_up|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started|gps_request_duplicate_suppressed' | tail -n 40")
+                        val serviceDiagnostics = shell(ui, "logcat -d -v brief | grep -E 'DriverOverlayService|OverlayGpsFake' | tail -n 40")
                         assertTrue("Each $eventType transition starts a fresh native GPS request; $diagnostic service=$serviceDiagnostics", gpsRequestStarted)
                     }
                     val intent = DriverWorkflowStore.listIntents(db).last { row ->
@@ -202,7 +169,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                             DriverWorkflowStore.listEvents(db).size == initialEventCount + index + 1
                     })
                     if (locationSource.requestCount != requestsBefore + 1) {
-                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|swipe_touch_up|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started|gps_request_duplicate_suppressed' | tail -n 40")
+                        val serviceDiagnostics = shell(ui, "logcat -d -v brief | grep -E 'DriverOverlayService|OverlayGpsFake' | tail -n 40")
                         assertEquals("$eventType must create exactly one event-scoped GPS request; service=$serviceDiagnostics",
                             requestsBefore + 1, locationSource.requestCount)
                     }
@@ -248,7 +215,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
     @Test fun actualOverlaySwipeCommitsAttributedTripEventAfterGpsEvidence() {
         val databaseName = "overlay-native-workflow-acceptance.db"
         val tripId = "overlay-native-workflow-acceptance"
-        val locationSource = FakeLocationSource()
+        val locationSource = OverlayFakeLocationSource()
         try {
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 DriverLocationSourceFactory.overrideForTests = locationSource
