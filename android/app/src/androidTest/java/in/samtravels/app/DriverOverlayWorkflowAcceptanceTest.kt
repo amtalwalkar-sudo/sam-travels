@@ -75,12 +75,29 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                 val fixTimes = mutableSetOf<String>()
                 val latitudes = mutableSetOf<Double>()
                 expected.forEachIndexed { index, (eventType, nextState) ->
-                    assertTrue("Overlay exposes the next action for $eventType; hierarchy=${describeNodes(ui)}", waitUntil(10_000) {
+                    val initialActionReady = waitUntil(10_000) {
                         findOverlayNode(ui) {
                             it.className?.toString() == "android.widget.SeekBar" &&
                                 it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
                         } != null
-                    })
+                    }
+                    if (!initialActionReady) {
+                        val intents = DriverWorkflowStore.listIntents(db)
+                        val snapshot = DriverWorkflowStore.snapshot(db)
+                        val diagnostic = listOf(
+                            "shiftContextPresent" to snapshot.has("shiftContext"),
+                            "recoverableIntentPresent" to (DriverWorkflowStore.firstRecoverableIntent(db) != null),
+                            "pendingLocationPresent" to (DriverWorkflowStore.firstPendingLocation(db) != null),
+                            "financialObligationPresent" to (DriverTripFinancialStore.pendingObligations(db).isNotEmpty() ||
+                                DriverCancellationFeeStore.pendingObligation(db) != null),
+                            "intentSetEmpty" to intents.isEmpty(),
+                            "swipeContractActionPresent" to (DriverSwipePresentationContract.fromAssets(
+                                InstrumentationRegistry.getInstrumentation().targetContext,
+                            ).action(snapshot.optString("state")) != null),
+                        ).joinToString(" ") { "${it.first}=${it.second}" }
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(2500)
+                        assertTrue("Overlay action unavailable for $eventType; $diagnostic service=$serviceDiagnostics", initialActionReady)
+                    }
                     val sliderReady = waitUntil(10_000) {
                         findOverlayNode(ui) {
                             it.className?.toString() == "android.widget.SeekBar" &&
@@ -247,7 +264,8 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                                 InstrumentationRegistry.getInstrumentation().targetContext,
                             ).action(snapshot.optString("state")) != null),
                         ).joinToString(" ") { "${it.first}=${it.second}" }
-                        assertTrue("Overlay action did not become enabled; $diagnostic", sliderReady)
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(2500)
+                        assertTrue("Overlay action did not become enabled; $diagnostic service=$serviceDiagnostics", sliderReady)
                     }
                     val slider = findOverlayNode(ui) {
                         it.className?.toString() == "android.widget.SeekBar" &&
