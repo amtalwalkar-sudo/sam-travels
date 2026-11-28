@@ -124,11 +124,20 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I").takeLast(2500)
                         assertTrue("Overlay action did not become enabled; $diagnostic service=$serviceDiagnostics", sliderReady)
                     }
-                    val slider = findOverlayNode(ui) {
-                        it.className?.toString() == "android.widget.SeekBar" &&
-                            it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
-                    } ?: error("overlay_action_missing:$eventType")
-                    val bounds = android.graphics.Rect().also { slider.getBoundsInScreen(it) }
+                    var slider: AccessibilityNodeInfo? = null
+                    val sliderStillAttached = waitUntil(5_000) {
+                        slider = findOverlayNode(ui) {
+                            it.className?.toString() == "android.widget.SeekBar" &&
+                                it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
+                        }
+                        slider != null
+                    }
+                    if (!sliderStillAttached) {
+                        val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|service_destroyed|swipe_readiness|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started' | tail -n 30")
+                        assertTrue("Overlay action must remain attached after becoming ready; eventActionAvailable=${swipePresentationActionAvailable(db)} service=$serviceDiagnostics", sliderStillAttached)
+                    }
+                    val readySlider = slider ?: throw AssertionError("Overlay action node unavailable after bounded accessibility refresh")
+                    val bounds = android.graphics.Rect().also { readySlider.getBoundsInScreen(it) }
                     val requestsBefore = locationSource.requestCount
                     val removalsBefore = locationSource.removeCount
                     if (eventType == "cancel_ride") {
