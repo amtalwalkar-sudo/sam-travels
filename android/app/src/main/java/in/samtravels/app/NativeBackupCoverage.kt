@@ -31,7 +31,7 @@ internal object NativeBackupCoverage {
         override val adapterId = "stored-records-json-v1"
         override val entityType = StoredRecord::class.java
         override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
-            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) }.map { row ->
+            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) || isRuntimeLocalRecord(it.id) || isNonPortableIdentityRecord(it.id) }.map { row ->
                 JSONObject().put("id", row.id).put("json", row.json)
                     .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
                     .put("participantId", participantId)
@@ -52,7 +52,7 @@ internal object NativeBackupCoverage {
             }
         }
         override fun clear(database: LocalDatabase) {
-            database.records().list().filterNot { isInternalRecord(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) }
+            database.records().list().filterNot { isInternalRecord(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) || isRuntimeLocalRecord(it.id) }
                 .forEach { database.records().remove(it.id) }
         }
         override fun restore(database: LocalDatabase, row: JSONObject) {
@@ -94,6 +94,21 @@ internal object NativeBackupCoverage {
             StoredRecordsAdapter.restore(database, row)
         }
     }
+
+    /**
+     * Android-local driver selection and person-link rows are runtime identity
+     * scaffolding, not portable business records. The canonical backup carries
+     * the selected driver profile and Work state; preserve these destination
+     * bindings across restore rather than leaking Room-only rows into the wire
+     * snapshot or clearing them during participant replacement.
+     */
+    private fun isRuntimeLocalRecord(id: String): Boolean =
+        id == "work:selected-driver" || id.startsWith("identity:driver-person-link:")
+
+    /** Person identity rows are local identity metadata: omit from portable exports,
+     * but let replacement clear them so stale destination people do not survive. */
+    private fun isNonPortableIdentityRecord(id: String): Boolean =
+        id.startsWith("identity:person:")
 
     private fun isWorkRecord(id: String): Boolean =
         id == "driver-state" || id == "legacy-driver-state" ||
@@ -177,7 +192,6 @@ internal object NativeBackupCoverage {
                 .put("id", participant.id)
                 .put("featureId", participant.featureId)
                 .put("snapshotVersion", participant.snapshotVersion)
-                .put("adapterId", participant.adapterId)
                 .put("restoreValidatorId", participant.id + "-v1"))
         }
         return result
@@ -201,13 +215,33 @@ internal object NativeBackupCoverage {
     }
 
     fun exportBusinessRecords(database: LocalDatabase, isInternal: (String) -> Boolean): JSONArray {
+        NativeVehicleBackup.ensureRegistered()
+        NativeDriverRecordsBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeMaintenanceBackup.ensureRegistered()
         assertRoomSchemaCovered(database)
         database.records().list().filter { it.id.startsWith("feature:") }.forEach { row ->
             require(isFeatureOwnedRecord(row.id)) { "backup_unregistered_feature_record:" + row.id }
         }
         val result = JSONArray()
+        val exportedFeatureKeys = mutableSetOf<String>()
         discoverParticipants().forEach { participant ->
-            adapter(participant).export(database, participant.id, isInternal).forEach { row -> result.put(row) }
+            adapter(participant).export(database, participant.id, isInternal).forEach { row ->
+                result.put(row)
+                if (row.optString("participantId") == participant.id) {
+                    exportedFeatureKeys.add(participant.id + ":" + row.optString("id"))
+                }
+            }
+        }
+        dynamicFeatureRecordPrefixes.forEach { (participantId, prefix) ->
+            database.records().list()
+                .filter { !isInternal(it.id) && it.id.startsWith(prefix) &&
+                    (participantId + ":" + it.id) !in exportedFeatureKeys }
+                .forEach { row ->
+                    result.put(JSONObject().put("id", row.id).put("json", row.json)
+                        .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
+                        .put("participantId", participantId))
+                }
         }
         validateBusinessRecords(result, requireExplicitOwnerTags = true)
         return result
@@ -227,33 +261,21 @@ internal object NativeBackupCoverage {
         return id
     }
 
-    /** Convert pre-manifest snapshots from the old shared-records owner model. */
-    fun normalizeLegacyRecords(records: JSONArray): JSONArray {
-        val result = JSONArray()
-        for (index in 0 until records.length()) {
-            val row = JSONObject(records.getJSONObject(index).toString())
-            val originalId = row.optString("id")
-            when {
-                originalId.startsWith("driver-event:") -> {
-                    row.put("id", originalId.removePrefix("driver-event:"))
-                    row.put("participantId", "logbook-events")
-                }
-                isWorkRecord(originalId) -> row.put("participantId", "work-driver-state")
-                row.optString("participantId") == "logbook-events" -> Unit
-                else -> row.put("participantId", "platform-records")
-            }
-            result.put(row)
-        }
-        return result
-    }
-
     fun validateBusinessRecords(records: JSONArray, requireExplicitOwnerTags: Boolean = false) {
+        NativeVehicleBackup.ensureRegistered()
+        NativeDriverRecordsBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeMaintenanceBackup.ensureRegistered()
+        // The interchange wire format has one Finance owner. Split that owner
+        // back into Room's internal loan/payment/prepayment validators before
+        // applying platform-specific validation and relationship checks.
+        val normalizedRecords = NativeFeatureBackupManifestCompatibility.normalizeCanonicalInterchangeRecords(records)
         val participants = discoverParticipants()
         require(participants.isNotEmpty()) { "backup_no_room_participants" }
         val byId = participants.associateBy { it.id }
         val seen = mutableSetOf<String>()
-        for (index in 0 until records.length()) {
-            val row = records.optJSONObject(index) ?: error("backup_invalid_record")
+        for (index in 0 until normalizedRecords.length()) {
+            val row = normalizedRecords.optJSONObject(index) ?: error("backup_invalid_record")
             require(!requireExplicitOwnerTags || row.has("participantId")) { "backup_record_participant_missing" }
             val owner = participantId(row, participants)
             if (row.has("participantId")) {
@@ -272,10 +294,10 @@ internal object NativeBackupCoverage {
             }
             adapter(participant).validate(row)
         }
+        val allNormalizedRows = (0 until normalizedRecords.length()).map { normalizedRecords.getJSONObject(it) }
         dynamicFeatureRelationshipValidators.forEach { (participantId, validator) ->
-            val owned = (0 until records.length()).map { records.getJSONObject(it) }
-                .filter { it.optString("participantId") == participantId }
-            validator(owned, (0 until records.length()).map { records.getJSONObject(it) })
+            val owned = allNormalizedRows.filter { it.optString("participantId") == participantId }
+            validator(owned, allNormalizedRows)
         }
     }
 
@@ -292,12 +314,13 @@ internal object NativeBackupCoverage {
 
     /** Caller owns the surrounding Room transaction. */
     fun replaceBusinessRecords(database: LocalDatabase, records: JSONArray) {
-        validateBusinessRecords(records)
+        val normalizedRecords = NativeFeatureBackupManifestCompatibility.normalizeCanonicalInterchangeRecords(records)
+        validateBusinessRecords(normalizedRecords)
         val participants = discoverParticipants()
         val byId = participants.associateBy { it.id }
         participants.forEach { adapter(it).clear(database) }
-        for (index in 0 until records.length()) {
-            val row = records.getJSONObject(index)
+        for (index in 0 until normalizedRecords.length()) {
+            val row = normalizedRecords.getJSONObject(index)
             val owner = participantId(row, participants)
             adapter(byId.getValue(owner)).restore(database, row)
         }
@@ -334,7 +357,12 @@ internal object NativeBackupRecovery {
             )
         }
 
-        val restored = NativeBackupCoverage.exportBusinessRecords(database, ::isInternalRecord)
+        // Checkpoint records use the canonical interchange owner model, while
+        // Room exports Finance through its payment/prepayment adapter owners.
+        // Compare the same wire representation on both sides of rollback.
+        val restored = NativeFeatureBackupManifestCompatibility.toCanonicalInterchangeRecords(
+            NativeBackupCoverage.exportBusinessRecords(database, ::isInternalRecord),
+        )
         require(canonicalRecords(restored) == canonicalRecords(oldRecords)) {
             "checkpoint_rollback_integrity_mismatch"
         }

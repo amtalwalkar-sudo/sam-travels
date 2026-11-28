@@ -17,7 +17,9 @@ internal object NativeComplianceBackup {
 
     @Synchronized
     fun ensureRegistered() {
-        if (processRegistration == null) processRegistration = register()
+        if (processRegistration == null || PARTICIPANT_ID !in NativeBackupCoverage.registeredParticipantIds()) {
+            processRegistration = register()
+        }
     }
 
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
@@ -115,7 +117,7 @@ internal object NativeComplianceBackup {
     }
 
     private fun encoded(value: String): String =
-        URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20").replace("%3A", ":")
+        URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20")
 
     private fun validateOverlapReviewHistory(
         allRows: List<JSONObject>,

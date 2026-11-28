@@ -87,6 +87,7 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     expect(new TextDecoder().decode(snapshot.plaintext)).toContain('"value":"before"');
   });
 
+
   it("restores equivalent snapshots even when serialized row order differs", async () => {
     const timestamp = "2026-11-04T00:00:00.000Z";
     await browserDatabase.records.bulkPut(["alpha", "zeta"].map(id => ({

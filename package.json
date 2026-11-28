@@ -22,7 +22,8 @@
     "deploy:geocoder": "npx wrangler@4 deploy --config services/geocoder/wrangler.toml",
     "test:geocoder": "vitest run services/geocoder/index.test.ts tests/timeline-reverse-geocoding.test.ts",
     "remove:breakeven-sanity-check": "node scripts/remove-breakeven-sanity-check.mjs",
-    "check:docs": "node scripts/check-markdown-links.mjs"
+    "check:docs": "node scripts/check-markdown-links.mjs",
+    "build:semantic-fixture-parity": "vite build --config vite.semantic-fixture-calculation-parity.config.ts"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -32,6 +33,9 @@
     "react-dom": "^19.1.0",
     "hash-wasm": "^4.12.0"
   },
+  "overrides": {
+    "rollup": "4.68.7"
+  },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
     "@types/react": "^19.1.8",
@@ -40,6 +44,6 @@
     "fake-indexeddb": "^6.2.2",
     "typescript": "^5.9.2",
     "vite": "^6.3.5",
-    "vitest": "^3.2.4"
+    "vitest": "^5.1.2"
   }
 }

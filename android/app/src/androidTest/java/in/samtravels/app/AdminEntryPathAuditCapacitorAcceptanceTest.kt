@@ -1,0 +1,318 @@
+package `in`.samtravels.app
+import android.content.Intent
+import androidx.room.Room
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.util.UUID
+@RunWith(AndroidJUnit4::class)
+class AdminEntryPathAuditCapacitorAcceptanceTest {
+@Test fun calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView() {
+  val instrumentation = InstrumentationRegistry.getInstrumentation()
+  val app = instrumentation.targetContext.applicationContext
+  app.deleteDatabase("sam-travels.db")
+  var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
+      .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+      .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+  val support = AdminFormsCapacitorAcceptanceTest()
+  val marker = "Entry audit " + UUID.randomUUID().toString().take(8)
+  var fuelRecordId: String? = null
+  var adminFeeRecordId: String? = null
+  val fuelRecordIds = mutableListOf<String>()
+  var vehicleRecordId: String? = null
+  val previousPerformanceSettings = db.records().get("feature:performance:settings")
+  val financeRecordIds = mutableListOf<String>()
+  var assignmentRecordId: String? = null
+  val previousWorkSelection = db.records().get("work:selected-driver")
+  val previousDriverState = db.records().get("driver-state")
+  AdminTestUiControlSupport.resetDriverStateToIdle(db, java.time.Instant.now().toString())
+  var activity = instrumentation.startActivitySync(
+      Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+  ) as MainActivity
+  try {
+      assertTrue("Drive loads", support.await(activity, "!!document.querySelector('.driver-card')", 30000))
+      support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
+      assertTrue("Admin shell", support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+      support.eval(activity, "[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Admin role'))?.querySelector('input[type=checkbox]')?.click()")
+      support.set(activity, "Person name", "$marker Admin")
+      support.set(activity, "Set initial Admin PIN", "4831")
+      support.eval(activity, "document.querySelector('form button')?.click()")
+      assertTrue("Enroll", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15000))
+      assertTrue("Activation controls", support.await(activity,
+          "(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Select person'));return !!l?.querySelector('select')&&[...l.querySelectorAll('option')].some(o=>o.textContent.trim()==='$marker Admin')})()", 15000))
+      check(support.javascriptValue(activity, """(()=>{const q=t=>[...document.querySelectorAll('select')].find(s=>s.closest('label')?.textContent.includes(t));const p=q('Select person'),r=q('Active role');if(!p||!r)return false;const o=[...p.options].find(o=>o.textContent.trim()==='$marker Admin');if(!o)return false;const set=(s,v)=>{Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,v);s.dispatchEvent(new Event('change',{bubbles:true}))};set(p,o.value);set(r,'admin');return true})()""") == "true")
+      check(support.javascriptValue(activity, """(()=>{const i=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN')?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));i.closest('form')?.querySelector('button')?.click();return true})()""") == "true")
+      assertTrue("Activated", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
+      support.eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
+      AdminTestUiControlSupport.retireProfileVehicle(
+          { label, value -> support.set(activity, label, value) },
+          { label -> support.click(activity, label) },
+          { script -> support.eval(activity, script) },
+          { script, timeout -> support.await(activity, script, timeout) },
+      )
+      support.click(activity, "Add vehicle")
+      val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
+      support.set(activity, "Registration number", registration)
+      support.set(activity, "Make", "Acceptance")
+      support.set(activity, "Model", "Car")
+      support.set(activity, "Vehicle type", "Car")
+      support.set(activity, "Fuel type", "CNG")
+      support.set(activity, "Year of manufacture", "2024")
+      support.set(activity, "Ownership", "Owned")
+      support.click(activity, "Create vehicle")
+      assertTrue("Vehicle saved", support.await(activity, "document.body.innerText.includes('$registration')", 15000))
+      vehicleRecordId = "feature:vehicle:" + registration
+      assertNotNull("Vehicle persists in Room", db.records().get(vehicleRecordId!!))
+      support.eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
+      support.set(activity, "Business start date", "2026-11-15")
+      support.click(activity, "Set business start date")
+      assertTrue("Start date saved",
+          support.await(activity, "document.body.innerText.includes('Business start date saved.')", 15000))
+      support.eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
+      support.click(activity, "Add driver")
+      support.set(activity, "Driver name", marker + " Driver")
+      support.set(activity, "Driving licence number", "LIC-" + marker)
+      support.set(activity, "Mobile number", "9990001111")
+      support.click(activity, "Save driver")
+      assertTrue("Driver saved", support.await(activity, "document.body.innerText.includes('Driver created')", 15000))
+      val driverRows = db.records().list().filter { row ->
+          row.id.startsWith("feature:driver-records:driver:") &&
+              JSONObject(row.json).getJSONObject("data").optString("name") == marker + " Driver"
+      }
+      assertEquals("One Driver profile", 1, driverRows.size)
+      val driverRecord = driverRows.single()
+      val driverData = JSONObject(driverRecord.json).getJSONObject("data")
+      support.click(activity, "Configure for Work")
+      assertTrue("Work Driver selection saved", support.await(activity,
+          "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
+      val selectedDriver = db.records().get("work:selected-driver")
+      assertNotNull("D",selectedDriver)
+      assertEquals("Selected Driver identity is the saved Driver",
+          driverData.getString("driverId"), JSONObject(selectedDriver!!.json).getJSONObject("data").getString("driverId"))
+      assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
+      assertNotNull("Driver–Vehicle assignment persisted", db.records().get(assignmentRecordId!!))
+
+      val historicalDriver = db.records().list().firstOrNull { row ->
+          row.id.startsWith("feature:driver-records:driver:") &&
+              JSONObject(row.json).getJSONObject("data").optString("lifecycleState") == "inactive"
+      } ?: error("historical_backfill_requires_inactive_driver_fixture")
+      val historicalDriverId = JSONObject(historicalDriver.json).getJSONObject("data").getString("driverId")
+      HistoricalTripBackfillAcceptanceSupport.assertHistoricalTripBackfill(
+          activity, support, db, historicalDriverId, vehicleRecordId!!, marker,
+      )
+
+      TripFinancialCorrectionAcceptanceSupport.assertTripFinancialCorrection(
+          activity, support, db, driverData.getString("driverId"), vehicleRecordId!!, assignmentRecordId!!,
+      )
+      support.eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
+      support.click(activity, "Add compliance / renewal")
+      support.set(activity, "Compliance type / name", marker + " Insurance")
+      support.set(activity, "Valid from", "2026-11-15")
+      support.set(activity, "Valid until", "2027-11-15")
+      support.set(activity, "Total cost (₹)", "12000")
+      support.click(activity, "Save record")
+      assertTrue("Compliance saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
+      val initialComplianceRows = db.records().list().filter { row ->
+          row.id.startsWith("feature:compliance:") &&
+              JSONObject(row.json).getJSONObject("data").optString("complianceName") == marker + " Insurance"
+      }
+      assertEquals("Initial Compliance", 1, initialComplianceRows.size)
+      val initialCompliance = initialComplianceRows.single()
+      val initialComplianceData = JSONObject(initialCompliance.json).getJSONObject("data")
+      assertEquals("Compliance Vehicle", vehicleRecordId, initialComplianceData.getString("vehicleId"))
+      support.click(activity, "Add compliance / renewal")
+      support.set(activity, "Compliance type / name", marker + " Insurance")
+      support.set(activity, "Valid from", "2027-11-16")
+      support.set(activity, "Valid until", "2028-11-16")
+      support.set(activity, "Total cost (₹)", "12500")
+      assertTrue("Renewal predecessor is available", support.await(activity,
+          "(()=>{const s=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Renewing previous record'))?.querySelector('select');return !!s&&[...s.options].some(o=>o.value==='" + initialCompliance.id + "')})()", 10000))
+      support.set(activity, "Renewing previous record", initialCompliance.id)
+      support.click(activity, "Save record")
+      assertTrue("Renewal saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
+      val renewalRows = db.records().list().filter { row ->
+          row.id.startsWith("feature:compliance:") &&
+              JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == initialCompliance.id
+      }
+      assertEquals("Renewal link", 1, renewalRows.size)
+      val renewal = renewalRows.single()
+      assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
+          JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Issue date", "2026-11-15")
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Vehicle", vehicleRecordId!!)
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan amount (₹)", "300")
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Reason", marker + " traffic challan")
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
+      AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
+      assertTrue("Challan saved; page=" + support.javascriptValue(activity, "document.body.innerText"), support.await(activity,
+          "(()=>{const p=[...document.querySelectorAll('section.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Traffic Challans');return p?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()", 45000))
+      val challanRows = db.records().list().filter { row ->
+          row.id.startsWith("feature:business-expenses:entry:") &&
+              JSONObject(row.json).getJSONObject("data").let { data ->
+                  data.optString("sourceKind") == "traffic_challan" &&
+                      data.optString("description") == marker + " traffic challan"
+              }
+      }
+      assertEquals("One challan", 1, challanRows.size)
+      val challan = challanRows.single()
+      val challanData = JSONObject(challan.json).getJSONObject("data")
+      assertEquals("Challan amount", 30000, challanData.getInt("amountPaise"))
+      assertEquals("Challan vehicle", vehicleRecordId, challanData.getString("vehicleId"))
+      assertEquals("Challan status", "paid", challanData.getString("paymentStatus"))
+      assertEquals("Challan ref", "CHALLAN-" + marker, challanData.getString("reference"))
+      val recovery = Stage3AdminFuelRecoveryAcceptance.recoverAdminAndFuel(
+          activity, support, db, marker, vehicleRecordId!!, registration,
+      )
+      activity = recovery.activity
+      adminFeeRecordId = recovery.adminFeeRecordId
+      fuelRecordId = recovery.fuelRecordId
+      fuelRecordIds.add(fuelRecordId!!)
+      support.click(activity, "Add loan")
+      support.set(activity, "Loan name", marker + " Loan")
+      support.set(activity, "Lender name", "Acceptance Bank")
+      support.set(activity, "Original principal (₹)", "100000")
+      support.set(activity, "Annual interest rate (%)", "12")
+      support.set(activity, "Tenure (months)", "12")
+      support.set(activity, "Loan start date", "2026-01-01")
+      support.set(activity, "First EMI date (first day of month)", "2026-02-01")
+      support.click(activity, "Save loan details")
+      assertTrue("Loan saved", support.await(activity, "document.body.innerText.includes('$marker Loan')", 15000))
+      val loanRows = db.records().list().filter { row ->
+          row.id.startsWith("feature:finance:loan:") &&
+              JSONObject(row.json).getJSONObject("data").optJSONObject("details")?.optString("loanName") == marker + " Loan"
+      }
+      assertEquals("One Loan record", 1, loanRows.size)
+      val loan = loanRows.single()
+      val loanUuid = loan.id.removePrefix("feature:finance:loan:")
+      financeRecordIds.add(loan.id)
+      val paymentLedgerId = "feature:finance:payments:" + loanUuid
+      financeRecordIds.add(paymentLedgerId)
+      val originalSchedule = JSONObject(loan.json).getJSONObject("data").getJSONArray("scheduleVersions").getJSONObject(0).getJSONObject("output")
+      val emiPaise = originalSchedule.getInt("regularEmiPaise")
+      val originalRows = originalSchedule.getJSONArray("rows")
+      val originalFinalDate = originalRows.getJSONObject(originalRows.length() - 1).getString("dueDate")
+      support.click(activity, "Prepay principal")
+      support.set(activity, "Prepayment date", "2026-01-15")
+      support.set(activity, "Principal amount (₹)", "30000")
+      support.click(activity, "Preview prepayment")
+      assertTrue("Prepayment preview", support.await(activity, "document.body.innerText.includes('Review before confirmation')", 15000))
+      support.click(activity, "Confirm prepayment")
+      assertTrue("Prepayment committed", support.await(activity,
+          "document.body.innerText.includes('Principal prepayment and revised schedule committed atomically')", 15000))
+      val prepaymentId = "feature:finance:prepayments:" + loanUuid
+      financeRecordIds.add(prepaymentId)
+      val prepaymentRecord = db.records().get(prepaymentId)
+      assertNotNull("Prepayment history persisted", prepaymentRecord)
+      val revision = JSONObject(prepaymentRecord!!.json).getJSONObject("data").getJSONArray("revisions").getJSONObject(0)
+      val prepaymentOutput = revision.getJSONObject("output")
+      assertEquals("Prepayment mode", "reduce_tenure", revision.getString("mode"))
+      AdminEntryPathAuditTestSupport.assertAdminActor(revision.optJSONObject("createdBy"), "Prepayment")
+      assertEquals("EMI unchanged", emiPaise, prepaymentOutput.getInt("regularEmiPaise"))
+      assertTrue("Final EMI moves earlier", prepaymentOutput.getString("finalDueDate") < originalFinalDate)
+      assertEquals("Next EMI unchanged", originalRows.getJSONObject(0).getString("dueDate"),
+          prepaymentOutput.getJSONArray("rows").getJSONObject(0).getString("dueDate"))
+      support.click(activity, "Record payment")
+      assertTrue("Revised schedule version is available for payment", support.await(activity,
+          """(()=>{const s=[...document.querySelectorAll("label")].find(n=>n.textContent.includes("Schedule version"))?.querySelector("select");return !!s&&[...s.options].some(o=>o.value==="2")})()""", 15000))
+      support.set(activity, "Schedule version", "2")
+      support.set(activity, "Payment date", "2026-02-01")
+      support.set(activity, "Amount paid (₹)", String.format(java.util.Locale.US, "%.2f", emiPaise / 100.0))
+      support.click(activity, "Suggest oldest-due-first allocation")
+      assertTrue("Allocation suggested", support.await(activity,
+          "document.body.innerText.includes('Suggested oldest-due-first allocation')", 15000))
+      support.click(activity, "Save payment")
+      assertTrue("Payment committed", support.await(activity,
+          "document.body.innerText.includes('Payment recorded atomically')", 15000))
+      val ledger = db.records().get(paymentLedgerId)
+      assertNotNull("Payment ledger persisted", ledger)
+      val paymentEntries = JSONObject(ledger!!.json).getJSONObject("data").getJSONArray("entries")
+      val paymentRows = (0 until paymentEntries.length()).map { paymentEntries.getJSONObject(it) }
+          .filter { it.optString("kind") == "payment" }
+      assertEquals("One recorded payment", 1, paymentRows.size)
+      val payment = paymentRows.single()
+      assertEquals("Payment uses revised schedule", 2, payment.getInt("scheduleVersion"))
+      AdminEntryPathAuditTestSupport.assertAdminActor(payment.optJSONObject("createdBy"), "Payment")
+      assertEquals("EMI allocation", emiPaise,
+          payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
+      support.click(activity, "Settle & close")
+      support.set(activity, "Settlement date", "2026-02-01")
+      support.click(activity, "Check settlement amount")
+      assertTrue("Settlement preview", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
+      support.eval(activity, "window.confirm = () => true")
+      AdminEntryPathAuditTestSupport.clickEnabled(activity, support, "Confirm settlement and close Loan")
+      assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
+      assertEquals("Loan closed", "closed",
+          JSONObject(db.records().get(loan.id)!!.json).getJSONObject("data").getString("lifecycleState"))
+      val settledLedger = db.records().get(paymentLedgerId)!!
+      val settlementEntry = JSONObject(settledLedger.json).getJSONObject("data").getJSONArray("entries").let { rows ->
+          (0 until rows.length()).map { rows.getJSONObject(it) }.singleOrNull { it.optString("kind") == "settlement" }
+      }
+      assertNotNull("Settlement entry", settlementEntry)
+      AdminEntryPathAuditTestSupport.assertAdminActor(settlementEntry?.optJSONObject("createdBy"), "Settlement")
+      support.eval(activity, "document.getElementById('admin-section-trigger-performance')?.click()")
+      support.set(activity, "Monthly Driver Target (₹)", "9000")
+      support.click(activity, "Save monthly target")
+      assertTrue("Performance target saved", support.await(activity, "document.body.innerText.includes('Monthly Driver Target saved')", 15000))
+      assertEquals("Target in Room", 900000,
+          JSONObject(db.records().get("feature:performance:settings")!!.json).getJSONObject("data").getInt("monthlyDriverTargetPaise"))
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Amount (₹)", "200")
+      AdminEntryPathAuditTestSupport.setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "What was this cost for?", marker + " pre-business cost")
+      AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Add pre-business cost")
+      assertTrue("Pre-business cost saved", support.await(activity,
+          "(()=>{const p=[...document.querySelectorAll('div.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Pre-business costs');return p?.querySelector('[role=status]')?.textContent.includes('Pre-business cost entry saved')===true})()", 15000))
+      val preBusinessCost = db.records().list().singleOrNull {
+          it.id.startsWith("feature:performance:pre-business-cost:") && it.json.contains(marker)
+      }
+      assertNotNull("Pre-business in Room", preBusinessCost)
+      assertNotNull("Recovered UI Fuel purchase remains in Room before calculation", fuelRecordId)
+      assertRoomOperationReceiptExists(db, fuelRecordId!!)
+      val fuel = db.records().get(fuelRecordId!!) ?: error("stage3_recovered_fuel_record_missing")
+      val fuelData = JSONObject(fuel.json).getJSONObject("data")
+      assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
+      assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
+      assertEquals("Odometer", 55123, fuelData.getInt("odometerKm"))
+      assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
+      fuelRecordIds.add(AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(activity, support, db, vehicleRecordId!!))
+      Stage3AdminFuelRecoveryAcceptance.assertPerformanceAndRestore(
+          activity, support, db, vehicleRecordId!!, fuelRecordId!!, fuelRecordIds, adminFeeRecordId,
+      )
+  } finally {
+      // Roll back any unverified restore before fixture cleanup.
+      runCatching { NativeBackupRecovery.recoverPending(db) }
+      val recoveredExpenseRecordIds = fuelRecordIds + listOfNotNull(adminFeeRecordId)
+      db.records().list().filter { row ->
+          if (NativeBackupRecovery.isInternalRecord(row.id)) return@filter false
+          val data = runCatching { JSONObject(row.json).optJSONObject("data") }.getOrNull()
+          val platformFeeDraft = row.id.startsWith("__sam_travels_form_working_copy__:admin.platform-fee:") &&
+              (data?.optJSONObject("values")?.optString("reference") == "FEE-" + marker ||
+                  data?.optJSONObject("submission")?.optJSONObject("values")?.optString("reference") == "FEE-" + marker)
+          val fuelDraft = row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
+              data?.optJSONObject("values")?.optString("vehicleId") == vehicleRecordId &&
+              data?.optJSONObject("values")?.optInt("odometerKm") == 55123
+          val expenseReceipt = row.id.startsWith("__sam_travels_feature_operation__:") &&
+              data?.optString("targetRecordId")?.let { it in recoveredExpenseRecordIds } == true
+          row.json.contains(marker) || row.id in fuelRecordIds || row.id == adminFeeRecordId ||
+              row.id == vehicleRecordId || row.id in financeRecordIds || row.id == assignmentRecordId ||
+              row.id == "feature:business-settings:business" || platformFeeDraft || fuelDraft || expenseReceipt ||
+              (row.id.startsWith("__sam_travels_feature_operation__:") &&
+                  data?.optString("targetRecordId") == "feature:business-settings:business")
+      }.forEach { db.records().remove(it.id) }
+      if (previousWorkSelection != null) db.records().put(previousWorkSelection)
+      else db.records().remove("work:selected-driver")
+      if (previousDriverState != null) db.records().put(previousDriverState)
+      else db.records().remove("driver-state")
+      if (previousPerformanceSettings != null) db.records().put(previousPerformanceSettings)
+      else db.records().remove("feature:performance:settings")
+      runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
+      NativeStartupRecovery.invalidate(db)
+      instrumentation.runOnMainSync { activity.finish() }
+      db.close()
+  }
+}
+}

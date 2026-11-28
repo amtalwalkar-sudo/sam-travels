@@ -165,7 +165,7 @@ describe("application feature extension upgrade coordinator", () => {
             });
           },
         },
-        transaction: new DexieFeatureExtensionUpgradeTransaction(),
+        transaction: new DexieFeatureExtensionUpgradeTransaction("persistent-addon"),
       });
       expect(version).toBe(2);
       expect((await browserDatabase.records.get("feature:persistent-addon:migrated"))?.data).toEqual({ migratedTo: 2 });
@@ -173,6 +173,21 @@ describe("application feature extension upgrade coordinator", () => {
         extension: { id: "persistent-addon.core", version: 2, featureId: "persistent-addon" },
         feature: { id: "persistent-addon", persistence: { schemaVersion: 2 } },
       });
+    });
+
+    it("rejects migration deletion outside the owning feature namespace", async () => {
+      const protectedId = "feature:finance:loan:immutable";
+      await browserDatabase.records.put({
+        id: protectedId, schemaVersion: 1,
+        createdAt: "2026-11-06T00:00:00.000Z", updatedAt: "2026-11-06T00:00:00.000Z",
+        source: "web", revision: 1, data: { retained: true },
+      });
+      await expect(new FeatureExtensionUpgradeCoordinator().apply({
+        previous, next, nextRuntimeDefinitions: runtimeDefinitions, currentSchemaVersion: 1,
+        handlers: { "persistent-addon-v1-v2": context => context.records.remove(protectedId) },
+        transaction: new DexieFeatureExtensionUpgradeTransaction("persistent-addon"),
+      })).rejects.toThrow("feature_upgrade_delete_namespace_mismatch");
+      expect(await browserDatabase.records.get(protectedId)).toMatchObject({ revision: 1, data: { retained: true } });
     });
 
     it("rolls back actual IndexedDB migration writes when a handler fails", async () => {
@@ -192,7 +207,7 @@ describe("application feature extension upgrade coordinator", () => {
             throw new Error("injected_indexeddb_migration_failure");
           },
         },
-        transaction: new DexieFeatureExtensionUpgradeTransaction(),
+        transaction: new DexieFeatureExtensionUpgradeTransaction("persistent-addon"),
       })).rejects.toThrow("injected_indexeddb_migration_failure");
       expect(await browserDatabase.records.get("feature:persistent-addon:partial")).toBeUndefined();
       expect(await browserDatabase.records.get("installed-extension:persistent-addon.core")).toBeUndefined();

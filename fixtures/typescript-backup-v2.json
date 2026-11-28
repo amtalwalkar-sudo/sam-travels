@@ -1,0 +1,33 @@
+{
+  "recoveryKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "backup": {
+    "manifest": {
+      "applicationVersion": "0.1.0",
+      "schemaVersion": 1,
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "businessTimezone": "Asia/Kolkata",
+      "snapshotRevision": 7,
+      "recordCounts": {
+        "records": 1
+      },
+      "format": "backup-encryption-v2",
+      "plaintextSha256": "mZGcdnoKh5lJrcXODuLYpzEnuZKmsbxKh7r+cYXZHk4="
+    },
+    "payload": {
+      "algorithm": "AES-256-GCM",
+      "nonce": "AQIDBAUGBwgJCgsM",
+      "ciphertext": "BhfzNPL7uvk5PQWcW4OCiD3l2advGjD7pxrsbzryjwKHnInuwpFfJmmpkFOO73T/HfVyiQdNFmP7p3awLmRwYvkIpVPsZP9F3GUv2dHQIqN9PesqERRN3kOE54PihemgdgGcPXHE1suhogIiODTjOUoNJUeVuw+NSHmyw+reu7zxk9x3vD9OuMULAxh5UeV5FmEX1bXdHQTp/Y7mynMJvQzx+JNhArHU"
+    },
+    "keyEnvelopes": {
+      "recovery": {
+        "algorithm": "AES-256-GCM",
+        "wrappedDek": {
+          "algorithm": "AES-256-GCM",
+          "nonce": "DQ4PEBESExQVFhcY",
+          "ciphertext": "6lNJj2E0W9jryqUJp+G42qOj0CElQaN6K+O2+H3c+LyNCfMmqMUYviMYOMWbUXIw"
+        }
+      }
+    }
+  },
+  "expectedPlaintext": "{\"records\":[{\"id\":\"fixture-ts-to-android\",\"json\":\"{}\",\"schemaVersion\":1,\"updatedAt\":\"2026-11-04T00:00:00.000Z\"}],\"snapshotRevision\":7,\"schemaVersion\":1}"
+}

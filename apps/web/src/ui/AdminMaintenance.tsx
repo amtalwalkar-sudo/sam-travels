@@ -5,28 +5,16 @@ import {
 } from "../../../../packages/application/src";
 import { useAdminMaintenanceServices, useAdminMaintenanceCorrectionAdapter } from "./admin-services-context";
 import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
-import { projectMaintenanceExpenseRecords } from "../maintenance-expense-correction-runtime";
+import { MaintenanceVisitCorrection } from "./MaintenanceVisitCorrection";
+import { projectMaintenanceExpenseRecords, projectMaintenanceVisitRecords } from "../maintenance-expense-correction-runtime";
 import "./AdminFormControls.css";
-
-type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
-type Maintenance = Awaited<ReturnType<AdminPresentationServices["maintenance"]["listVehicleRecords"]>>;
-const today = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
-  return part("year") + "-" + part("month") + "-" + part("day");
-};
-const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
-
-type ItemDraft = { id: string; description: string; amount: string };
-const newItem = (): ItemDraft => ({ id: crypto.randomUUID(), description: "", amount: "" });
-type RecordMode = "visit" | "expense";
-type ActiveForm = RecordMode | "rate" | null;
-
+import { today, money, newItem, type ItemDraft, type Vehicle, type Maintenance, type RecordMode, type ActiveForm } from "./admin-maintenance-helpers";
 export function MaintenanceSection() {
   const services = useAdminMaintenanceServices();
   const correctionService = useAdminMaintenanceCorrectionAdapter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
+  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const [records, setRecords] = useState<Maintenance | null>(null);
   const [reminders, setReminders] = useState<Awaited<ReturnType<AdminPresentationServices["maintenance"]["getServiceReminderStates"]>>>([]);
   const [drafts, setDrafts] = useState<readonly FormWorkingCopy[]>([]);
@@ -48,11 +36,9 @@ export function MaintenanceSection() {
   const [rate, setRate] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-
   const definitionFor = (form: ActiveForm) => form === "visit" ? MAINTENANCE_VISIT_FORM_V1
     : form === "expense" ? MAINTENANCE_EXPENSE_FORM_V1
     : form === "rate" ? MAINTENANCE_RATE_FORM_V1 : undefined;
-
   const loadDrafts = useCallback(async () => {
     const [visits, expenses, rates] = await Promise.all([
       services.formRuntime.listDrafts(MAINTENANCE_VISIT_FORM_V1),
@@ -61,37 +47,38 @@ export function MaintenanceSection() {
     ]);
     setDrafts([...visits, ...expenses, ...rates].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
   }, [services]);
-
   const loadVehicleRecords = useCallback(async (id: string) => {
     if (!id) { setRecords(null); setReminders([]); return; }
     const [history, states] = await Promise.all([
       services.maintenance.listVehicleRecords(id),
       services.maintenance.getServiceReminderStates(id, today()),
     ]);
-    const expenses = await projectMaintenanceExpenseRecords(history.expenses, correctionService);
-    setRecords({ ...history, expenses });
+    const [expenses, visits] = await Promise.all([
+      projectMaintenanceExpenseRecords(history.expenses, correctionService),
+      projectMaintenanceVisitRecords(history.visits, correctionService),
+    ]);
+    setRecords({ ...history, expenses, visits });
     setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
   }, [services, correctionService]);
-
-  const refresh = useCallback(async (requestedId: string) => {
+  const refresh = useCallback(async () => {
     try {
+      const operatingVehicle = await services.operatingConfiguration.getVehicleForReadOnly();
       const v = await services.vehicles.list();
-      setVehicles(v);
-      const chosen = requestedId || v.find(x => x.data.lifecycleState === "active")?.id || v[0]?.id || "";
+      const active = v.filter(item => item.data.lifecycleState === "active");
+      const configuredVehicle = active.find(item => item.id === operatingVehicle.vehicleId);
+      if (!configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
+        throw new Error("operating_configuration_stale");
+      }
+      const chosen = operatingVehicle.vehicleId;
+      setOperatingSnapshot(undefined);
+      setVehicles([configuredVehicle]);
       setVehicleId(chosen);
       await Promise.all([loadVehicleRecords(chosen), loadDrafts()]);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Could not load maintenance records.");
     }
   }, [services, loadVehicleRecords, loadDrafts]);
-
-  useEffect(() => { void refresh(""); }, [refresh]);
-
-  async function changeVehicle(id: string) {
-    setVehicleId(id);
-    await loadVehicleRecords(id);
-  }
-
+  useEffect(() => { void refresh(); }, [refresh]);
   function activateDraft(workingCopy: FormWorkingCopy, form: Exclude<ActiveForm, null>) {
     copyRef.current = workingCopy;
     setCopy(workingCopy);
@@ -130,14 +117,16 @@ export function MaintenanceSection() {
     } else setItems([newItem()]);
     setMessage("");
   }
-
   async function startNew(form: Exclude<ActiveForm, null>) {
     if (!vehicleId) return;
     setBusy(true);
     setMessage("");
     try {
+      const commandSnapshot = await services.operatingConfiguration.get();
+      if (commandSnapshot.vehicleId !== vehicleId) throw new Error("operating_configuration_stale");
+      await services.operatingConfiguration.assertCurrent(commandSnapshot);
+      setOperatingSnapshot(commandSnapshot);
       const definition = definitionFor(form)!;
-      // The same UUID is the durable draft identity and the owning service command ID.
       let workingCopy = await services.formRuntime.open(definition, crypto.randomUUID());
       const initial: Record<string, unknown> = form === "visit" ? {
         vehicleId, maintenanceDate: today(), maintenanceType: "", description: "",
@@ -158,7 +147,6 @@ export function MaintenanceSection() {
       setMessage(e instanceof Error ? e.message : "Could not start maintenance form.");
     } finally { setBusy(false); }
   }
-
   async function resumeDraft(draft: FormWorkingCopy) {
     const form: ActiveForm = draft.formId === MAINTENANCE_VISIT_FORM_V1.id ? "visit"
       : draft.formId === MAINTENANCE_EXPENSE_FORM_V1.id ? "expense"
@@ -166,7 +154,7 @@ export function MaintenanceSection() {
     const definition = definitionFor(form);
     if (!definition) return;
     if (draft.values.vehicleId !== vehicleId) {
-      setMessage("Select the vehicle belonging to this draft before resuming it.");
+      setMessage("Draft belongs to another vehicle.");
       return;
     }
     setBusy(true);
@@ -177,7 +165,6 @@ export function MaintenanceSection() {
       setMessage(e instanceof Error ? e.message : "Could not resume maintenance draft.");
     } finally { setBusy(false); }
   }
-
   function queueFieldUpdate(fieldId: string, value: unknown) {
     const form = activeForm;
     const definition = definitionFor(form);
@@ -193,7 +180,6 @@ export function MaintenanceSection() {
       setMessage(error instanceof Error ? error.message : "Maintenance draft could not be saved.");
     });
   }
-
   function updateCommonField(field: "date" | "title" | "description" | "provider" | "odometer" | "nextDate" | "nextKm" | "amount", value: string) {
     if (field === "date") setDate(value);
     if (field === "title") setTitle(value);
@@ -214,12 +200,10 @@ export function MaintenanceSection() {
     if (field === "amount") { fieldId = "amountPaise"; stored = value.trim() ? Math.round(Number(value) * 100) : undefined; }
     queueFieldUpdate(fieldId, stored);
   }
-
   function updateItems(next: ItemDraft[]) {
     setItems(next);
     queueFieldUpdate("itemsJson", JSON.stringify(next));
   }
-
   async function closeActiveForm() {
     await updateQueue.current;
     copyRef.current = undefined;
@@ -228,7 +212,6 @@ export function MaintenanceSection() {
     setMessage("Draft retained. You can resume it later.");
     await loadDrafts();
   }
-
   async function saveRecord(e: FormEvent) {
     e.preventDefault();
     const form = activeForm;
@@ -239,6 +222,8 @@ export function MaintenanceSection() {
     try {
       await updateQueue.current;
       if (updateError.current) throw updateError.current;
+      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       let current = copyRef.current;
       if (!current) throw new Error("maintenance_form_not_ready");
       if (form === "visit") {
@@ -265,7 +250,6 @@ export function MaintenanceSection() {
       setMessage(e instanceof Error ? e.message : "Maintenance record could not be saved.");
     } finally { setBusy(false); }
   }
-
   async function saveRate(e: FormEvent) {
     e.preventDefault();
     if (activeForm !== "rate") return;
@@ -274,6 +258,8 @@ export function MaintenanceSection() {
     try {
       await updateQueue.current;
       if (updateError.current) throw updateError.current;
+      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       const current = copyRef.current;
       if (!current) throw new Error("maintenance_rate_form_not_ready");
       await services.formRuntime.save(MAINTENANCE_RATE_FORM_V1, current);
@@ -286,14 +272,13 @@ export function MaintenanceSection() {
       setMessage(e instanceof Error ? e.message : "Rate could not be saved.");
     } finally { setBusy(false); }
   }
-
   const total = (records?.visits.reduce((sum, item) => sum + item.data.totalPaise, 0) ?? 0)
     + (records?.expenses.reduce((sum, item) => sum + item.data.amountPaise, 0) ?? 0);
   const vehicleDrafts = drafts.filter(draft => draft.values.vehicleId === vehicleId);
-
   return <div className="admin-capability-panel">
-    <p className="admin-hint">Record actual service visits and itemised costs, general expenses, odometer readings and next-service reminders. Historical dates are accepted. In-progress forms are saved as recoverable drafts and can be resumed after reopening the app.</p>
-    <div className="admin-vehicle-context"><label>Vehicle</label><select value={vehicleId} onChange={e => void changeVehicle(e.target.value)}><option value="">Select vehicle</option>{vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber}</option>)}</select></div>
+    <strong>Record actual service visits and itemised costs</strong>
+    <p className="admin-hint">Record service visits, expenses, odometer readings and next-service reminders. Historical dates and recoverable drafts are supported.</p>
+    <div className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicles[0]?.data.registrationNumber ?? "Configuration unavailable"}</span></div>
     {vehicleId && <>
       <div className="loan-metrics">
         <div><small>Total recorded maintenance cost</small><strong>{money(total)}</strong></div>
@@ -303,7 +288,6 @@ export function MaintenanceSection() {
         <div><small>Business Maintenance accrual</small><strong>{money(records?.accruals.reduce((sum, item) => sum + item.data.amountPaise, 0) ?? 0)}</strong></div>
         <div><small>Personal Maintenance attribution</small><strong>{money(records?.accruals.reduce((sum, item) => sum + (item.data.personalAmountPaise ?? 0), 0) ?? 0)}</strong></div>
       </div>
-
       {vehicleDrafts.length > 0 && <div className="admin-capability-form">
         <strong>Unfinished maintenance drafts</strong>
         {vehicleDrafts.map(draft => <article className="admin-capability-record" key={draft.instanceId}>
@@ -312,7 +296,6 @@ export function MaintenanceSection() {
           <button className="admin-secondary" type="button" disabled={busy || activeForm !== null} onClick={() => void resumeDraft(draft)}>Resume draft</button>
         </article>)}
       </div>}
-
       {!activeForm && <div className="admin-capability-form">
         <strong>New maintenance record</strong>
         <div className="admin-vehicle-context"><label>Record type</label><select value={mode} onChange={e => setMode(e.target.value as RecordMode)}><option value="visit">Service visit</option><option value="expense">General expense</option></select></div>
@@ -321,7 +304,6 @@ export function MaintenanceSection() {
           <button className="admin-secondary" type="button" disabled={busy} onClick={() => void startNew("rate")}>Change per-kilometre rate</button>
         </div>
       </div>}
-
       {activeForm && activeForm !== "rate" && <form className="admin-capability-form" onSubmit={saveRecord}>
         <strong>{activeForm === "visit" ? "Service visit" : "General maintenance expense"}</strong>
         <div className="loan-form-grid">
@@ -350,10 +332,9 @@ export function MaintenanceSection() {
         </div>
         {copy && <small className="admin-hint">Draft status · {copy.status.replaceAll("_", " ")} · revision {copy.revision}</small>}
       </form>}
-
       {activeForm === "rate" && <form className="admin-capability-form" onSubmit={saveRate}>
         <strong>Per-kilometre rate</strong>
-        <p className="admin-hint">This is an Admin-entered rate with effective-date history. It is not automatically calculated from actual maintenance expenses.</p>
+        <p className="admin-hint">Admin-entered rate with effective-date history; not calculated from actual expenses.</p>
         <label>New rate (₹ per km)<input required type="number" min="0" step="0.01" value={rate} onChange={e => {
           setRate(e.target.value);
           queueFieldUpdate("ratePaisePerKm", e.target.value.trim() ? Math.round(Number(e.target.value) * 100) : undefined);
@@ -364,7 +345,6 @@ export function MaintenanceSection() {
         </div>
         {copy && <small className="admin-hint">Draft status · {copy.status.replaceAll("_", " ")} · revision {copy.revision}</small>}
       </form>}
-
       {records?.accruals.length ? <div className="admin-capability-form">\n        <strong>Daily Maintenance accruals</strong>\n        <p className="admin-hint">Business km accrue into business Maintenance expense. Personal km and their rate-based amount remain separately attributed and are excluded from business expense.</p>\n        {records.accruals.map(item => <article className="admin-capability-record" key={item.id}><div>\n          <strong>{item.data.operationalDate} · Business {money(item.data.amountPaise)}</strong>\n          <small>{item.data.businessKm} business km × {money(item.data.ratePaisePerKm)} / km · rate effective {item.data.rateEffectiveFrom}</small>\n          <small>Personal {item.data.personalKm ?? 0} km · {money(item.data.personalAmountPaise ?? 0)} (separate, excluded from business expense)</small>\n        </div></article>)}\n      </div> : null}\n      {records?.rateHistory.length ? <div className="admin-capability-form">
         <strong>Per-kilometre rate history</strong>
         {records.rateHistory.map((entry, index) => <small key={entry.effectiveFrom + "-" + index}>{money(entry.ratePaisePerKm)} / km from {entry.effectiveFrom}{entry.isDefault ? " · Default rate" : " · Admin entered"}</small>)}
@@ -379,6 +359,7 @@ export function MaintenanceSection() {
           <strong>{visit.data.maintenanceType} · {money(visit.data.totalPaise)}</strong>
           <small>{visit.data.maintenanceDate} · {visit.data.provider ?? "No provider"} · {visit.data.odometerKm ?? "No odometer"} km</small>
           <small>{visit.data.items.map(item => item.description + " " + money(item.amountPaise)).join(" · ")}</small>
+          <MaintenanceVisitCorrection visit={visit} service={correctionService} onCorrected={() => loadVehicleRecords(vehicleId)} />
         </div></article>)}
         {records?.expenses.map(expense => <article className="admin-capability-record" key={expense.id}><div>
           <strong>{expense.data.expenseName} · {money(expense.data.amountPaise)}</strong>

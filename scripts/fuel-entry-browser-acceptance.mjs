@@ -2,71 +2,21 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { assertBrowserFuelPerformanceAndBackupJourney, assertBrowserWorkDistanceThroughUi } from "./stage3-browser-golden-journey.mjs";
+import { correctFuelPurchaseThroughUi, installFuelGeolocationStub, readBrowserRecords, waitForServer } from "./fuel-entry-browser-helpers.mjs";
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
-const registration = "MH00AA0091";
 const server = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", "4175"], {
   stdio: "ignore",
 });
 let browser;
-async function waitForServer() {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    try {
-      const response = await fetch(baseUrl);
-      if (response.ok) return;
-    } catch {
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error("fuel_entry_browser_server_did_not_start");
-}
-async function readBrowserRecords(page) {
-  return page.evaluate(async () => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const transaction = db.transaction("records", "readonly");
-      const read = transaction.objectStore("records").getAll();
-      let result;
-      read.onsuccess = () => { result = read.result; };
-      read.onerror = () => reject(read.error);
-      transaction.oncomplete = () => resolve(result ?? []);
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
-    });
-    db.close();
-    return rows;
-  });
-}
 try {
-  await waitForServer();
+  await waitForServer(baseUrl);
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.clock.install({ time: new Date(Date.now() - 86_400_000) });
   page.on("pageerror", error => console.error("BROWSER PAGE ERROR", error.stack ?? error.message));
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition(success) {
-          const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
-          localStorage.setItem("__fuel_geo_calls", String(calls));
-          if (window.__fuel_allow_work_gps) success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
-        },
-        watchPosition(success) {
-          const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
-          localStorage.setItem("__fuel_geo_calls", String(calls));
-          if (window.__fuel_allow_work_gps) success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
-          return 1;
-        },
-        clearWatch() {},
-      },
-    });
-  });
+  await installFuelGeolocationStub(page);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
@@ -86,39 +36,39 @@ try {
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
-  await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
-  await page.getByLabel("Registration number").fill(registration);
-  await page.getByLabel("Make").fill("Acceptance");
-  await page.getByLabel("Model").fill("Fuel Test Vehicle");
-  await page.getByLabel("Vehicle type").fill("Car");
-  await page.getByLabel("Fuel type").selectOption("CNG");
-  await page.getByLabel("Year of manufacture").fill("2024");
-  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
-  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   const vehicleRows = await readBrowserRecords(page);
   const vehicles = vehicleRows.filter(row =>
-    row.id.startsWith("feature:vehicle:") && row.data?.registrationNumber === registration
+    row.id.startsWith("feature:vehicle:") && row.data?.lifecycleState === "active"
   );
-  assert.equal(vehicles.length, 1, "Vehicle must be committed through the Admin UI");
-  assert.equal(vehicles[0].createdBy?.role, "admin", "Admin actor attribution must be persisted on the Vehicle record");
-  assert.equal(typeof vehicles[0].createdBy?.personId, "string");
+  assert.equal(vehicles.length, 1, "Fuel acceptance must use the single imported active vehicle");
   const vehicleId = vehicles[0].id;
-  const driverName = "Fuel Entry Browser Driver";
+  const registration = vehicles[0].data.registrationNumber;
+  assert.equal(typeof registration, "string");
+  assert.ok(registration.length > 0);
+  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Driver", exact: true }).click();
-  await page.getByRole("button", { name: "Add driver", exact: true }).click();
-  await page.getByLabel("Driver name").fill(driverName);
-  await page.getByLabel("Driving licence number").fill("ACCEPTANCE-FUEL-LIC-1");
-  await page.getByLabel("Mobile number").fill("9990001122");
-  await page.getByRole("button", { name: "Save driver", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
+  const driverRows = await readBrowserRecords(page);
+  const drivers = driverRows.filter(row =>
+    row.id.startsWith("feature:driver-records:driver:") && row.data?.lifecycleState === "active"
+  );
+  assert.equal(drivers.length, 1, "Fuel acceptance must use the single imported active driver");
+  const driver = drivers[0];
+  const driverName = driver.data.name;
   const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " is configured with " + registration + " for Work." }).waitFor({ state: "visible" });
+  await driverCard.waitFor({ state: "visible" });
+  const configure = driverCard.getByRole("button", { name: "Configure for Work", exact: true });
+  if (await configure.count()) await configure.click();
+  else await driverCard.getByRole("button", { name: "Verify operating configuration", exact: true }).click();
+  await page.getByRole("status").filter({
+    hasText: driverName + " is configured with " + registration + " for Work.",
+  }).waitFor({ state: "visible" });
   const configuredPair = await readBrowserRecords(page);
   const selectedWorkDriver = configuredPair.find(row => row.id === "work:selected-driver");
-  assert.equal(selectedWorkDriver?.data?.driverId, configuredPair.find(row => row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName)?.data?.driverId,
+  assert.equal(selectedWorkDriver?.data?.driverId, driver.data.driverId,
     "Admin must persist the canonical Work Driver selection");
-  const assignmentHistory = configuredPair.find(row => row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(selectedWorkDriver?.data?.driverId ?? ""));
+  const assignmentHistory = configuredPair.find(row =>
+    row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(driver.data.driverId)
+  );
   assert.ok(assignmentHistory, "Admin must persist the Driver assignment history");
   const currentAssignments = assignmentHistory.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
   assert.equal(currentAssignments.length, 1, "the configured Driver must have one current assignment");
@@ -204,8 +154,8 @@ try {
   assert.equal(firstSubmitEvent, true, "Fuel submit button must dispatch the form submit event");
   const firstSubmitStatus = (await panel.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeFirstSubmit,
-    "Fuel submission must not request geolocation");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeFirstSubmit + 1,
+    "Fuel submission must request one GPS snapshot without blocking the save");
   let committedRows = await readBrowserRecords(page);
   let purchases = committedRows.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -214,7 +164,7 @@ try {
   assert.equal(purchases[0].data.odometerKm, 12345);
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[0].createdBy?.role, "driver", "Fuel purchase must retain the active Driver actor");
-  assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
+  assert.equal(typeof purchases[0].createdBy?.personId, "string", "Fuel purchase must retain the linked Driver person identity");
   await context.setOffline(false);
   await page.clock.fastForward("00:01");
    await panel.getByLabel("Odometer (km)").fill("12346");
@@ -338,13 +288,14 @@ try {
   await resumed.getByText("Fuel purchase saved.", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
   const secondSubmitStatus = (await resumed.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit,
-    "offline Fuel submission must not request geolocation");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit + 1,
+    "offline Fuel submission must request a GPS snapshot without blocking the save");
   await context.setOffline(false);
   await resumed.getByText(/^Draft · /).waitFor({ state: "visible" });
-  await resumed.locator(".admin-vehicle-context").filter({ hasText: "Configured operating vehicle" }).waitFor({ state: "visible" });
-  const configuredVehicle = await resumed.locator(".admin-vehicle-context").innerText();
-  assert(configuredVehicle.includes(vehicleName), "Fuel form must remain bound to the configured operating vehicle: " + configuredVehicle);
+  const operatingVehicleContext = resumed.locator(".admin-vehicle-context");
+  await operatingVehicleContext.filter({ hasText: registration }).waitFor({ state: "visible" });
+  assert((await operatingVehicleContext.innerText()).includes(registration));
+  assert.equal(await resumed.getByLabel("Vehicle").count(), 0);
   await resumed.getByLabel("Odometer (km)").fill("12387");
   await resumed.getByLabel("Price per kg (₹)").fill("82.50");
   await resumed.getByLabel("Amount paid (₹)").fill("825");
@@ -357,14 +308,24 @@ try {
   const closingFormDiagnostic = await resumed.locator("form").evaluate(form => ({ valid: form.checkValidity(), invalid: [...form.querySelectorAll(":invalid")].map(control => control.validationMessage) }));
   assert.equal(closingCheckpointStatus, "Fuel purchase saved.",
     "closing full-tank checkpoint failed: " + closingCheckpointStatus + " " + JSON.stringify(closingFormDiagnostic));
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint,
-    "closing full-tank checkpoint must not request geolocation");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint + 1,
+    "closing full-tank purchase must capture its own GPS snapshot");
   // A completed full-tank interval becomes effective on the following
   // operational date; advance the browser clock before confirming Work km.
   await page.clock.fastForward(100800000);
   const workDistance = await assertBrowserWorkDistanceThroughUi(page);
   assert.equal(workDistance.businessKilometres, 42,
     "Performance must consume a confirmed Work odometer allocation from the rendered UI");
+  // The initial snapshot above is intentionally captured after the first
+  // purchase only. Re-read the authoritative Dexie records after the second
+  // and closing full-tank submissions before selecting the partial refill.
+  purchases = (await readBrowserRecords(page)).filter(row =>
+    row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
+  ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
+  assert.equal(purchases.length, 3, "opening full, partial, and closing full purchases must commit before correction");
+  assert.equal(purchases[1].data.odometerKm, 12346);
+  assert.equal(purchases[1].data.partialRefill, true);
+  const correctedRows = await correctFuelPurchaseThroughUi(page, purchases[1].id);
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId

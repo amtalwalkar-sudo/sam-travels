@@ -52,3 +52,23 @@ internal fun awaitMaintenanceJavascript(activity: MainActivity, expression: Stri
   }
   return false
 }
+
+
+internal fun readMaintenanceWebViewText(activity: MainActivity, script: String): String {
+  val instrumentation = InstrumentationRegistry.getInstrumentation()
+  val result = AtomicReference<String?>()
+  val latch = CountDownLatch(1)
+  instrumentation.runOnMainSync {
+    activity.getBridge().getWebView().evaluateJavascript(script) {
+      result.set(it)
+      latch.countDown()
+    }
+  }
+  if (!latch.await(5, TimeUnit.SECONDS)) return "<javascript evaluation timed out>"
+  return result.get().orEmpty()
+}
+
+internal fun readWebViewStartupDiagnostics(activity: MainActivity): String = readMaintenanceWebViewText(
+  activity,
+  "JSON.stringify({readyState:document.readyState,url:location.href,title:document.title,body:document.body?.innerText,root:document.getElementById('root')?.innerHTML?.slice(0,2500),scripts:Array.from(document.scripts).map(s=>s.src),resources:performance.getEntriesByType('resource').map(r=>r.name).filter(n=>n.includes('.js')||n.includes('main.tsx')).slice(-20)})",
+)

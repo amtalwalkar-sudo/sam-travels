@@ -42,7 +42,7 @@ function createService(options: { settlement?: boolean; overlap?: boolean; recor
     { async get() { return { id: "feature:business-settings:business", revision: 7,
       data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
     {
-      async getOverview() { return overview; },
+      async getAllocationOverview() { return overview; },
       async listCorrectionReferences(targetRecordId: string) {
         return targetRecordId === complianceRecord.id
           ? [{ sourceId: "historical-correction:compliance-premium", revision: 1 }]
@@ -103,7 +103,23 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect([...records.values()][0].data.canonicalInputs).toContain("historical-correction:compliance-premium");
   });
 
-  it("restates daily costs when a renewed Compliance record has a changed premium", async () => {
+  it("uses the corrected Compliance premium in the pre-business pool without mutating the source record", async () => {
+    const corrected = {
+      ...complianceRecord,
+      data: { ...complianceRecord.data, totalCostPaise: 1_200 },
+    };
+    const report = await createService({ records: [corrected] }).getReport();
+    const source = report.result.sources.find(item => item.sourceId === complianceRecord.id)!;
+    expect(source.sourceAmountPaise).toBe(1_200);
+    expect(source.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1_200);
+    expect(report.sourceCorrectionRefs).toContainEqual({
+      sourceId: complianceRecord.id,
+      refs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }],
+    });
+    expect(complianceRecord.data.totalCostPaise).toBe(1_000);
+  });
+
+  it("keeps a pre-start Compliance source in the pool and allocates a post-start renewal normally", async () => {
     const renewal = {
       ...complianceRecord,
       id: "feature:compliance:123e4567-e89b-42d3-a456-426614174099",
@@ -120,14 +136,18 @@ describe("BusinessStartDateCostAllocationService", () => {
     const oldSource = report.result.sources.find(item => item.sourceId === complianceRecord.id)!;
     const renewedSource = report.result.sources.find(item => item.sourceId === renewal.id)!;
     expect(oldSource.sourceAmountPaise).toBe(1_000);
-    expect(oldSource.eligibleTo).toBe("2026-02-28");
+    expect(oldSource.disposition).toBe("allocated");
+    expect(oldSource.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
+    expect(oldSource.daily[0].date).toBe("2026-02-15");
+    expect(oldSource.sourcePeriod?.to).toBe("2026-02-28");
     expect(renewedSource.sourceAmountPaise).toBe(3_100);
     expect(renewedSource.eligibleFrom).toBe("2026-03-01");
     expect(renewedSource.eligibleTo).toBe("2026-03-31");
     expect(renewedSource.daily).toHaveLength(31);
     expect(renewedSource.daily.every(item => item.amountPaise === 100)).toBe(true);
-    const expectedMarchFirstTotal = report.result.sources.reduce((sum, source) => sum +
-      (source.daily.find(item => item.date === "2026-03-01")?.amountPaise ?? 0), 0);
+    const expectedMarchFirstTotal = report.result.sources.filter(source => source.disposition !== "pre_business_pool_summary")
+      .reduce((sum, source) => sum + source.daily.filter(item => item.date === "2026-03-01")
+        .reduce((dayTotal, item) => dayTotal + item.amountPaise, 0), 0);
     expect(report.result.daily.find(item => item.date === "2026-03-01")?.amountPaise).toBe(expectedMarchFirstTotal);
     expect(report.result.allocatedAmountPaise).toBe(10_000 + 3_100);
     expect(complianceRecord.data.totalCostPaise).toBe(1_000);
@@ -136,24 +156,28 @@ describe("BusinessStartDateCostAllocationService", () => {
 
   it("stops EMI allocation at the settlement date and retains only historical paid-through cost", async () => {
     const report = await createService({ settlement: true }).getReport();
-    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
+    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" &&
+      item.disposition === "allocated" && (item.sourcePeriod?.from ?? "9999-12-31") >= "2026-02-15");
     expect(emiSources).toHaveLength(0);
-    const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
-    expect(carry?.sourceAmountPaise).toBe(5_900);
-    expect(carry?.disposition).toBe("pre_business_historical");
+    const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
+    expect(pool?.sourceAmountPaise).toBe(6_900);
+    expect(pool?.disposition).toBe("pre_business_pool_summary");
     expect(report.result.daily.find(item => item.date === "2026-02-15")?.amountPaise).toBeGreaterThan(0);
-    expect(report.result.allocatedAmountPaise).toBe(1_000);
-    expect(report.result.historicalAmountPaise).toBe(5_900);
+    expect(report.result.allocatedAmountPaise).toBe(6_900);
+    expect(report.result.historicalAmountPaise).toBe(0);
   });
 
   it("preserves the outgoing schedule's open period exactly once after prepayment", async () => {
     const report = await createService().getReport();
-    const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
-    const current = report.result.sources.filter(item => item.sourceKind === "emi");
-    expect(carry?.sourceAmountPaise).toBe(3_100);
-    expect(carry?.scheduleVersion).toBe(2);
-    expect(current.map(item => item.scheduleVersion)).toEqual([2, 2]);
-    expect(current.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
+    const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
+    const current = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
+      (item.sourcePeriod?.from ?? "9999-12-31") >= "2026-02-15");
+    expect(pool?.sourceAmountPaise).toBe(6_900);
+    expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
+      (item.sourcePeriod?.from ?? "9999-12-31") < "2026-02-15")
+      .map(item => item.sourceAmountPaise)).toEqual([3_100, 2_800]);
+    expect(current.map(item => item.scheduleVersion)).toEqual([2]);
+    expect(current.map(item => item.sourceAmountPaise)).toEqual([3_100]);
     expect(report.result.allocatedAmountPaise).toBe(10_000);
   });
 
@@ -177,22 +201,19 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect([...records.values()][0].data.canonicalInputs).toContain("2026-02-15");
   });
 
-  it("withholds only unresolved Compliance overlap dates while retaining non-overlap days", async () => {
+  it("withholds complete pre-start Compliance sources while their overlap remains unresolved", async () => {
     const report = await createService({ overlap: true }).getReport();
     const compliance = report.result.sources.filter(item => item.sourceKind === "compliance");
-    expect(compliance.some(item => item.disposition === "allocated" && item.daily.length > 0)).toBe(true);
-    expect(compliance.some(item => item.disposition === "overlap_review_required" && item.daily.length === 0)).toBe(true);
-    expect(report.result.withheldAmountPaise).toBeGreaterThan(0);
-    expect(report.result.withheldAmountPaise).toBeLessThan(2_000);
-    expect(compliance.filter(item => item.disposition === "allocated")
-      .every(item => item.daily.every(row => row.date > "2026-02-28"))).toBe(true);
+    expect(compliance.every(item => item.disposition === "overlap_review_required" && item.daily.length === 0)).toBe(true);
+    expect(report.result.withheldAmountPaise).toBe(2_000);
+    expect(report.result.sources.find(item => item.sourceKind === "pre-business-pool")?.sourceAmountPaise).toBe(5_900);
   });
 
   it("fails closed if Business Start Date has not been configured", async () => {
     const service = createService();
     const missingSettings = new BusinessStartDateCostAllocationService(
       { async get() { return undefined; } } as never,
-      { async getOverview() { return { records: [], overlaps: [] }; } } as never,
+      { async getAllocationOverview() { return { records: [], overlaps: [] }; } } as never,
       { async list() { return []; } } as never,
       { async getScheduleHistory() { throw new Error("not_expected"); } } as never,
       { async list() { return []; } } as never,

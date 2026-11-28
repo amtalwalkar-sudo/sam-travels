@@ -15,7 +15,7 @@ export type DriverTransitionCommand={
  expectedRevision:number;
  idempotencyKey:string;
  workflowVersion?:2;
- driverContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
+ driverContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string;selectionRevision?:number;driverRevision?:number;vehicleRevision?:number;assignmentRevision?:number};
  tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
  odometer?:{schemaVersion:1;readingKm:number;previousConfirmedKm?:number;personalKm?:number;businessKm?:number};
  rotation?:{schemaVersion:1;outgoingShiftId:string;outgoingShiftStartedAt:string;outgoingStartOdometerKm:number;boundaryAt:string};
@@ -29,7 +29,7 @@ export type DriverStateProjection={
  approachStartedAt?:string;
  lastEventId?:string;
  shiftId?:string;
- shiftContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
+ shiftContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string;selectionRevision?:number;driverRevision?:number;vehicleRevision?:number;assignmentRevision?:number};
  activeTripId?:string;
  tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
  shiftStartOdometerKm?:number;

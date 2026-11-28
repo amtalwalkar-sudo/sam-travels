@@ -45,6 +45,29 @@ describe("shared form runtime", () => {
     }
   });
 
+  it("rejects malformed field definitions and validates declared time inputs", async () => {
+    const runtime = new SharedFormRuntime(new MemoryCopies(), { submit: async () => undefined });
+    const invalidSelect = {
+      ...definition,
+      fields: [{ id: "payer", label: "Payer", type: "select", options: [] }],
+    } as FormDefinition;
+    await expect(runtime.open(invalidSelect, "invalid-select")).rejects.toThrow("invalid_form_definition");
+
+    const duplicateOptions = {
+      ...definition,
+      fields: [{ id: "payer", label: "Payer", type: "select", options: ["Driver", "Driver"] }],
+    } as FormDefinition;
+    await expect(runtime.open(duplicateOptions, "duplicate-options")).rejects.toThrow("invalid_form_definition");
+
+    const timeDefinition = {
+      ...definition,
+      fields: [{ id: "startTime", label: "Start time", type: "time", required: true }],
+    } as FormDefinition;
+    expect(validateFormValues(timeDefinition, { startTime: "25:60" }))
+      .toMatchObject([{ fieldId: "startTime", code: "time" }]);
+    expect(validateFormValues(timeDefinition, { startTime: "09:30" })).toEqual([]);
+  });
+
   it("validates the canonical Admin Business Setup definition", () => {
     expect(BUSINESS_SETUP_FORM_V1).toMatchObject({
       id: "admin.business-setup", version: 1, owner: "business-settings", primaryAction: "save",
@@ -276,7 +299,7 @@ describe("shared form runtime", () => {
     const result = await runtime.submit(definition, copy);
     expect(result).toEqual({ operationId: "operation-2" });
     expect(submissions).toBe(1);
-    expect(await copies.get(definition.id, "trip-456")).toMatchObject({ status: "submitted", revision: 3 });
+    expect(await copies.get(definition.id, "trip-456")).toMatchObject({ status: "submitted", revision: 4 });
     await expect(runtime.submit(definition, copy)).rejects.toThrow("form_copy_revision_conflict");
     expect(submissions).toBe(1);
   });
@@ -285,17 +308,44 @@ describe("shared form runtime", () => {
     const copies = new MemoryCopies();
     const actions: string[] = [];
     const saveDefinition = { ...definition, id: "admin.vehicle", primaryAction: "save" as const };
+    let operationSequence = 0;
     const runtime = new SharedFormRuntime(copies, { submit: async command => { actions.push(command.action); return "saved"; } },
-      () => "2026-11-10T00:00:00.000Z", () => "operation-save");
+      () => "2026-11-10T00:00:00.000Z", () => "operation-save-" + (++operationSequence));
     let copy = await runtime.open(saveDefinition, "vehicle-1");
+    const firstOperationId = copy.operationId;
     await runtime.save(saveDefinition, copy);
     copy = (await copies.get(saveDefinition.id, "vehicle-1"))!;
-    expect(copy).toMatchObject({ status: "saved", revision: 1, values: {} });
+    expect(copy).toMatchObject({ status: "saved", revision: 2, values: {} });
     copy = await runtime.update(saveDefinition, copy, "farePaise", 0);
     expect(copy.status).toBe("in_progress");
+    expect(copy.operationId).not.toBe(firstOperationId);
     await runtime.save(saveDefinition, copy);
     expect(actions).toEqual(["save", "save"]);
-    expect(await copies.get(saveDefinition.id, "vehicle-1")).toMatchObject({ status: "saved", revision: 3 });
+    expect(await copies.get(saveDefinition.id, "vehicle-1")).toMatchObject({ status: "saved", revision: 5 });
+  });
+
+  it("rotates operation identity after Save and blocks replay of the prior operation after a later edit/save", async () => {
+    const copies = new MemoryCopies();
+    const saveDefinition = { ...definition, id: "admin.vehicle", primaryAction: "save" as const };
+    const dispatched: string[] = [];
+    let sequence = 0;
+    const runtime = new SharedFormRuntime(copies, {
+      submit: async command => { dispatched.push(command.operationId); return { operationId: command.operationId }; },
+    }, () => "2026-11-19T09:00:00.000Z", () => "save-operation-" + (++sequence));
+    const original = await runtime.open(saveDefinition, "vehicle-replay-guard");
+    const firstOperationId = original.operationId;
+    await runtime.save(saveDefinition, original);
+    const saved = (await copies.get(saveDefinition.id, original.instanceId))!;
+    const edited = await runtime.update(saveDefinition, saved, "farePaise", 100);
+    expect(edited.operationId).not.toBe(firstOperationId);
+    const secondOperationId = edited.operationId;
+    await runtime.save(saveDefinition, edited);
+
+    await expect(runtime.save(saveDefinition, original)).rejects.toThrow("form_copy_revision_conflict");
+    expect(dispatched).toEqual([firstOperationId, secondOperationId]);
+    expect(await copies.get(saveDefinition.id, original.instanceId)).toMatchObject({
+      status: "saved", revision: 5, operationId: secondOperationId, values: { farePaise: 100 },
+    });
   });
 
   it("does not submit invalid data or permit Submit on Save-only forms", async () => {

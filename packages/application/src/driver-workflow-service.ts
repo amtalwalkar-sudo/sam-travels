@@ -62,6 +62,9 @@ export class DriverWorkflowService {
   async resumePendingBackground() {
     const pending = await this.repository.listPending();
     for (const intent of pending) {
+      // Native overlay events are completed by DriverOverlayService. A PWA
+      // startup/focus recovery must never race that service for the same GPS fix.
+      if (intent.command.originSurface === "native_overlay") continue;
       if (intent.status === "pending_location" && isWithinGpsRecoveryWindow(intent.command.transitionAt)) {
         this.startBackgroundCompletion(intent);
       } else if (intent.status === "pending_location") {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
 import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
 import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
@@ -15,6 +16,7 @@ import { BusinessExpensesService } from "../packages/application/src/business-ex
 describe("Business Expenses browser backup participant", () => {
   let unregisterVehicle: (() => void) | undefined;
   let unregisterExpenses: (() => void) | undefined;
+  let unregisterDrivers: (() => void) | undefined;
   const vehicleId = "feature:vehicle:MH01AB1234";
   const timestamp = "2026-11-14T20:00:00.000Z";
 
@@ -23,9 +25,11 @@ describe("Business Expenses browser backup participant", () => {
     await browserDatabase.open();
     unregisterVehicle = registerVehicleBrowserBackupParticipant();
     unregisterExpenses = registerBusinessExpensesBrowserBackupParticipant();
+    unregisterDrivers = registerDriverRecordsBrowserBackupParticipant();
   });
   afterEach(() => {
     unregisterExpenses?.(); unregisterExpenses = undefined;
+    unregisterDrivers?.(); unregisterDrivers = undefined;
     unregisterVehicle?.(); unregisterVehicle = undefined;
   });
 
@@ -45,11 +49,11 @@ describe("Business Expenses browser backup participant", () => {
     const id = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000";
     await browserDatabase.records.put({
       id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
-      source: "web", revision: 1, businessDate: "2026-11-15",
+      source: "web", revision: 1, businessDate: "2026-11-14",
       createdBy: { personId: "driver-1", role: "driver" },
       data: {
         schemaVersion: 1, kind: "fuel_purchase", id, revision: 1,
-        businessDate: "2026-11-15", occurredAt: timestamp, vehicleId,
+        businessDate: "2026-11-14", occurredAt: timestamp, vehicleId,
         odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000, partialRefill: true,
       },
     });
@@ -173,6 +177,26 @@ describe("Business Expenses browser backup participant", () => {
       costPaisePerKm: { numerator: "57000", denominator: "20" },
       sourcePurchaseIds: [targetRecordId, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052"],
     });
+  });
+
+  it("rejects legacy Driver identity using the shared missing-reference category", async () => {
+    await seedVehicle();
+    await browserDatabase.records.put({
+      id: "feature:driver-records:driver:driver-synthetic-001",
+      schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId: "driver-synthetic-001", name: "Synthetic Driver", lifecycleState: "active" },
+    });
+    const id = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031";
+    await browserDatabase.records.put({
+      id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1, businessDate: "2026-11-15",
+      data: { schemaVersion: 1, kind: "business_expense", id, revision: 1,
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 1200,
+        currencyCode: "INR", effect: "charge", vehicleId,
+        driverId: "feature:driver-records:driver:missing-driver-001", category: "Parking" },
+    });
+    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("business_expense_driver_not_found");
   });
 
   it("rejects expense records with missing vehicle references", async () => {

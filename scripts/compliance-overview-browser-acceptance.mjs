@@ -80,7 +80,19 @@ try {
     ];
     await new Promise((resolve, reject) => {
       const tx = db.transaction("records", "readwrite");
-      rows.forEach(row => tx.objectStore("records").put(row));
+      const store = tx.objectStore("records");
+      // This acceptance scenario owns a six-record fixture. The app bootstrap
+      // also imports five initial Admin Compliance records, so remove only
+      // those known profile identities before adding the isolated fixture.
+      // The profile importer itself is covered independently by its own tests.
+      for (const id of [
+        "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000001",
+        "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000002",
+        "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000003",
+        "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000004",
+        "feature:compliance:9c5d6e20-2c3a-4c71-9c2d-100000000005",
+      ]) store.delete(id);
+      rows.forEach(row => store.put(row));
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -124,6 +136,9 @@ try {
   const expiredPucRecords = overview.locator("article.admin-capability-record").filter({ hasText: "PUC · Expired" });
   if (await expiredPucRecords.count() !== 2) throw new Error("expired_puc_status_not_rendered_for_both_records");
   const withheldCosts = overview.getByText("Combined amount withheld until every affected overlap is currently confirmed.", { exact: true });
+  // Daily-cost cards are populated by a separate asynchronous effect after the
+  // overview itself renders. Wait for both vehicles before asserting the count.
+  await withheldCosts.nth(1).waitFor({ state: "visible", timeout: 10000 });
   if (await withheldCosts.count() !== 2) throw new Error("unconfirmed_overlap_costs_not_withheld_for_both_vehicles");
 
   const filter = overview.locator("#compliance-fleet-filter");

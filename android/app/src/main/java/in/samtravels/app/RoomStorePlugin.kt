@@ -9,8 +9,15 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+/** Only transient form working copies may be hard-deleted through the generic Room repository. */
+internal fun assertTransientRecordDeletionAllowed(id: String) {
+    require(id.startsWith("__sam_travels_form_working_copy__:")) { "record_delete_forbidden" }
+}
 
 /** Shared transaction primitive used by the native repository and Room instrumentation tests. */
 internal suspend fun compareAndSetStoredRecord(
@@ -41,6 +48,7 @@ internal suspend fun commitFeatureUpgradeBatch(
     records: JSONArray,
     deletes: JSONArray,
     expectedRevisions: JSONObject,
+    deleteNamespacePrefix: String? = null,
 ): Boolean {
     val writesById = linkedMapOf<String, JSONObject>()
     for (index in 0 until records.length()) {
@@ -54,6 +62,11 @@ internal suspend fun commitFeatureUpgradeBatch(
     val deleteIds = (0 until deletes.length()).map { deletes.getString(it) }
     require(deleteIds.all { it.isNotBlank() } && deleteIds.distinct().size == deleteIds.size) {
         "feature_upgrade_invalid_delete"
+    }
+    if (deleteIds.isNotEmpty()) {
+        require(!deleteNamespacePrefix.isNullOrBlank() && deleteIds.all { it.startsWith(deleteNamespacePrefix) }) {
+            "feature_upgrade_delete_namespace_mismatch"
+        }
     }
     require(deleteIds.none { it in writesById }) { "feature_upgrade_write_delete_conflict" }
     val touchedIds = writesById.keys + deleteIds
@@ -90,15 +103,64 @@ internal suspend fun commitFeatureUpgradeBatch(
 @CapacitorPlugin(name = "RoomStore")
 class RoomStorePlugin : Plugin() {
     private val executor = Executors.newSingleThreadExecutor()
-    private val db by lazy {
+    @Volatile private var failNextWorkingCopyCompletion = false
+
+    /** Debug-only deterministic fault injection for WebView/Room recovery instrumentation. */
+    @PluginMethod
+    fun armWorkingCopyCompletionFailure(call: PluginCall) {
+        if (!BuildConfig.DEBUG) {
+            call.reject("Fault injection is available only in debug builds")
+            return
+        }
+        failNextWorkingCopyCompletion = true
+        call.resolve()
+    }
+    private val database = lazy {
         Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation()
             .build()
     }
+    private val db by database
+
+    /**
+     * Drain repository operations and close Room before the Activity teardown returns.
+     *
+     * Tests and Android lifecycle transitions can immediately reopen or replace the
+     * database file. Merely enqueueing close here leaves a window in which the next
+     * Bridge can attach to a stale Room connection and observe a different database
+     * generation from the one its direct Room repository has opened.
+     */
+    override fun handleOnDestroy() {
+        if (database.isInitialized()) {
+            // The single-thread executor preserves operation order: close runs after
+            // every accepted repository operation, and shutdown prevents new work.
+            executor.execute { runCatching { db.close() } }
+        }
+        executor.shutdown()
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                executor.shutdownNow()
+                executor.awaitTermination(2, TimeUnit.SECONDS)
+            }
+        } catch (interrupted: InterruptedException) {
+            executor.shutdownNow()
+            Thread.currentThread().interrupt()
+        } finally {
+            super.handleOnDestroy()
+        }
+    }
 
     // Reads preserve historical rows; application services validate typed records before use.
-    private fun decodeStoredRow(row: StoredRecord): JSONObject = JSONObject(row.json)
+    private fun decodeStoredRow(row: StoredRecord): JSONObject {
+        // Room's persisted contract is one JSON object envelope. Parse the
+        // column explicitly as JSON text and reject strings/other JSON values;
+        // JSONObject(Object) would invoke reflective bean conversion.
+        val payload = JSONTokener(row.json).nextValue() as? JSONObject
+            ?: error("room_record_payload_not_object:" + row.id)
+        if (!payload.has("id")) payload.put("id", row.id)
+        return payload
+    }
 
     @PluginMethod
     fun get(call: PluginCall) {
@@ -169,6 +231,14 @@ class RoomStorePlugin : Plugin() {
         }
         executor.execute {
             try {
+                val workingCopyStatus = record.optJSONObject("data")?.optString("status")
+                if (BuildConfig.DEBUG && failNextWorkingCopyCompletion &&
+                    id.startsWith("__sam_travels_form_working_copy__:") &&
+                    (workingCopyStatus == "saved" || workingCopyStatus == "submitted")) {
+                    failNextWorkingCopyCompletion = false
+                    call.reject("simulated_process_death_after_domain_commit")
+                    return@execute
+                }
                 NativeStartupRecovery.ensure(db)
                 val committed = runBlocking { compareAndSetStoredRecord(db, id, expected, record) }
                 val out = JSObject()
@@ -186,10 +256,11 @@ class RoomStorePlugin : Plugin() {
         val records = call.getArray("records") ?: JSONArray()
         val deletes = call.getArray("deletes") ?: JSONArray()
         val expected = call.getObject("expectedRevisions") ?: JSONObject()
+        val deleteNamespacePrefix = call.getString("deleteNamespacePrefix")
         executor.execute {
             try {
                 NativeStartupRecovery.ensure(db)
-                val committed = runBlocking { commitFeatureUpgradeBatch(db, records, deletes, expected) }
+                val committed = runBlocking { commitFeatureUpgradeBatch(db, records, deletes, expected, deleteNamespacePrefix) }
                 val out = JSObject()
                 out.put("committed", committed)
                 call.resolve(out)
@@ -211,7 +282,13 @@ class RoomStorePlugin : Plugin() {
                 out.put("records", arr)
                 call.resolve(out)
             } catch (error: Exception) {
-                call.reject("Room list failed", error)
+                // Preserve the stable production error while exposing the native
+                // cause in debug acceptance builds so WebView startup failures
+                // identify the failing Room/recovery operation.
+                val detail = if (BuildConfig.DEBUG) {
+                    " (" + error.javaClass.simpleName + ": " + (error.message ?: "no detail") + ")"
+                } else ""
+                call.reject("Room list failed" + detail, error)
             }
         }
     }
@@ -221,6 +298,10 @@ class RoomStorePlugin : Plugin() {
         val id = call.getString("id")
         if (id.isNullOrBlank()) {
             call.reject("Record id required")
+            return
+        }
+        try { assertTransientRecordDeletionAllowed(id) } catch (error: Exception) {
+            call.reject("Room delete failed", error)
             return
         }
         executor.execute {

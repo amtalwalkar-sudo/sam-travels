@@ -1,5 +1,6 @@
 import {
   allocateComplianceCostV1,
+  allocatePreBusinessCostPoolV1,
   allocateScheduledEmisV1,
   buildBusinessStartDateAllocationResultV1,
   type BusinessStartDateAllocationResultV1,
@@ -58,7 +59,7 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
 export class BusinessStartDateCostAllocationService {
   constructor(
     private readonly settings: Pick<BusinessSettingsService, "get">,
-    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getOverview"> &
+    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getAllocationOverview"> &
       Partial<Pick<ComplianceAnalysisService, "listCorrectionReferences">>,
     private readonly loans: Pick<FinanceLoanService, "list">,
     private readonly prepayments: Pick<FinanceLoanPrepaymentService, "getScheduleHistory">,
@@ -135,7 +136,7 @@ export class BusinessStartDateCostAllocationService {
 
   async getReport(): Promise<BusinessStartDateCostAllocationReportV1> {
     const [settings, overview, loans] = await Promise.all([
-      this.settings.get(), this.complianceAnalysis.getOverview(), this.loans.list(),
+      this.settings.get(), this.complianceAnalysis.getAllocationOverview(), this.loans.list(),
     ]);
     if (!settings) throw new Error("business_start_date_not_configured");
     const businessStartDate = settings.data.businessStartDate;
@@ -158,7 +159,21 @@ export class BusinessStartDateCostAllocationService {
         totalCostPaise: record.data.totalCostPaise, overlapReviewStatus: "confirmed",
       };
       const base = allocateComplianceCostV1(businessStartDate, input);
-      if (!related.length || base.disposition !== "allocated") {
+      if (!related.length) {
+        sources.push(base);
+        continue;
+      }
+      if (base.disposition === "pre_business_historical") {
+        // A pre-start source is pooled as one indivisible amount. If its
+        // validity participates in an unresolved overlap, withhold the full
+        // amount rather than silently pooling an amount under review.
+        sources.push(Object.freeze({
+          ...base, sourceId: record.id + ":overlap-withheld",
+          disposition: "overlap_review_required" as const,
+        }));
+        continue;
+      }
+      if (base.disposition !== "allocated") {
         sources.push(base);
         continue;
       }
@@ -234,7 +249,8 @@ export class BusinessStartDateCostAllocationService {
     }
 
     const generatedAt = this.now();
-    const result = buildBusinessStartDateAllocationResultV1(businessStartDate, sources);
+    const pooledSources = allocatePreBusinessCostPoolV1(businessStartDate, sources);
+    const result = buildBusinessStartDateAllocationResultV1(businessStartDate, pooledSources);
     const provenance = await this.retainProvenance(
       businessStartDate, settings.revision, result, generatedAt, sourceCorrectionRefs,
     );

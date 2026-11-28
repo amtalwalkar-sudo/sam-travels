@@ -17,15 +17,21 @@ internal object DriverWorkflowIdentity {
                     ?: error("work_selected_driver_invalid")
             }
         val driverRow = db.records().get("feature:driver-records:driver:$driverId") ?: error("driver_person_profile_missing")
-        val driver = JSONObject(driverRow.json).optJSONObject("data") ?: error("driver_person_profile_invalid")
+        val driverEnvelope = JSONObject(driverRow.json)
+        require(driverEnvelope.isNull("deletedAt")) { "driver_person_profile_missing" }
+        val driver = driverEnvelope.optJSONObject("data") ?: error("driver_person_profile_invalid")
         require(driver.optString("driverId") == driverId && driver.optString("lifecycleState") == "active") { "driver_person_profile_invalid" }
         val linkRow = db.records().get("identity:driver-person-link:$driverId") ?: error("driver_person_link_missing")
-        val link = JSONObject(linkRow.json).optJSONObject("data") ?: error("driver_person_link_invalid")
+        val linkEnvelope = JSONObject(linkRow.json)
+        require(linkEnvelope.isNull("deletedAt")) { "driver_person_link_missing" }
+        val link = linkEnvelope.optJSONObject("data") ?: error("driver_person_link_invalid")
         require(link.optInt("schemaVersion", -1) == 1 && link.optString("driverId") == driverId) { "driver_person_link_invalid" }
         val personId = link.optString("personId")
         require(personId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "driver_person_link_invalid" }
         val personRow = db.records().get("identity:person:$personId") ?: error("driver_person_identity_missing")
-        val person = JSONObject(personRow.json).optJSONObject("data") ?: error("driver_person_identity_invalid")
+        val personEnvelope = JSONObject(personRow.json)
+        require(personEnvelope.isNull("deletedAt")) { "driver_person_identity_missing" }
+        val person = personEnvelope.optJSONObject("data") ?: error("driver_person_identity_invalid")
         val roles = person.optJSONArray("roles") ?: error("driver_person_identity_invalid")
         require(person.optInt("schemaVersion", -1) == 1 && person.optString("personId") == personId &&
             person.optString("status") == "active" && (0 until roles.length()).any { roles.optString(it) == "driver" }) {

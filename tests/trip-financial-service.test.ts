@@ -77,6 +77,20 @@ describe("TripFinancialService cancellation fee closeout", () => {
       async () => ({ personId: "person-driver-1", role: "driver" }));
     const submitted = await service.submitCancellationFee("trip_author", 2500, "operation_author");
     expect(submitted.createdBy).toEqual({ personId: "person-driver-1", role: "driver" });
+    expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
+  });
+
+
+  it("preserves an existing obligation creator when a different active actor submits the financials", async () => {
+    const records = new MemoryRecords();
+    const original = { ...obligation("trip_original_creator"),
+      createdBy: { personId: "person-original", role: "admin" as const } };
+    await records.put(original);
+    const service = new TripFinancialService(records, "web", () => "2026-11-10T01:00:00.000Z",
+      async () => ({ personId: "person-driver-1", role: "driver" }));
+    const submitted = await service.submitCancellationFee("trip_original_creator", 2500, "operation_creator");
+    expect(submitted.createdBy).toEqual({ personId: "person-original", role: "admin" });
+    expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
   });
 
   it("rejects a missing obligation, negative amounts and a conflicting replay", async () => {
@@ -139,6 +153,21 @@ describe("completed-trip financial concurrent submission", () => {
       () => "2026-11-10T01:00:00.000Z", { personId: "person-driver-1", role: "driver" },
     );
     expect(submitted.createdBy).toEqual({ personId: "person-driver-1", role: "driver" });
+    expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
+  });
+
+
+  it("preserves completed-trip source creator while recording the submitting actor", async () => {
+    const records = new MemoryRecords();
+    const original = { ...completedObligation("trip_completed_original_creator"),
+      createdBy: { personId: "person-original", role: "admin" as const } };
+    await records.put(original);
+    const submitted = await submitCompletedTripFinancials(
+      records, "web", "trip_completed_original_creator", values, "operation_original_creator",
+      () => "2026-11-10T01:00:00.000Z", { personId: "person-driver-1", role: "driver" },
+    );
+    expect(submitted.createdBy).toEqual({ personId: "person-original", role: "admin" });
+    expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
   });
 
   it("accepts concurrent replay of the same operation and payload", async () => {

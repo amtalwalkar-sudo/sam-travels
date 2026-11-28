@@ -20,12 +20,37 @@ function ExpenseEntryForm({ definition, heading, description }: {
   const [message, setMessage] = useState("");
 
   const start = useCallback(async () => {
-    const drafts = await services.formRuntime.listDrafts(definition as FormDefinition);
-    const resumable = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    const next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+    const [drafts, operatingVehicle] = await Promise.all([
+      services.formRuntime.listDrafts(definition as FormDefinition), services.operatingConfiguration.getVehicleForReadOnly(),
+    ]);
+    const expectedVehicleId = operatingVehicle.vehicleId;
+    // A draft belongs to the operating context in which it was created. A
+    // vehicle switch must not make an older, unrelated draft block the form.
+    // Pending submissions are immutable: only replay one whose frozen payload
+    // already targets the currently configured vehicle.
+    const resumable = [...drafts]
+      .filter(draft => {
+        if (!definition.fields.some(item => item.id === "vehicleId")) return true;
+        if (draft.status === "pending") {
+          return draft.submission?.values.vehicleId === expectedVehicleId;
+        }
+        return draft.values.vehicleId === undefined || draft.values.vehicleId === expectedVehicleId;
+      })
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    let next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+    for (const field of ["vehicleId"] as const) {
+      if (!definition.fields.some(item => item.id === field)) continue;
+      if (next.status !== "pending" && next.values[field] === undefined) {
+        next = await services.formRuntime.update(definition as FormDefinition, next, field, expectedVehicleId);
+      }
+      if (next.status === "pending" && next.submission?.values[field] !== expectedVehicleId) {
+        throw new Error("business_expense_pending_operating_context_mismatch");
+      }
+    }
     copyRef.current = next;
     setCopy(next);
-    setValues({ ...next.values });
+    // A pending intent is immutable; render the exact payload that will be replayed.
+    setValues({ ...(next.status === "pending" && next.submission ? next.submission.values : next.values) });
   }, [definition, services]);
 
   useEffect(() => { void start().catch(error => setMessage(error instanceof Error ? error.message : "Could not open the expense form.")); }, [start]);
@@ -43,16 +68,24 @@ function ExpenseEntryForm({ definition, heading, description }: {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    setBusy(true); setMessage("");
+    setBusy(true); setMessage("Saving draft changes…");
     try {
       await queue.current;
       const current = copyRef.current;
       if (!current) throw new Error("business_expense_form_not_ready");
+      // The feature service is the authority for the current vehicle/driver pair
+      // and adds the canonical operating Driver ID. Avoid a second context read
+      // and working-copy write in the presentation layer.
+      setMessage("Saving expense record…");
       await services.formRuntime.save(definition as FormDefinition, current);
       setMessage("Saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
-      const next = await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
-      copyRef.current = next; setCopy(next);
+      const nextVehicle = await services.operatingConfiguration.getVehicleForReadOnly();
+      let next = await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+      if (definition.fields.some(item => item.id === "vehicleId")) {
+        next = await services.formRuntime.update(definition as FormDefinition, next, "vehicleId", nextVehicle.vehicleId);
+      }
+      copyRef.current = next; setCopy(next); setValues({ ...next.values });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save this expense.");
     } finally { setBusy(false); }
@@ -65,15 +98,15 @@ function ExpenseEntryForm({ definition, heading, description }: {
       <div className="loan-form-grid">
         {definition.fields.map(field => <label key={field.id}>
           {field.label}
-          {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true}
+          {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true} disabled={busy || !copy || copy.status === "pending"}
             onChange={event => change(field, event.target.checked)} /> :
-          field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")}
+          field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")} disabled={busy || !copy || copy.status === "pending"}
             onChange={event => change(field, event.target.value)}>
               <option value="">Select</option>
               {(field.options ?? []).map(option => <option key={option} value={option}>{option}</option>)}
             </select> :
           <input type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-            required={field.required} maxLength={field.maxLength}
+            required={field.required} maxLength={field.maxLength} disabled={busy || !copy || copy.status === "pending"}
             min={field.type === "number" ? "0.01" : undefined}
             step={field.type === "number" ? "0.01" : undefined}
             value={String(values[field.id] ?? "")}

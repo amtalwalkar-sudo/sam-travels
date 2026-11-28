@@ -25,6 +25,13 @@ class NativeBusinessExpensesBackupTest {
         .put("fuelType", "CNG").put("yearOfManufacture", 2022)
         .put("ownership", "Owned").put("lifecycleState", "active"))
 
+    private fun driverRow() = row(
+        "feature:driver-records:driver:driver-synthetic-001",
+        "driver-records",
+        JSONObject().put("schemaVersion", 1).put("driverId", "driver-synthetic-001")
+            .put("name", "Synthetic Driver").put("lifecycleState", "active"),
+    )
+
     private fun fuelRow() = row(
         "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000",
         "business-expenses-records",
@@ -48,9 +55,9 @@ class NativeBusinessExpensesBackupTest {
     private fun tripFinancialRow() = row(
         "work:trip-financial-obligation:trip-dup", "platform-records",
         JSONObject().put("schemaVersion", 1).put("tripId", "trip-dup")
-            .put("kind", "completed_ride_financials").put("status", "submitted")
+            .put("kind", "completed_ride_financials").put("status", "submitted").put("endRideEventId", "end-ride-1")
             .put("tripContext", JSONObject().put("schemaVersion", 1)
-                .put("shiftId", "shift-1").put("driverId", "driver-1")
+                .put("shiftId", "shift-1").put("driverId", "driver-synthetic-001")
                 .put("assignmentId", "assignment-1").put("vehicleId", vehicleId)
                 .put("operationalDate", "2026-11-15"))
             .put("tollPaise", 1200).put("tollPayer", "driver"),
@@ -58,8 +65,22 @@ class NativeBusinessExpensesBackupTest {
 
     private fun withParticipants(block: () -> Unit) {
         val vehicle = NativeVehicleBackup.register()
+        val driver = NativeDriverRecordsBackup.register()
         NativeBusinessExpensesBackup.ensureRegistered()
-        try { block() } finally { vehicle.close() }
+        try { block() } finally {
+            driver.close()
+            vehicle.close()
+        }
+    }
+
+    @Test
+    fun assignsFuelToTheAsiaKolkataFourAmOperationalDate() {
+        assertEquals("2026-11-14",
+            NativeBusinessExpensesBackup.operationalDateFromInstant("2026-11-14T22:29:59.000Z"))
+        assertEquals("2026-11-15",
+            NativeBusinessExpensesBackup.operationalDateFromInstant("2026-11-14T22:30:00.000Z"))
+        assertEquals("2026-11-15",
+            NativeBusinessExpensesBackup.operationalDateFromInstant("2026-11-15T05:00:00.000Z"))
     }
 
     @Test
@@ -74,6 +95,19 @@ class NativeBusinessExpensesBackupTest {
             .put(expenseRow("traffic_challan", "123e4567-e89b-42d3-a456-426614174003",
                 JSONObject().put("paymentStatus", "unpaid")))
         NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
+    }
+
+    @Test
+    fun rejectsLegacyDriverIdentityWithTheSameMissingReferenceCategoryAsBrowser() = withParticipants {
+        val expense = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174030",
+            JSONObject().put("category", "Parking").put("driverId", "feature:driver:driver-synthetic-001"))
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            NativeBackupCoverage.validateBusinessRecords(
+                JSONArray().put(vehicleRow()).put(driverRow()).put(expense),
+                requireExplicitOwnerTags = true,
+            )
+        }
+        assertEquals("business_expense_driver_not_found", error.message)
     }
 
     @Test
@@ -103,16 +137,16 @@ class NativeBusinessExpensesBackupTest {
         val originalId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174020"
         val reversalId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174021"
         val original = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174020",
-            JSONObject().put("category", "Toll").put("tripExpenseTreatment", "already-in-trip-closeout")
+            JSONObject().put("category", "Toll").put("driverId", "feature:driver-records:driver:driver-synthetic-001").put("tripExpenseTreatment", "already-in-trip-closeout")
                 .put("tripFinancialSourceId", tripId)
                 .put("tripFinancialComponent", "toll"))
         val reversal = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174021",
-            JSONObject().put("category", "Toll").put("effect", "reversal")
+            JSONObject().put("category", "Toll").put("driverId", "feature:driver-records:driver:driver-synthetic-001").put("effect", "reversal")
                 .put("tripExpenseTreatment", "already-in-trip-closeout")
                 .put("businessDate", "2026-11-16").put("reversesSourceId", originalId)
                 .put("tripFinancialSourceId", tripId).put("tripFinancialComponent", "toll"))
         NativeBackupCoverage.validateBusinessRecords(
-            JSONArray().put(vehicleRow()).put(tripFinancialRow()).put(original).put(reversal),
+            JSONArray().put(vehicleRow()).put(driverRow()).put(tripFinancialRow()).put(original).put(reversal),
             requireExplicitOwnerTags = true,
         )
     }
@@ -121,12 +155,12 @@ class NativeBusinessExpensesBackupTest {
     fun rejectsTripLinkedManualExpenseWhenAmountDoesNotMatchTripComponent() = withParticipants {
         val tripId = "work:trip-financial-obligation:trip-dup"
         val invalid = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174022",
-            JSONObject().put("category", "Toll").put("amountPaise", 1300)
+            JSONObject().put("category", "Toll").put("driverId", "feature:driver-records:driver:driver-synthetic-001").put("amountPaise", 1300)
                 .put("tripExpenseTreatment", "already-in-trip-closeout")
                 .put("tripFinancialSourceId", tripId).put("tripFinancialComponent", "toll"))
         val error = assertThrows(IllegalArgumentException::class.java) {
             NativeBackupCoverage.validateBusinessRecords(
-                JSONArray().put(vehicleRow()).put(tripFinancialRow()).put(invalid),
+                JSONArray().put(vehicleRow()).put(driverRow()).put(tripFinancialRow()).put(invalid),
                 requireExplicitOwnerTags = true,
             )
         }

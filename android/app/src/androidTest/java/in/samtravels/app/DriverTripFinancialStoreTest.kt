@@ -37,9 +37,29 @@ class DriverTripFinancialStoreTest {
    val submitted=DriverTripFinancialStore.submit(db,"trip-fare-2",zero)
    assertEquals("submitted",submitted.getJSONObject("data").getString("status"))
    assertEquals("person-fare-2",submitted.getJSONObject("createdBy").getString("personId"))
+   assertEquals("person-fare-2",submitted.getJSONObject("updatedBy").getString("personId"))
    assertTrue(runCatching {
     DriverTripFinancialStore.updateDraft(db,"trip-fare-2",JSONObject().put("farePaise",100L).put("tollPayer","driver"))
    }.isFailure)
+  } finally { db.close() }
+ }
+
+
+ @Test fun completedSubmissionPreservesOriginalCreatorAndRecordsDriverUpdater() {
+  val db=Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(),LocalDatabase::class.java).allowMainThreadQueries().build()
+  try {
+   val now=java.time.Instant.now().toString()
+   DriverWorkflowIdentityTestFixtures.seed(db,"driver-provenance","person-driver-provenance")
+   DriverTripFinancialStore.createPendingObligation(db,"trip-provenance","end-provenance",now,null)
+   val id="work:trip-financial-obligation:trip-provenance"
+   val row=db.records().get(id)!!
+   val envelope=JSONObject(row.json).put("createdBy",JSONObject().put("personId","person-original").put("role","admin"))
+   db.records().put(StoredRecord(id,envelope.toString(),row.schemaVersion,row.updatedAt))
+   DriverTripFinancialStore.ensureDraft(db,"trip-provenance")
+   DriverTripFinancialStore.updateDraft(db,"trip-provenance",JSONObject().put("farePaise",5000L))
+   val submitted=DriverTripFinancialStore.submit(db,"trip-provenance",JSONObject().put("farePaise",5000L))
+   assertEquals("person-original",submitted.getJSONObject("createdBy").getString("personId"))
+   assertEquals("person-driver-provenance",submitted.getJSONObject("updatedBy").getString("personId"))
   } finally { db.close() }
  }
 

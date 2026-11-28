@@ -28,6 +28,10 @@ class NativeBusinessExpensesRoomBackupTest {
         val at = "2026-11-15T05:00:00.000Z"
         val vehicleId = "feature:vehicle:MH01AB1234"
         try {
+            val driverId = "feature:driver-records:driver:driver-room"
+            db.records().put(record(driverId, JSONObject().put("schemaVersion", 1)
+                .put("driverId", "driver-room").put("name", "Synthetic Room Driver")
+                .put("lifecycleState", "active"), at))
             db.records().put(record(vehicleId, JSONObject().put("schemaVersion", 1).put("registrationNumber", "MH01AB1234").put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV").put("fuelType", "CNG").put("yearOfManufacture", 2022).put("ownership", "Owned").put("lifecycleState", "active"), at))
             val fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000"
             val correctionId = "historical-correction:android-fuel-amount-fix"
@@ -74,7 +78,7 @@ class NativeBusinessExpensesRoomBackupTest {
             val misc = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174002"
             val challan = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174003"
             db.records().put(expense(platform, "platform_fee", JSONObject().put("reference", "settlement-1").put("alreadyNettedFromIncome", false)))
-            db.records().put(expense(misc, "miscellaneous", JSONObject().put("category", "Parking").put("tripExpenseTreatment", "standalone")))
+            db.records().put(expense(misc, "miscellaneous", JSONObject().put("category", "Parking").put("tripExpenseTreatment", "standalone").put("driverId", driverId)))
             db.records().put(expense(challan, "traffic_challan", JSONObject().put("paymentStatus", "unpaid")))
             val snapshot = NativeBackupCoverage.exportBusinessRecords(db) { false }
             NativeBackupCoverage.validateBusinessRecords(snapshot, requireExplicitOwnerTags = true)
@@ -91,6 +95,7 @@ class NativeBusinessExpensesRoomBackupTest {
             val restoredSecondCorrection = JSONObject(db.records().get(secondCorrectionId)!!.json).getJSONObject("data")
             assertEquals(27000, restoredSecondCorrection.getInt("afterValue"))
             assertNotNull(db.records().get(misc)); assertNotNull(db.records().get(challan))
+            assertNotNull(db.records().get(driverId))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(db) { false }, requireExplicitOwnerTags = true)
         } finally { db.close() }
     }

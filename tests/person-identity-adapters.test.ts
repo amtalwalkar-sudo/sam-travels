@@ -3,7 +3,8 @@ import type { RecordEnvelope } from "../packages/core/src/types";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { CredentialVault } from "../packages/core/src/credentials";
 import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
-import { PersistentBusinessPersonRepository, SecureAdminPinVerifier, getDriverPersonLink, removeDriverPersonLink, saveDriverPersonLink } from "../apps/web/src/person-identity-adapters";
+import { PersistentBusinessPersonRepository, SecureAdminPinVerifier, getDriverPersonLink, removeDriverPersonLink, resolveDriverRecordAuthor, saveDriverPersonLink } from "../apps/web/src/person-identity-adapters";
+import { driverRecordId } from "../packages/domain/src/driver-record-identity";
 
 class MemoryRecords implements AtomicRecordRepository {
   rows = new Map<string, RecordEnvelope<unknown>>();
@@ -42,6 +43,19 @@ describe("persistent person identity adapters", () => {
     });
   });
 
+  it("retains a failed-bootstrap person as a soft-deleted historical identity", async () => {
+    const records = new MemoryRecords();
+    const people = new PersistentBusinessPersonRepository(records, "web", () => "2026-11-11T10:00:00.000Z");
+    await people.save({ schemaVersion: 1, personId: "person-rollback", displayName: "Initial Admin",
+      roles: ["admin"], status: "active" });
+    await people.remove("person-rollback");
+    expect(await people.get("person-rollback")).toBeUndefined();
+    expect(await people.list()).toEqual([]);
+    expect(records.rows.get("identity:person:person-rollback")).toMatchObject({
+      revision: 2, deletedAt: "2026-11-11T10:00:00.000Z",
+    });
+  });
+
   it("persists Driver profile unlinking across repository reads", async () => {
     const records = new MemoryRecords();
     await saveDriverPersonLink(records, "web", "driver-1", "person-1");
@@ -51,6 +65,62 @@ describe("persistent person identity adapters", () => {
     await removeDriverPersonLink(records, "driver-1");
     expect(await getDriverPersonLink(records, "driver-1")).toBeUndefined();
     expect(records.rows.get("identity:driver-person-link:driver-1")?.deletedAt).toBeTruthy();
+  });
+
+
+  it("resolves Driver authors through the persisted profile-person link, not the Driver profile ID", async () => {
+    const records = new MemoryRecords();
+    const people = new PersistentBusinessPersonRepository(records, "web", () => "2026-11-11T10:00:00.000Z");
+    const person: BusinessPersonV1 = {
+      schemaVersion: 1, personId: "person-driver-1", displayName: "Driver One",
+      roles: ["driver"], status: "active",
+    };
+    await people.save(person);
+    await records.put({
+      id: driverRecordId("driver-1"), schemaVersion: 1, createdAt: "2026-11-11T10:00:00.000Z",
+      updatedAt: "2026-11-11T10:00:00.000Z", source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId: "driver-1", name: "Driver One", lifecycleState: "active" },
+    });
+    await saveDriverPersonLink(records, "web", "driver-1", "person-driver-1");
+    expect(await resolveDriverRecordAuthor(records, "driver-1"))
+      .toEqual({ personId: "person-driver-1", role: "driver" });
+  });
+
+  it("fails closed for legacy soft-deleted person profiles, links and Driver identities", async () => {
+    const records = new MemoryRecords();
+    const people = new PersistentBusinessPersonRepository(records, "web", () => "2026-11-11T10:00:00.000Z");
+    await people.save({ schemaVersion: 1, personId: "person-driver-1", displayName: "Driver One",
+      roles: ["driver"], status: "active" });
+    await records.put({
+      id: driverRecordId("driver-1"), schemaVersion: 1, createdAt: "2026-11-11T10:00:00.000Z",
+      updatedAt: "2026-11-11T10:00:00.000Z", source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId: "driver-1", name: "Driver One", lifecycleState: "active" },
+    });
+    await saveDriverPersonLink(records, "web", "driver-1", "person-driver-1");
+    const link = await records.get("identity:driver-person-link:driver-1");
+    records.rows.set(link!.id, { ...link!, deletedAt: "2026-11-12T00:00:00.000Z" });
+    await expect(resolveDriverRecordAuthor(records, "driver-1")).rejects.toThrow("driver_person_link_missing");
+
+    await saveDriverPersonLink(records, "web", "driver-1", "person-driver-1");
+    const person = await records.get("identity:person:person-driver-1");
+    records.rows.set(person!.id, { ...person!, deletedAt: "2026-11-12T00:00:00.000Z" });
+    await expect(resolveDriverRecordAuthor(records, "driver-1")).rejects.toThrow("driver_person_identity_missing");
+
+    records.rows.delete("identity:person:person-driver-1");
+    const driver = await records.get(driverRecordId("driver-1"));
+    records.rows.set(driver!.id, { ...driver!, deletedAt: "2026-11-12T00:00:00.000Z" });
+    await expect(resolveDriverRecordAuthor(records, "driver-1")).rejects.toThrow("driver_person_profile_missing");
+  });
+
+  it("excludes legacy soft-deleted people from identity reads", async () => {
+    const records = new MemoryRecords();
+    const people = new PersistentBusinessPersonRepository(records, "web");
+    await people.save({ schemaVersion: 1, personId: "person-deleted", displayName: "Deleted",
+      roles: ["driver"], status: "active" });
+    const row = await records.get("identity:person:person-deleted");
+    records.rows.set(row!.id, { ...row!, deletedAt: "2026-11-12T00:00:00.000Z" });
+    expect(await people.get("person-deleted")).toBeUndefined();
+    expect(await people.list()).toEqual([]);
   });
 
   it("stores only a salted PIN verifier and verifies correct and incorrect PINs", async () => {

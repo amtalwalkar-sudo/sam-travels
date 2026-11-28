@@ -22,9 +22,17 @@ internal object BackupSnapshotContract {
         val counts = manifest.optJSONObject("recordCounts") ?: error("backup_invalid_record_counts")
         val records = integer(counts.opt("records"), "backup_invalid_record_counts")
         require(records >= 0.0) { "backup_invalid_record_counts" }
+        require(records <= MAX_BACKUP_RECORD_COUNT.toDouble()) { "backup_record_count_limit" }
     }
 
     fun validateSnapshot(snapshot: JSONObject) {
+        // Format-less snapshots are the supported legacy package shape. New
+        // exports always carry the canonical format; unknown declared formats fail closed.
+        if (snapshot.has("format")) {
+            require(snapshot.optString("format") == "sam-travels-canonical-snapshot-v1") {
+                "backup_unsupported_snapshot_format"
+            }
+        }
         require(integer(snapshot.opt("schemaVersion"), "backup_unsupported_schema") == CURRENT_SCHEMA_VERSION.toDouble()) {
             "backup_unsupported_schema"
         }

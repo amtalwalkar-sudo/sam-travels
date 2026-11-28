@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertDriverRecordV1, driverRecordId } from "../packages/features/driver-records";
+import { assertDriverRecordV1, assertDriverAssignmentHistoryV1, driverRecordId } from "../packages/features/driver-records";
 
 const valid = {
   schemaVersion: 1,
@@ -38,5 +38,27 @@ describe("Driver record v1", () => {
     expect(() => assertDriverRecordV1({ ...valid, licenceExpiryDate: "2025-02-29" })).toThrow("driver_record_invalid");
     expect(() => assertDriverRecordV1({ ...valid, lifecycleState: "archived" })).toThrow("driver_record_invalid");
     expect(() => assertDriverRecordV1({ ...valid, salaryPaise: 1000 })).toThrow("driver_record_invalid");
+  });
+});
+
+
+describe("Driver assignment history v1", () => {
+  const vehicleId = "feature:vehicle:MH01AB1234";
+  it("accepts sequential, non-overlapping assignment periods", () => {
+    expect(() => assertDriverAssignmentHistoryV1({
+      schemaVersion: 1, driverId: "driver-001", assignments: [
+        { assignmentId: "assignment-1", vehicleId, assignedAt: "2026-01-01T00:00:00.000Z", unassignedAt: "2026-02-01T00:00:00.000Z" },
+        { assignmentId: "assignment-2", vehicleId, assignedAt: "2026-02-01T00:00:00.000Z" },
+      ],
+    })).not.toThrow();
+  });
+
+  it("rejects overlapping historical assignment periods", () => {
+    expect(() => assertDriverAssignmentHistoryV1({
+      schemaVersion: 1, driverId: "driver-001", assignments: [
+        { assignmentId: "assignment-1", vehicleId, assignedAt: "2026-01-01T00:00:00.000Z", unassignedAt: "2026-03-01T00:00:00.000Z" },
+        { assignmentId: "assignment-2", vehicleId, assignedAt: "2026-02-01T00:00:00.000Z", unassignedAt: "2026-04-01T00:00:00.000Z" },
+      ],
+    })).toThrow("driver_assignment_period_overlap");
   });
 });

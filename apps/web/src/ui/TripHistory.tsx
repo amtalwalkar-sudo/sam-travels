@@ -1,15 +1,11 @@
-import { useEffect, useState } from "react";
-import { subscribeTripHistoryProjection } from "../../../../packages/features/logbook";
-import type { TripHistoryRecord } from "../../../../packages/features/work-shift";
+import type { TripHistoryRecord } from "../../../../packages/domain/src/trip-history";
 import { formatGpsAccuracy, formatTripDuration } from "./trip-history-format";
 
 const time = (value?: string) => value
   ? new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
   : "Not available";
 
-export function TripHistory() {
-  const [trips, setTrips] = useState<TripHistoryRecord[]>([]);
-  useEffect(() => subscribeTripHistoryProjection(setTrips), []);
+export function TripHistory({ trips }: { trips: readonly TripHistoryRecord[] }) {
   return <section className="trip-history" aria-label="Trip history">
     <div className="trip-history-heading">
       <div><small>DRIVER ACTIVITY</small><h2>Trip history</h2></div>
@@ -34,8 +30,14 @@ export function TripHistory() {
           {startAccuracy && <div><small>START GPS ACCURACY</small><span>{startAccuracy}</span></div>}
           {endAccuracy && <div><small>END GPS ACCURACY</small><span>{endAccuracy}</span></div>}
         </div>}
+        {trip.source === "historical_backfill" && <div className="trip-history-evidence">
+          <div><small>FARE</small><span>₹{((trip.farePaise ?? 0) / 100).toFixed(2)}</span></div>
+          <div><small>RECORD TYPE</small><span>Admin-declared historical trip</span></div>
+        </div>}
         {trip.reason && <p className={trip.status === "needs_attention" ? "trip-history-error" : "trip-history-note"}>{trip.reason.replaceAll("_", " ")}</p>}
-        <small className="trip-history-id">Trip reference · {trip.startEventId ?? trip.endEventId}</small>
+        <small className="trip-history-id">{trip.source === "historical_backfill"
+          ? "Historical record · " + trip.id + " · entered by " + (trip.actor?.actorId ?? "Admin")
+          : "Work event reference · " + (trip.startEventId ?? trip.endEventId ?? trip.creationEventId ?? trip.id)}</small>
       </article>;
     })}</div>
   </section>;

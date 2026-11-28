@@ -2,7 +2,7 @@ package `in`.samtravels.app
 
 import org.json.JSONObject
 import java.time.Instant
-import java.time.ZoneOffset
+import java.time.ZoneId
 import java.util.UUID
 
 /** Native backup/restore validation for the shared Business Expenses source records. */
@@ -30,6 +30,11 @@ internal object NativeBusinessExpensesBackup {
     private fun validDate(value: String): Boolean =
         runCatching { java.time.LocalDate.parse(value).toString() == value }.getOrDefault(false)
 
+    internal fun operationalDateFromInstant(value: String): String {
+        val local = Instant.parse(value).atZone(ZoneId.of("Asia/Kolkata"))
+        return (if (local.hour < 4) local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
+    }
+
     private fun validUuid(value: String): Boolean =
         runCatching { UUID.fromString(value).toString() == value.lowercase() }.getOrDefault(false)
 
@@ -47,8 +52,9 @@ internal object NativeBusinessExpensesBackup {
             "fuel_purchase_invalid"
         }
         val instant = Instant.parse(data.optString("occurredAt"))
-        require(instant.plusSeconds(330L * 60L).atZone(ZoneOffset.UTC).toLocalDate().toString() ==
-            data.optString("businessDate")) { "fuel_purchase_business_date_invalid" }
+        require(operationalDateFromInstant(instant.toString()) == data.optString("businessDate")) {
+            "fuel_purchase_business_date_invalid"
+        }
         integer(data, "odometerKm")
         integer(data, "pricePaisePerKg")
         integer(data, "amountPaise")
@@ -104,8 +110,8 @@ internal object NativeBusinessExpensesBackup {
         if (data.has("vehicleId")) require(data.optString("vehicleId").startsWith("feature:vehicle:")) {
             "business_expense_entry_invalid"
         }
-        if (data.has("driverId")) require(data.optString("driverId").startsWith("feature:driver:")) {
-            "business_expense_entry_invalid"
+        if (data.has("driverId")) require(data.optString("driverId").startsWith("feature:driver-records:driver:")) {
+            "business_expense_driver_not_found"
         }
         when (data.optString("sourceKind")) {
             "platform_fee" -> require(data.optString("reference").isNotBlank() &&
@@ -183,10 +189,16 @@ internal object NativeBusinessExpensesBackup {
                         (if (trip.optString("parkingPayer") == "driver") trip.optLong("parkingPaise", 0L) else 0L)
                     else -> 0L
                 }
-                val tripDate = trip.optJSONObject("tripContext")?.optString("operationalDate")
+                val tripContext = trip.optJSONObject("tripContext")
+                val tripDate = tripContext?.optString("operationalDate")
                 val linkedOriginal = if (expense.optString("effect") == "reversal")
                     entries[expense.optString("reversesSourceId")] else expense
-                require(expense.optString("tripExpenseTreatment") == "already-in-trip-closeout" &&
+                require(tripEnvelope.optString("id") == tripId &&
+                    tripId == "work:trip-financial-obligation:" + trip.optString("tripId") &&
+                    trip.optInt("schemaVersion", -1) == 1 && trip.optString("endRideEventId").isNotBlank() &&
+                    tripContext?.optString("vehicleId") == expense.optString("vehicleId") &&
+                    expense.optString("driverId") == "feature:driver-records:driver:" + tripContext.optString("driverId") &&
+                    expense.optString("tripExpenseTreatment") == "already-in-trip-closeout" &&
                     trip.optString("kind") == "completed_ride_financials" &&
                     trip.optString("status") == "submitted" && expectedAmount > 0L &&
                     integer(expense, "amountPaise") == expectedAmount &&
@@ -222,7 +234,7 @@ internal object NativeBusinessExpensesBackup {
         NativeBusinessExpenseCorrectionBackup.validate(rows, allRows)
     }
 
-    private fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
+    internal fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
         id = PARTICIPANT_ID,
         featureId = FEATURE_ID,
         snapshotVersion = 1,

@@ -1,15 +1,18 @@
 import type { MaintenanceRateHistoryV1 } from "./records";
 import { DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM } from "./records";
 
-/** Convert an instant to the existing Asia/Kolkata business-date convention. */
+/** Convert an instant to the Asia/Kolkata 04:00 operational-date convention. */
 export function maintenanceBusinessDateFromInstant(instant: string): string {
   const timestamp = Date.parse(instant);
   if (!Number.isFinite(timestamp)) throw new Error("maintenance_timestamp_invalid");
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
   }).formatToParts(new Date(timestamp));
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  return values.year + "-" + values.month + "-" + values.day;
+  const calendarDate = values.year + "-" + values.month + "-" + values.day;
+  if (Number(values.hour) >= 4) return calendarDate;
+  const previous = new Date(Date.parse(calendarDate + "T00:00:00.000Z") - 86_400_000);
+  return previous.toISOString().slice(0, 10);
 }
 
 export type MaintenanceRateHistoryEntry = Readonly<{

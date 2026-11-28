@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { FinanceLoanService } from "../packages/application/src/finance-loan-service";
 import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../packages/features/finance";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
@@ -14,6 +14,14 @@ class MemoryRepository implements AtomicRecordRepository {
     const current = this.rows.get(id);
     if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
     this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    for (const mutation of mutations) {
+      const current = this.rows.get(mutation.id);
+      if (mutation.expectedRevision === null ? current !== undefined : current?.revision !== mutation.expectedRevision) return false;
+    }
+    for (const mutation of mutations) this.rows.set(mutation.id, mutation.next as RecordEnvelope<unknown>);
     return true;
   }
 }
@@ -57,6 +65,22 @@ describe("FinanceLoanService", () => {
     expect(loan.data.scheduleVersions[0].output.rows).toHaveLength(12);
   });
 
+  it("replays the original loan setup record and schedule from its durable operation receipt", async () => {
+    const { repository, service } = setup();
+    const input = {
+      uuid: "123e4567-e89b-42d3-a456-426614174001", details, source: "web" as const,
+      operation: { operationId: "loan-create-operation", payloadFingerprint: "loan-create-payload" },
+      now: "2026-11-19T08:00:00.000Z",
+    };
+    const created = await service.create(input);
+    const replayed = await service.create(input);
+    expect(replayed).toEqual(created);
+    expect(replayed.data.scheduleVersions[0].createdAt).toBe(input.now);
+    expect((await repository.list()).filter(row =>
+      row.id.startsWith("__sam_travels_feature_operation__:"),
+    )).toHaveLength(1);
+  });
+
   it("rejects edits to saved loan details so the historical loan record remains immutable", async () => {
     const { service } = setup();
     const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
@@ -88,6 +112,21 @@ describe("FinanceLoanService", () => {
       id: created.id, expectedRevision: 1,
       details: { ...details, annualInterestRateBasisPoints: 1350 },
     })).rejects.toThrow("finance_loan_details_immutable");
+  });
+
+  it("hides a different vehicle's loan from read-only lookup without weakening command validation", async () => {
+    const { repository, service } = setup();
+    const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174002", details, source: "web" });
+    const scoped = new FinanceLoanService(repository, {
+      async getById(id) { return id === vehicle.id ? vehicle as RecordEnvelope<{ lifecycleState: string }> : undefined; },
+    }, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, () => "2026-01-10T10:00:00.000Z", {
+      async get() { return { schemaVersion: 1, driverId: "driver", vehicleId: "feature:vehicle:MH02CD5678", assignmentId: "assignment", selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1 }; },
+      async assertCurrent() { throw new Error("not_used"); },
+      async getVehicleForReadOnly() { return { schemaVersion: 1, vehicleId: "feature:vehicle:MH02CD5678", vehicleRevision: 1 }; },
+    });
+    await expect(scoped.getForReadOnly(created.id)).resolves.toBeUndefined();
+    await expect(scoped.get(created.id)).rejects.toThrow("finance_loan_operating_vehicle_mismatch");
+    expect(await scoped.list()).toEqual([]);
   });
 
   it("retains historical loan dates independent of business start date", async () => {

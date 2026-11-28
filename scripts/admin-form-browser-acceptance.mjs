@@ -1,9 +1,8 @@
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
-
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
-const registration = "MH00AA0090";
+let registration;
 function indiaDateOffsetDays(offset) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -54,30 +53,13 @@ try {
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
   console.log("Admin identity enrolled and PIN-verified actor activated.");
-
   await page.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill("2024-01-01");
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
   console.log("Business Setup form saved and authoritative setting rendered.");
-
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
-  await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
-  await page.getByLabel("Registration number").fill(registration);
-  await page.getByLabel("Make").fill("Acceptance");
-  await page.getByLabel("Model").fill("Vehicle");
-  await page.getByLabel("Vehicle type").fill("Car");
-  await page.getByLabel("Fuel type").selectOption("CNG");
-  await page.getByLabel("Year of manufacture").fill("2024");
-  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
-  const vehiclePanel = page.locator("#admin-section-panel-vehicle");
-  try {
-    await page.getByText(registration, { exact: true }).waitFor({ state: "visible", timeout: 15000 });
-  } catch (error) {
-    console.log("Vehicle panel after create attempt:", await vehiclePanel.innerHTML());
-    throw new Error("vehicle_record_not_rendered_after_create:" + (error instanceof Error ? error.message : String(error)));
-  }
-  vehicleId = await page.evaluate(async registrationNumber => {
+  const initialProfileVehicle = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -90,33 +72,58 @@ try {
       get.onerror = () => reject(get.error);
     });
     db.close();
-    const matches = rows.filter(row => row.data?.registrationNumber === registrationNumber && row.id.startsWith("feature:vehicle:"));
-    if (matches.length !== 1) throw new Error("canonical_vehicle_id_lookup_failed:" + matches.length);
-    return matches[0].id;
-  }, registration);
-  console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
-
-
+    const matches = rows.filter(row => row.id.startsWith("feature:vehicle:") &&
+      row.data?.lifecycleState === "active");
+    if (matches.length !== 1) throw new Error("initial_profile_vehicle_count_invalid");
+    const vehicle = matches[0];
+    const registrationNumber = vehicle.data.registrationNumber;
+    if (typeof registrationNumber !== "string" || !registrationNumber.trim()) {
+      throw new Error("initial_profile_vehicle_registration_missing");
+    }
+    return { id: vehicle.id, registrationNumber };
+  });
+  vehicleId = initialProfileVehicle.id;
+  registration = initialProfileVehicle.registrationNumber;
+  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
+  console.log("Initial Admin vehicle profile rendered and verified.");
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
+  const activeDriver = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const active = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
+      row.data?.lifecycleState === "active");
+    if (active.length !== 1) throw new Error("initial_profile_active_driver_count_invalid");
+    return { name: active[0].data.name, driverId: active[0].data.driverId };
+  });
+  const activeDriverName = activeDriver.name;
+  const activeDriverCard = page.locator(".admin-capability-record").filter({ hasText: activeDriverName });
+  await activeDriverCard.waitFor({ state: "visible" });
+  const configure = activeDriverCard.getByRole("button", { name: "Configure for Work", exact: true });
+  if (await configure.count()) await configure.click();
+  else await activeDriverCard.getByRole("button", { name: "Verify operating configuration", exact: true }).click();
+  await page.getByRole("status").filter({
+    hasText: activeDriverName + " is configured with " + registration + " for Work.",
+  }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
   await page.getByLabel("Driver name").fill(driverName);
   await page.getByLabel("Driving licence number").fill("ACCEPTANCE-LIC-1");
   await page.getByLabel("Mobile number").fill("9990001111");
+  await page.getByLabel("Status").selectOption("inactive");
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
-  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
-  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
-  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
-  console.log("Driver create, Work selection, vehicle assignment and unassignment commands passed.");
-
+  await page.locator(".admin-capability-record").filter({ hasText: driverName }).waitFor({ state: "visible" });
+  console.log("Seeded active driver assignment lifecycle and inactive driver creation passed.");
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
   const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
   await complianceVehicle.selectOption(vehicleId);
@@ -138,9 +145,7 @@ try {
   await page.getByRole("button", { name: "Save expense", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
   console.log("Compliance coverage and Traffic Challan records submitted.");
-
   await page.getByRole("button", { name: "Finance", exact: true }).click();
-  await page.locator("#admin-vehicle").selectOption(vehicleId);
   await page.getByRole("button", { name: "Add loan", exact: true }).click();
   await page.getByLabel("Loan name").fill("Admin Browser Loan");
   await page.getByLabel("Lender name").fill("Acceptance Bank");
@@ -154,7 +159,6 @@ try {
   await loanCard.waitFor({ state: "visible", timeout: 15000 });
   console.log("Loan details saved as an immutable historical record and rendered in Finance.");
   const paymentPanel = loanCard.locator(".loan-payment-panel");
-
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
   await paymentPanel.getByLabel("Payment date").fill(today);
   await paymentPanel.getByLabel("Amount paid (₹)").fill("100000");
@@ -164,7 +168,6 @@ try {
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
   console.log("Payment allocated oldest-due-first to all currently due EMIs.");
-
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
   await paymentPanel.getByLabel("Payment date").fill(today);
   await paymentPanel.getByLabel("Amount paid (₹)").fill("50");
@@ -172,7 +175,6 @@ try {
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
   console.log("Separate unallocated credit payment saved for reversal coverage.");
-
   page.on("dialog", async dialog => {
     if (dialog.type() === "prompt") await dialog.accept("Acceptance full reversal reason");
     else await dialog.accept();
@@ -182,7 +184,6 @@ try {
   await paymentPanel.getByRole("status").filter({ hasText: "Full payment reversal recorded." }).waitFor({ state: "visible" });
   await paymentPanel.getByText("Reversal · " + today, { exact: false }).waitFor({ state: "visible" });
   console.log("Full reversal retained history without releasing due-EMI allocations.");
-
   await paymentPanel.getByRole("button", { name: "Prepay principal", exact: true }).click();
   await paymentPanel.getByLabel("Prepayment date").fill(today);
   await paymentPanel.getByLabel("Principal amount (₹)").fill("5000");
@@ -190,19 +191,18 @@ try {
   try {
     await paymentPanel.getByText("Review before confirmation", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
   } catch (error) {
-    console.log("Prepayment preview status:", await paymentPanel.locator("[role=status]").allTextContents());
-    console.log("Prepayment form markup:", await paymentPanel.locator("form.loan-form").allInnerTexts());
-    throw new Error("admin_prepayment_preview_failed:" + (error instanceof Error ? error.message : String(error)));
+    console.log("Prepayment preview status element count:", await paymentPanel.locator("[role=status]").count());
+    console.log("Prepayment form present:", (await paymentPanel.locator("form.loan-form").count()) === 1);
+    throw new Error("admin_prepayment_preview_failed");
   }
   await paymentPanel.getByRole("button", { name: "Confirm prepayment", exact: true }).click();
   try {
     await paymentPanel.getByRole("status").filter({ hasText: "Principal prepayment and revised schedule committed atomically." }).waitFor({ state: "visible", timeout: 15000 });
   } catch (error) {
-    console.log("Prepayment commit status:", await paymentPanel.locator("[role=status]").allTextContents());
-    console.log("Prepayment history rows:", await paymentPanel.locator(".loan-payment-list").allInnerTexts());
-    throw new Error("admin_prepayment_commit_failed:" + (error instanceof Error ? error.message : String(error)));
+    console.log("Prepayment commit status element count:", await paymentPanel.locator("[role=status]").count());
+    console.log("Prepayment history row count:", await paymentPanel.locator(".loan-payment-list > *").count());
+    throw new Error("admin_prepayment_commit_failed");
   }
-
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
   await paymentPanel.getByLabel("Payment date").fill(futureDateOffsetDays(1));
   // The prior prepayment creates schedule v2 effective today. Select that effective
@@ -215,9 +215,9 @@ try {
   await allocationStatus.waitFor({ state: "visible" });
   const allocationMessage = (await allocationStatus.allTextContents()).join(" ");
   if (!allocationMessage.includes("No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.")) {
-    throw new Error("Unexpected future-dated payment allocation result: " + allocationMessage);
+    throw new Error("admin_future_payment_allocation_result_mismatch");
   }
-  console.log("Future-dated payment allocation respects EMI due-date eligibility: " + allocationMessage);
+  console.log("Future-dated payment allocation eligibility was verified.");
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
   await paymentPanel.getByText("EMI-FUTURE-ACCEPTANCE-1", { exact: false }).waitFor({ state: "visible" });
@@ -231,17 +231,15 @@ try {
   await paymentPanel.getByText("Review allocation", { exact: false }).waitFor({ state: "visible" });
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
-
     await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
   await paymentPanel.getByLabel("Settlement date").fill(monthDateOffset(1));
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).click();
   await paymentPanel.getByRole("button", { name: "Checking…", exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).waitFor({ state: "visible", timeout: 10000 });
-  console.log("Settlement preview status:", await paymentPanel.locator("[role=status]").allTextContents());
+  console.log("Settlement preview status element count:", await paymentPanel.locator("[role=status]").count());
   await paymentPanel.getByText("Settlement amount:", { exact: false }).waitFor({ state: "visible", timeout: 15000 });
   await paymentPanel.getByRole("button", { name: "Confirm settlement and close Loan", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Final settlement recorded and Loan closed." }).waitFor({ state: "visible" });
-
   await page.getByRole("heading", { name: "Platform Fees", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Fee date").fill(today);
   await page.getByLabel("Vehicle", { exact: true }).first().fill(vehicleId);
@@ -250,7 +248,6 @@ try {
   await page.getByLabel("Note").fill("Acceptance platform fee");
   await page.getByRole("button", { name: "Save expense", exact: true }).first().click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
-
   await page.getByRole("heading", { name: "Miscellaneous Business Expenses", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Expense date").fill(today);
   await page.getByRole("textbox", { name: "Category", exact: true }).fill("Parking");
@@ -262,10 +259,7 @@ try {
   await page.getByRole("button", { name: "Save expense", exact: true }).last().click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
   console.log("Loan, payment, reversal, prepayment, settlement, Platform Fee and Miscellaneous Expense workflows submitted.");
-
   await page.getByRole("button", { name: "Maintenance", exact: true }).click();
-  const maintenanceVehicle = page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first();
-  await maintenanceVehicle.selectOption(vehicleId);
   await page.getByRole("button", { name: "Start service visit", exact: true }).click();
   await page.getByLabel("Maintenance type").fill("Scheduled service");
   await page.getByLabel("Date", { exact: true }).fill(today);
@@ -278,8 +272,7 @@ try {
   await page.getByLabel("Amount (₹)").fill("1200");
   await page.getByRole("button", { name: "Save maintenance record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Service visit saved." }).waitFor({ state: "visible" });
-
-  await page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").nth(1).selectOption("expense");
+  await page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first().selectOption("expense");
   await page.getByRole("button", { name: "Start general expense", exact: true }).click();
   await page.getByLabel("Expense name").fill("Acceptance tyre repair");
   await page.getByLabel("Date", { exact: true }).fill(today);
@@ -289,13 +282,11 @@ try {
   await page.getByLabel("Description").fill("Tyre repair receipt");
   await page.getByRole("button", { name: "Save maintenance record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Maintenance expense saved." }).waitFor({ state: "visible" });
-
   await page.getByRole("button", { name: "Change per-kilometre rate", exact: true }).click();
   await page.getByLabel("New rate (₹ per km)").fill("2.50");
   await page.getByRole("button", { name: "Save rate", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Per-kilometre rate saved with effective-date history." }).waitFor({ state: "visible" });
   console.log("Maintenance visit, general expense and effective-date rate workflows submitted.");
-
   await page.getByRole("navigation", { name: "Admin sections" }).getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByLabel("Monthly Driver Target (₹)").fill("45000");
   await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
@@ -306,11 +297,17 @@ try {
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor({ state: "visible" });
   await page.getByText("Pre-launch vehicle registration", { exact: true }).waitFor({ state: "visible" });
   console.log("Performance monthly Driver Target and multiple-entry pre-business cost Admin forms passed.");
-
   await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Refresh performance", exact: true }).click();
-  await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  try {
+    await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  } catch (error) {
+    console.log("Performance dashboard alert count:", await page.locator("[role=alert]").count());
+    console.log("Performance dashboard status count:", await page.locator("[role=status]").count());
+    console.log("Performance dashboard present:", (await page.locator(".performance-dashboard").count()) === 1);
+    throw new Error("performance_dashboard_results_not_rendered");
+  }
   await page.getByText("Target for selected period", { exact: true }).first().waitFor({ state: "visible" });
   await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
   await page.getByRole("columnheader", { name: "Eligible costs", exact: true }).waitFor({ state: "visible" });
@@ -319,7 +316,6 @@ try {
   await page.locator(".performance-provenance > summary").click();
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
   console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
-
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}

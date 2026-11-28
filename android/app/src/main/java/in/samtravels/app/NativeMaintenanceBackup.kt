@@ -25,7 +25,9 @@ internal object NativeMaintenanceBackup {
 
     @Synchronized
     fun ensureRegistered() {
-        if (processRegistration == null) processRegistration = register()
+        if (processRegistration == null || PARTICIPANT_ID !in NativeBackupCoverage.registeredParticipantIds()) {
+            processRegistration = register()
+        }
     }
 
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
@@ -34,7 +36,11 @@ internal object NativeMaintenanceBackup {
         snapshotVersion = 1,
         recordIdPrefix = PREFIX,
         validateRelationships = { rows, allRows ->
-            val vehicles = allRows.filter { it.optString("participantId") == "vehicle-records" }
+            // Canonical interchange normalization can remap a Room participant
+            // owner tag while preserving the Vehicle's stable record identity.
+            // Resolve the relationship by its authoritative record namespace,
+            // not by the transport-layer participant label.
+            val vehicles = allRows.filter { it.optString("id").startsWith("feature:vehicle:") }
                 .associate { row ->
                     val id = row.optString("id")
                     val envelope = JSONObject(row.getString("json"))
@@ -54,13 +60,18 @@ internal object NativeMaintenanceBackup {
                 val data = envelope.getJSONObject("data")
                 val kind = data.optString("kind")
                 val vehicleId = data.optString("vehicleId")
-                val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found")
+                val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found: requested=" + vehicleId + "; available=" + vehicles.keys.sorted().joinToString(","))
                 validatePayload(id, data, kind, vehicle.second, allRows)
             }
             validateEffectiveRateSnapshots(rows, vehicles)
             NativeMaintenanceCorrectionBackup.validate(rows, allRows)
         },
     )
+
+    private fun operationalDateAt(value: String): String {
+        val local = OffsetDateTime.parse(value).atZoneSameInstant(zone)
+        return (if (local.hour < 4) local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
+    }
 
     private fun validDate(value: String): Boolean =
         runCatching { LocalDate.parse(value).toString() == value }.getOrDefault(false)
@@ -145,7 +156,7 @@ internal object NativeMaintenanceBackup {
                 assertExactKeys(data, setOf("schemaVersion", "kind", "vehicleId", "entries"))
                 val entries = data.optJSONArray("entries") ?: error("maintenance_rate_history_invalid")
                 require(entries.length() > 0) { "maintenance_rate_history_invalid" }
-                val expectedDefaultDate = OffsetDateTime.parse(vehicleCreatedAt).toInstant().atZone(zone).toLocalDate().toString()
+                val expectedDefaultDate = operationalDateAt(vehicleCreatedAt)
                 var previousDate = ""
                 var previousSavedAt = ""
                 val commandIds = mutableSetOf<String>()
@@ -258,7 +269,7 @@ internal object NativeMaintenanceBackup {
                     }
                 }
             }
-            val defaultDate = OffsetDateTime.parse(vehicleCreatedAt).toInstant().atZone(zone).toLocalDate().toString()
+            val defaultDate = operationalDateAt(vehicleCreatedAt)
             val expectedEffectiveFrom = effective?.optString("effectiveFrom") ?: defaultDate
             val expectedRate = effective?.optLong("ratePaisePerKm") ?: DEFAULT_RATE
             require(expectedEffectiveFrom <= operationalDate &&

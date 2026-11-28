@@ -2,6 +2,7 @@ import { DRIVER_EVENT_TYPES, type DriverStateProjection, type DriverTransitionCo
 import type { GpsFix } from "../../core/src/types";
 import { validateGpsFix } from "../../core/src/gps";
 import type { RecordEnvelope } from "../../core/src/types";
+import { resolveOperatingConfiguration } from "./work-driver-context";
 export type DriverIntentStatus = "pending_location" | "needs_attention" | "recorded" | "rejected";
 export type DriverIntent = { command: DriverTransitionCommand; status: DriverIntentStatus; createdAt: string; updatedAt: string; reason?: string };
 export type DriverEvent = { eventId: string; command: DriverTransitionCommand; gps: GpsFix; committedAt: string; revision: number; createdBy?: { personId: string; role: "driver" } };
@@ -22,34 +23,25 @@ function validInstant(value: unknown): value is string {
  const date = new Date(match[1] + "T00:00:00.000Z");
  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === match[1] && Number.isFinite(Date.parse(value));
 }
-export type DriverContextV1 = Readonly<{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string}>;
+export type DriverContextV1 = Readonly<{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string;selectionRevision?:number;driverRevision?:number;vehicleRevision?:number;assignmentRevision?:number}>;
+function validDriverContext(value: unknown): value is DriverContextV1 {
+ if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+ const row = value as Record<string, unknown>;
+ const keys = Object.keys(row).sort().join(",");
+ const baseKeys = "assignmentId,driverId,schemaVersion,vehicleId";
+ const revisionKeys = "assignmentId,assignmentRevision,driverId,driverRevision,schemaVersion,selectionRevision,vehicleId,vehicleRevision";
+ const baseValid = row.schemaVersion === 1 && typeof row.driverId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) &&
+  typeof row.assignmentId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) &&
+  typeof row.vehicleId === "string" && /^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId);
+ if (!baseValid) return false;
+ if (keys === baseKeys) return true;
+ return keys === revisionKeys && ["selectionRevision", "driverRevision", "vehicleRevision", "assignmentRevision"]
+  .every(key => Number.isSafeInteger(row[key]) && (row[key] as number) >= 1);
+}
 
 /** Resolve selected Driver, active assignment and active Vehicle from the authoritative records at commit time. */
-export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>[]): DriverContextV1 {
- const drivers=records.filter(record=>record.id.startsWith("feature:driver-records:driver:"));
- const selected=drivers.filter(record=>{const data=record.data as Record<string,unknown>;return data.schemaVersion===1&&typeof data.driverId==="string"&&typeof data.name==="string"&&data.name.trim().length>0&&data.lifecycleState==="active"&&data.selectedForWork===true;});
- if(selected.length!==1)throw new Error(selected.length===0?"work_driver_selection_missing":"work_driver_selection_ambiguous");
- const driver=selected[0].data as Record<string,unknown>;
- if(selected[0].id!=="feature:driver-records:driver:"+driver.driverId)throw new Error("driver_record_identity_mismatch");
- const historyId="feature:driver-records:assignment:"+driver.driverId;
- const histories=records.filter(record=>record.id===historyId);
- if(histories.length!==1)throw new Error("work_driver_assignment_history_missing");
- const history=histories[0].data as Record<string,unknown>;
- if(history.schemaVersion!==1||history.driverId!==driver.driverId||!Array.isArray(history.assignments))throw new Error("driver_assignment_identity_mismatch");
- const assignments=history.assignments as Array<Record<string,unknown>>;
- if(assignments.some(item=>!item||typeof item!=="object"||typeof item.assignmentId!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(item.assignmentId)||typeof item.vehicleId!=="string"||!/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(item.vehicleId)||typeof item.assignedAt!=="string"||!Number.isFinite(Date.parse(item.assignedAt))||(item.unassignedAt!==undefined&&(typeof item.unassignedAt!=="string"||!Number.isFinite(Date.parse(item.unassignedAt))))))throw new Error("driver_assignment_invalid");
- const active=assignments.filter(item=>item.unassignedAt===undefined);
- if(active.length!==1)throw new Error(active.length===0?"work_driver_assignment_missing":"work_driver_assignment_ambiguous");
- const assignment=active[0];
- const assignmentId=assignment.assignmentId,vehicleId=assignment.vehicleId;
- if(typeof assignmentId!=="string"||typeof vehicleId!=="string")throw new Error("driver_assignment_invalid");
- const vehicles=records.filter(record=>record.id===vehicleId);
- if(vehicles.length!==1)throw new Error("work_driver_vehicle_missing");
- const vehicle=vehicles[0].data as Record<string,unknown>;
- if(vehicle.schemaVersion!==1||typeof vehicle.registrationNumber!=="string"||vehicle.lifecycleState!=="active"||vehicles[0].id!==vehicleId)throw new Error("work_driver_vehicle_inactive");
- const driverId=driver.driverId;
- if(typeof driverId!=="string")throw new Error("driver_record_invalid");
- return Object.freeze({schemaVersion:1,driverId,assignmentId,vehicleId});
+export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>[], activeShiftId?: string): DriverContextV1 {
+ return resolveOperatingConfiguration(records, undefined, activeShiftId);
 }
 
 export function assertDriverCommandContract(value: unknown): asserts value is DriverTransitionCommand {
@@ -66,11 +58,7 @@ export function assertDriverCommandContract(value: unknown): asserts value is Dr
  const context = command.driverContext;
  if (context !== undefined) {
   if (!((command.eventType === "trip_start" && command.workflowVersion !== 2) || (command.eventType === "shift_start" && command.workflowVersion === 2)) || !context || typeof context !== "object" || Array.isArray(context)) throw new Error("invalid_driver_context");
-  const row = context as Record<string, unknown>;
-  if (Object.keys(row).sort().join(",") !== "assignmentId,driverId,schemaVersion,vehicleId" ||
-      row.schemaVersion !== 1 || typeof row.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
-      typeof row.assignmentId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
-      typeof row.vehicleId !== "string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId)) throw new Error("invalid_driver_context");
+  if (!validDriverContext(context)) throw new Error("invalid_driver_context");
  }
  if (command.workflowVersion !== undefined && command.workflowVersion !== 2) throw new Error("invalid_workflow_version");
  if (["trip_create","start_ride","end_ride","cancel_ride"].includes(String(command.eventType)) && command.workflowVersion !== 2) throw new Error("invalid_workflow_version");
@@ -113,13 +101,7 @@ export function assertDriverStateContract(value: unknown): asserts value is Driv
   if (state[key] !== undefined && !validInstant(state[key])) throw new Error("invalid_driver_state_timestamp");
  }
  if (state.shiftId !== undefined && (typeof state.shiftId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(state.shiftId))) throw new Error("invalid_driver_state_shift_id");
- if (state.shiftContext !== undefined) {
-  const row=state.shiftContext as Record<string,unknown>;
-  if (!row || Object.keys(row).sort().join(",")!=="assignmentId,driverId,schemaVersion,vehicleId" || row.schemaVersion!==1 ||
-      typeof row.driverId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
-      typeof row.assignmentId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
-      typeof row.vehicleId!=="string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId)) throw new Error("invalid_driver_state_context");
- }
+ if (state.shiftContext !== undefined && !validDriverContext(state.shiftContext)) throw new Error("invalid_driver_state_context");
  if (state.tripContext !== undefined) {
   const row=state.tripContext as Record<string,unknown>;
   if (!row || Object.keys(row).sort().join(",")!=="assignmentId,driverId,operationalDate,schemaVersion,shiftId,vehicleId" || row.schemaVersion!==1 ||

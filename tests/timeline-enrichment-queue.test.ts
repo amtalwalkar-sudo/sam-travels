@@ -143,6 +143,10 @@ describe("durable Timeline enrichment queue", () => {
     const reverse = vi.fn(async () => "Andheri, Mumbai");
     const queue = new TimelineEnrichmentQueue(records, { run: operation => operation() }, { provider: "geoapify", reverse });
     const eventId = "fuel:feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174050";
+    await queue.beginFuelLocationCapture(eventId);
+    expect(await records.get("timeline-enrichment:" + eventId)).toMatchObject({
+      data: { status: "capture_pending", captureStatus: "pending", eventId },
+    });
     await queue.recordFuelLocationCapture({
       eventId,
       captureTiming: "late",
@@ -166,6 +170,31 @@ describe("durable Timeline enrichment queue", () => {
       },
     });
     expect(reverse).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers a Fuel GPS capture interrupted by WebView or process recreation", async () => {
+    const records = new DexieRecordRepository();
+    const reverse = vi.fn(async () => "must not run");
+    const eventId = "fuel:feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052";
+    const firstSession = new TimelineEnrichmentQueue(
+      records, { run: operation => operation() }, { provider: "geoapify", reverse },
+    );
+    await firstSession.beginFuelLocationCapture(eventId);
+
+    const restartedSession = new TimelineEnrichmentQueue(
+      new DexieRecordRepository(), { run: operation => operation() }, { provider: "geoapify", reverse },
+    );
+    await expect(restartedSession.recoverInterruptedFuelLocationCaptures()).resolves.toBe(1);
+    expect(await records.get("timeline-enrichment:" + eventId)).toMatchObject({
+      data: {
+        status: "capture_unavailable",
+        captureStatus: "unavailable",
+        captureReason: "capture_interrupted",
+      },
+      revision: 2,
+    });
+    await expect(restartedSession.recoverInterruptedFuelLocationCaptures()).resolves.toBe(0);
+    expect(reverse).not.toHaveBeenCalled();
   });
 
   it("records denied or timed-out Fuel GPS capture without creating geocoder work", async () => {

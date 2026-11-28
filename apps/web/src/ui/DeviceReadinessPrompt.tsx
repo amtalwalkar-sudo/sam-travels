@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getDeviceReadinessStatus, isAndroidRuntime, openDeviceReadinessSetting, type ReadinessItem } from "../platform/device-readiness";
+import { createDeviceReadinessResumeHandler } from "./device-readiness-prompt-behavior";
+import { addDeviceReadinessResumeListener, getDeviceReadinessStatus, isAndroidRuntime, openDeviceReadinessSetting, type ReadinessItem } from "../platform/device-readiness";
 
 export function DeviceReadinessPrompt() {
   const [items, setItems] = useState<ReadinessItem[]>([]);
@@ -7,6 +8,9 @@ export function DeviceReadinessPrompt() {
   const [open, setOpen] = useState(false);
   const [showRecommended, setShowRecommended] = useState(false);
   const [message, setMessage] = useState("");
+  const [settingsOpened, setSettingsOpened] = useState(false);
+  const [nativeResumeEvents, setNativeResumeEvents] = useState(0);
+  const [nativeResumeReady, setNativeResumeReady] = useState(false);
   const [checking, setChecking] = useState(true);
   const dismissed = useRef(false);
   const autoOpened = useRef(false);
@@ -35,19 +39,34 @@ export function DeviceReadinessPrompt() {
   useEffect(() => {
     if (!isAndroidRuntime()) return;
     void refresh();
-    const onResume = () => { if (document.visibilityState === "visible") void refresh(); };
+    const onResume = createDeviceReadinessResumeHandler(refresh, () => document.visibilityState);
     window.addEventListener("focus", onResume);
     document.addEventListener("visibilitychange", onResume);
+    let active = true;
+    let removeNativeResume: (() => Promise<void>) | undefined;
+    void addDeviceReadinessResumeListener(() => { setNativeResumeEvents((count) => count + 1); void refresh(); }).then((handle) => {
+      if (active) setNativeResumeReady(true);
+      if (active) removeNativeResume = () => handle.remove();
+      else void handle.remove();
+    }).catch(() => {
+      // Browser focus/visibility listeners remain as a fallback if native resume registration is unavailable.
+    });
     return () => {
+      active = false;
       window.removeEventListener("focus", onResume);
       document.removeEventListener("visibilitychange", onResume);
+      if (removeNativeResume) void removeNativeResume();
     };
   }, [refresh]);
 
   const openPhoneSetting = async (item: ReadinessItem) => {
     setMessage("");
+    setSettingsOpened(false);
     try {
-      await openDeviceReadinessSetting(item.id);
+      const result = await openDeviceReadinessSetting(item.id);
+      if (!result.opened) throw new Error("Android did not open the requested settings page");
+      setSettingsOpened(true);
+      setMessage("Android Settings opened. Return here to recheck phone settings.");
     } catch {
       setMessage("Could not open that settings page. In Android Settings, open Apps and select Sam Travels.");
     }
@@ -61,7 +80,7 @@ export function DeviceReadinessPrompt() {
 
   return (
     <>
-      <button className="device-readiness-trigger" type="button" onClick={() => {
+      <button className="device-readiness-trigger" type="button" data-native-resume-ready={nativeResumeReady} data-native-resume-events={nativeResumeEvents} onClick={() => {
         dismissed.current = false;
         setShowRecommended(true);
         setOpen(true);
@@ -94,7 +113,7 @@ export function DeviceReadinessPrompt() {
                 </button>
               ))}
             </div>
-            {message && <p className="device-readiness-error" role="alert">{message}</p>}
+            {message && <p className={settingsOpened ? "device-readiness-success" : "device-readiness-error"} role={settingsOpened ? "status" : "alert"}>{message}</p>}
             {recommendedMissing.length > 0 && requiredMissing.length > 0 && (
               <button className="device-readiness-more" type="button" onClick={() => setShowRecommended((value) => !value)}>
                 {showRecommended ? "Show essential settings only" : `Also show ${recommendedMissing.length} recommended setting(s)`}

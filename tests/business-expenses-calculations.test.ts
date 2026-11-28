@@ -6,6 +6,7 @@ import {
   calculateFuelIntervals,
   calculateFuelCostRateHistory,
   deriveFuelQuantityMilliKg,
+  fuelBusinessDateFromInstant,
   type BusinessExpenseEntryV1,
   type FuelPurchaseV1,
 } from "../packages/features/business-expenses";
@@ -14,7 +15,7 @@ const vehicleId = "feature:vehicle:MH01AB1234";
 function fuel(id: string, occurredAt: string, odometerKm: number, partialRefill: boolean, amountPaise: number): FuelPurchaseV1 {
   return {
     schemaVersion: 1, kind: "fuel_purchase", id, revision: 1,
-    businessDate: new Date(Date.parse(occurredAt) + 330 * 60_000).toISOString().slice(0, 10), occurredAt, vehicleId, odometerKm,
+    businessDate: fuelBusinessDateFromInstant(occurredAt), occurredAt, vehicleId, odometerKm,
     pricePaisePerKg: 10_000, amountPaise, partialRefill,
   };
 }
@@ -28,8 +29,8 @@ function expense(id: string, sourceKind: BusinessExpenseEntryV1["sourceKind"], a
 }
 
 describe("Business expense source contracts", () => {
-  it("validates optional event-scoped fuel GPS evidence without requiring it", () => {
-    const purchase = fuel("fuel-gps", "2026-11-14T20:00:00.000Z", 45000, false, 18000);
+  it("rejects all Fuel location evidence because location is not part of the purchase contract", () => {
+    const purchase = fuel("fuel-no-location", "2026-11-14T20:00:00.000Z", 45000, false, 18000);
     expect(() => assertFuelPurchaseV1(purchase)).not.toThrow();
     expect(() => assertFuelPurchaseV1({
       ...purchase,
@@ -37,14 +38,14 @@ describe("Business expense source contracts", () => {
         latitude: 19.076, longitude: 72.8777, accuracyMeters: 18,
         capturedAt: "2026-11-14T19:59:30.000Z", provider: "device",
       },
-    })).not.toThrow();
-    expect(() => assertFuelPurchaseV1({
-      ...purchase,
-      locationEvidence: {
-        latitude: 190, longitude: 72.8777, accuracyMeters: 18,
-        capturedAt: "2026-11-14T19:59:30.000Z", provider: "device",
-      },
     })).toThrow("fuel_purchase_invalid");
+  });
+
+  it("assigns Fuel purchases to the Asia/Kolkata 04:00 operational date", () => {
+    expect(fuelBusinessDateFromInstant("2026-11-14T22:29:59.000Z")).toBe("2026-11-14");
+    expect(fuelBusinessDateFromInstant("2026-11-14T22:30:00.000Z")).toBe("2026-11-15");
+    expect(fuelBusinessDateFromInstant("2026-11-14T20:00:00.000Z")).toBe("2026-11-14");
+    expect(() => fuelBusinessDateFromInstant("not-an-instant")).toThrow("fuel_timestamp_invalid");
   });
 
   it("derives fuel quantity to the nearest gram without changing source money", () => {
@@ -61,7 +62,7 @@ describe("Business expense source contracts", () => {
   it("rejects invalid fuel facts, mismatched India business dates, and malformed expense entries", () => {
     expect(() => assertFuelPurchaseV1({ ...fuel("f1", "2026-11-14T09:00:00.000Z", 10, false, 1000), amountPaise: 0 }))
       .toThrow("fuel_purchase_invalid");
-    expect(() => assertFuelPurchaseV1({ ...fuel("f2", "2026-11-14T20:00:00.000Z", 10, false, 1000), businessDate: "2026-11-14" }))
+    expect(() => assertFuelPurchaseV1({ ...fuel("f2", "2026-11-14T20:00:00.000Z", 10, false, 1000), businessDate: "2026-11-15" }))
       .toThrow("fuel_purchase_invalid");
     expect(() => assertBusinessExpenseEntryV1({ ...expense("e1", "traffic_challan", 100), currencyCode: "USD" }))
       .toThrow("business_expense_entry_invalid");

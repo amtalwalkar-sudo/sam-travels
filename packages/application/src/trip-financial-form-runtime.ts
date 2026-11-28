@@ -3,7 +3,8 @@ import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import { RecordFormWorkingCopyRepository } from "./record-form-working-copy-repository";
 import { SharedFormRuntime } from "./shared-form-runtime";
 import { TRIP_CANCELLATION_FEE_FORM_V1, TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "./driver-form-definitions";
-import { TripFinancialService, submitCompletedTripFinancials, TRIP_FINANCIAL_OBLIGATION_PREFIX, type CancellationFeeObligation, type CompletedTripFinancialObligation, type CompletedTripFinancialValues } from "./trip-financial-service";
+import { TripFinancialService, submitCompletedTripFinancials, TRIP_FINANCIAL_OBLIGATION_PREFIX, type CancellationFeeObligation, type CompletedTripFinancialObligation, type CompletedTripFinancialValues, type TripFinancialCorrectionReaderV1 } from "./trip-financial-service";
+import type { TripFinancialCorrectionServiceV1 } from "./trip-financial-correction-service";
 
 /**
  * Owns durable trip-financial form construction and submission wiring.
@@ -13,9 +14,11 @@ import { TripFinancialService, submitCompletedTripFinancials, TRIP_FINANCIAL_OBL
 export function createTripFinancialFormRuntimeV1(
   records: RecordRepository & AtomicRecordRepository,
   source: RecordEnvelope<unknown>["source"],
-  currentAuthor: () => Promise<RecordAuthorV1>,
+  currentAuthor: (tripId: string) => Promise<RecordAuthorV1>,
+  corrections?: TripFinancialCorrectionServiceV1,
 ) {
-  const financials = new TripFinancialService(records, source, undefined, currentAuthor);
+  const financials = new TripFinancialService(records, source, undefined, currentAuthor,
+    corrections as TripFinancialCorrectionReaderV1 | undefined);
   const workingCopies = new RecordFormWorkingCopyRepository(records, source);
   const forms = new SharedFormRuntime(workingCopies, {
     submit: async command => {
@@ -28,7 +31,7 @@ export function createTripFinancialFormRuntimeV1(
         );
       }
       if (command.formId === TRIP_COMPLETED_FINANCIALS_FORM_V1.id) {
-        const author = await currentAuthor();
+        const author = await currentAuthor(command.instanceId);
         return submitCompletedTripFinancials(
           records, source, command.instanceId,
           command.values as unknown as CompletedTripFinancialValues,
@@ -90,6 +93,8 @@ export function createTripFinancialFormRuntimeV1(
 
   return Object.freeze({
     financials,
+    corrections,
+    listSubmittedTripFinancialRecords: () => financials.submittedTripFinancialRecords(),
     listPendingCancellationFees: (): Promise<readonly RecordEnvelope<CancellationFeeObligation>[]> =>
       financials.pendingCancellationFees(),
     openCancellationFeeDraft,

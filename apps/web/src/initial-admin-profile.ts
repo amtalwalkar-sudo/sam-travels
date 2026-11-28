@@ -1,0 +1,101 @@
+import initialProfileJson from "./data/initial-admin-profile-v1.json";
+import type {
+  ComplianceService,
+  DriverRecordsService,
+  FinanceLoanService,
+  VehicleService,
+} from "../../../packages/application/src";
+
+type InitialAdminProfileV1 = {
+  schemaVersion: 1;
+  vehicle: {
+    registrationNumber: string; make: string; model: string; vehicleType: string;
+    fuelType: string; yearOfManufacture: number; ownership: string; lifecycleState: "active";
+  };
+  driver: {
+    driverId: string; name: string; mobileNumber: string;
+    lifecycleState: "active"; selectedForWork: boolean;
+  };
+  compliance: Array<{
+    id: string; complianceName: string; validFrom: string; validTo: string; totalCostPaise: number;
+  }>;
+  loan: {
+    id: string; loanName: string; lenderName: string; principalPaise: number;
+    annualInterestRateBasisPoints: number; loanStartDate: string; tenureMonths: number; firstEmiDate: string;
+  };
+};
+
+const profile = initialProfileJson as InitialAdminProfileV1;
+
+/**
+ * Apply the supplied first-run profile only to an empty vehicle workspace.
+ * Existing repositories are authoritative: startup must never add the demo
+ * vehicle (or its related demo records) beside a restored/user-owned vehicle.
+ * A partial first-run import remains safe to retry because the profile vehicle
+ * is created before the remaining records and each record has a stable identity.
+ */
+export async function seedInitialAdminProfile(input: Readonly<{
+  vehicles: VehicleService;
+  drivers: DriverRecordsService;
+  compliance: ComplianceService;
+  financeLoans: FinanceLoanService;
+}>): Promise<void> {
+  const existingVehicles = await input.vehicles.list();
+  const vehicle = await input.vehicles.getByRegistrationNumber(profile.vehicle.registrationNumber);
+  if (!vehicle && existingVehicles.length > 0) return;
+
+  const vehicleId = "feature:vehicle:" + profile.vehicle.registrationNumber;
+  if (!vehicle) {
+    await input.vehicles.create({
+      schemaVersion: 1,
+      ...profile.vehicle,
+    }, "import");
+  }
+
+  const driver = await input.drivers.get(profile.driver.driverId);
+  if (!driver) {
+    await input.drivers.create({
+      schemaVersion: 1,
+      ...profile.driver,
+    }, "import");
+  }
+
+  for (const item of profile.compliance) {
+    const existing = await input.compliance.get(item.id);
+    if (!existing) {
+      await input.compliance.create({
+        uuid: item.id.slice("feature:compliance:".length),
+        data: {
+          schemaVersion: 1,
+          vehicleId,
+          complianceName: item.complianceName,
+          validFrom: item.validFrom,
+          validTo: item.validTo,
+          totalCostPaise: item.totalCostPaise,
+        },
+        source: "import",
+        businessDate: item.validFrom,
+      });
+    }
+  }
+
+  // A scoped read-only lookup can intentionally hide a loan belonging to a
+  // different operating vehicle. Import idempotency must check identity across
+  // the whole repository or it can try to recreate an existing stable ID.
+  if (!await input.financeLoans.hasRecord(profile.loan.id)) {
+    await input.financeLoans.create({
+      uuid: profile.loan.id.slice("feature:finance:loan:".length),
+      details: {
+        loanName: profile.loan.loanName,
+        lenderName: profile.loan.lenderName,
+        vehicleId,
+        principalPaise: profile.loan.principalPaise,
+        annualInterestRateBasisPoints: profile.loan.annualInterestRateBasisPoints,
+        loanStartDate: profile.loan.loanStartDate,
+        tenureMonths: profile.loan.tenureMonths,
+        firstEmiDate: profile.loan.firstEmiDate,
+      },
+      source: "import",
+    });
+  }
+}

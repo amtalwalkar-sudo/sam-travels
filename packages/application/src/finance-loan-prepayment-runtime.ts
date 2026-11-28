@@ -1,5 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
+import type { RecordAuthorV1 } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { FinanceLoanPrepaymentService, type FinanceLoanPrepaymentRevisionBuilder,
   type FinanceLoanPrepaymentStateValidator } from "./finance-loan-prepayment-service";
 
@@ -8,9 +10,10 @@ export function createApplicationFinanceLoanPrepaymentService(
   loans: { get(id: string): Promise<import("../../core/src/types").RecordEnvelope<FinanceLoanRecordV1> | undefined> },
   validateState: FinanceLoanPrepaymentStateValidator,
   buildRevision: FinanceLoanPrepaymentRevisionBuilder,
-  now?: () => string,
+  now?: () => string, currentAuthor?: () => Promise<RecordAuthorV1>,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ) {
-  return new FinanceLoanPrepaymentService(repository, loans, validateState, buildRevision, now);
+  return new FinanceLoanPrepaymentService(repository, loans, validateState, buildRevision, now, currentAuthor, operatingConfiguration);
 }
 let applicationFinanceLoanPrepaymentService: FinanceLoanPrepaymentService | undefined;
 export function initializeApplicationFinanceLoanPrepaymentService(
@@ -18,11 +21,12 @@ export function initializeApplicationFinanceLoanPrepaymentService(
   loans: { get(id: string): Promise<import("../../core/src/types").RecordEnvelope<FinanceLoanRecordV1> | undefined> },
   validateState: FinanceLoanPrepaymentStateValidator,
   buildRevision: FinanceLoanPrepaymentRevisionBuilder,
-  now?: () => string,
+  now?: () => string, currentAuthor?: () => Promise<RecordAuthorV1>,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ) {
   if (applicationFinanceLoanPrepaymentService) throw new Error("Application Finance Loan Prepayment service is already initialized");
   applicationFinanceLoanPrepaymentService = createApplicationFinanceLoanPrepaymentService(
-    repository, loans, validateState, buildRevision, now,
+    repository, loans, validateState, buildRevision, now, currentAuthor, operatingConfiguration,
   );
   return applicationFinanceLoanPrepaymentService;
 }

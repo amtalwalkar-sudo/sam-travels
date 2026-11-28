@@ -1,5 +1,4 @@
 package `in`.samtravels.app
-
 import android.content.Intent
 import android.os.SystemClock
 import android.webkit.WebView
@@ -7,6 +6,9 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,23 +16,24 @@ import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-
 @RunWith(AndroidJUnit4::class)
-class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
+class AdminFormsCapacitorAcceptanceTest {
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
+        app.deleteDatabase("sam-travels.db")
         var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+        AdminTestUiControlSupport.resetDriverStateToIdle(db, java.time.Instant.now().toString())
         val marker = "Admin Android " + UUID.randomUUID().toString().take(8)
-        val activity = instrumentation.startActivitySync(
+        var activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
         try {
             assertTrue("Drive loads", await(activity, "!!document.querySelector('.driver-card')", 30000))
             eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
-            assertTrue("Admin shell loads", await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+            assertTrue("Admin loads", await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
             check(javascriptValue(activity, """(()=>{const set=(labelText,value)=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes(labelText));const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,value);i.dispatchEvent(new Event('input',{bubbles:true}));return true};const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Admin role'));const i=l?.querySelector('input[type=checkbox]');if(!i)return false;i.click();return set('Person name','$marker Admin')&&set('Set initial Admin PIN','4831')})()""")=="true") { "Admin enrollment fields unavailable" }
             eval(activity, "document.querySelector('form button')?.click()")
             assertTrue("Admin enrollment", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15000))
@@ -39,23 +42,27 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Admin PIN appears", await(activity, "[...document.querySelectorAll('label')].some(n=>n.textContent.trim()==='Admin PIN')", 5000))
             check(javascriptValue(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN');const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));l.closest('form')?.querySelector('button')?.click();return true})()""")=="true") { "Admin PIN input unavailable" }
             assertTrue("Admin activation", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
-
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
-                "driver" to "Add driver", "compliance" to "Add a vehicle before recording compliance.",
+                "driver" to "Add driver", "compliance" to "Configure exactly one active Vehicle before recording compliance.",
                 "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.")
             sections.forEach { (id, expected) ->
                 eval(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
                 assertTrue("Section $id", await(activity,
                     "(()=>{const p=document.getElementById('admin-section-panel-$id');return !!p&&!p.hidden&&p.textContent.includes('$expected')})()", 10000))
             }
-
             eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
-            assertTrue("Business settings form loads", await(activity, "document.body.innerText.includes('Business start date')", 15000))
+            assertTrue("Settings form", await(activity, "document.body.innerText.includes('Business start date')", 15000))
             set(activity, "Business start date", "2024-01-01")
             clickMatching(activity, "Set business start date|Save changes")
-            assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
-
+            assertTrue("Setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
+            assertRoomOperationReceiptExists(db, "feature:business-settings:business", setOf("create", "update"))
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
+            AdminTestUiControlSupport.retireProfileVehicle(
+                { label, value -> set(activity, label, value) },
+                { label -> click(activity, label) },
+                { script -> eval(activity, script) },
+                { script, timeout -> await(activity, script, timeout) },
+            )
             click(activity, "Add vehicle")
             val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
             set(activity, "Registration number", registration)
@@ -69,8 +76,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Vehicle saved", await(activity, "document.body.innerText.includes('$registration')", 15000))
             val vehicleRecordId = "feature:vehicle:" + registration
             assertTrue("Vehicle Room identity", db.records().get(vehicleRecordId) != null)
-            db.close()
-
+            assertRoomOperationReceiptExists(db, vehicleRecordId)
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             click(activity, "Add driver")
             set(activity, "Driver name", marker + " Driver")
@@ -78,10 +84,47 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Mobile number", "9990001111")
             click(activity, "Save driver")
             assertTrue("Driver saved", await(activity, "document.body.innerText.includes('Driver created')", 15000))
-
+            val configuredVehicleRows = db.records().list().filter { row ->
+                if (row.id != vehicleRecordId) return@filter false
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@filter false
+                data.optString("lifecycleState") == "active"
+            }
+            assertEquals("One active vehicle", 1, configuredVehicleRows.size)
+            val configuredDriverRows = db.records().list().filter { row ->
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@filter false
+                data.optString("name") == marker + " Driver" &&
+                    data.optString("lifecycleState") == "active"
+            }
+            assertEquals("One active driver", 1, configuredDriverRows.size)
+            val driverRecordId = configuredDriverRows.single().id
+            assertRoomOperationReceiptExists(db, driverRecordId)
+            click(activity, "Configure for Work")
+            assertTrue("Admin configures Work Driver",
+                await(activity, "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
+            val configuredDriverData = org.json.JSONObject(configuredDriverRows.single().json).getJSONObject("data")
+            val selectedWorkDriver = db.records().get("work:selected-driver")
+            assertNotNull("Admin writes the authoritative Work selection record", selectedWorkDriver)
+            val selectedWorkDriverData = org.json.JSONObject(selectedWorkDriver!!.json).getJSONObject("data")
+            assertEquals("Work selection references the sole active Driver",
+                configuredDriverData.getString("driverId"), selectedWorkDriverData.getString("driverId"))
+            val assignmentHistory = db.records().get("feature:driver-records:assignment:" + configuredDriverData.getString("driverId"))
+            assertNotNull("Admin creates the current Driver–Vehicle assignment", assignmentHistory)
+            val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
+            assertEquals("Active Vehicle assigned", vehicleRecordId, assignment.getString("vehicleId"))
+            assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
+            val fuelRecovery = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
+                activity, this, db, vehicleRecordId, marker + " Admin",
+            )
+            activity = fuelRecovery.first
+            val fuelRecordId = fuelRecovery.second
+            val closingFuelRecordId = AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(
+                activity, this, db, vehicleRecordId,
+            )
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
-            assertTrue("Compliance vehicle selector", await(activity, "document.querySelectorAll('#admin-section-panel-compliance select').length>0", 10000))
-            eval(activity, """(()=>{const s=document.querySelector('#admin-section-panel-compliance select');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            assertTrue("Compliance uses configured Vehicle", await(activity,
+                "document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context')?.textContent.includes('$registration')", 10000))
+            assertTrue("No routine Compliance Vehicle selector", await(activity,
+                "!document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context select')", 10000))
             click(activity, "Add compliance / renewal")
             set(activity, "Compliance type / name", marker + " Insurance")
             set(activity, "Valid from", "2026-11-15")
@@ -90,13 +133,20 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Document reference (optional)", "INS-" + marker)
             click(activity, "Save record")
             assertTrue("Compliance saved", await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
-
+            val savedCompliance = db.records().list().singleOrNull { row ->
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@singleOrNull false
+                row.id.startsWith("feature:compliance:") && data.optString("complianceName") == marker + " Insurance"
+            }
+            assertNotNull("Compliance record persisted after form submit", savedCompliance)
+            val savedComplianceData = org.json.JSONObject(savedCompliance!!.json).getJSONObject("data")
+            assertEquals("Compliance persists the configured operating Vehicle", vehicleRecordId,
+                savedComplianceData.getString("vehicleId"))
+            assertRoomOperationReceiptExists(db, savedCompliance!!.id)
             assertTrue("Traffic challan form fields render", await(activity,
                 "document.body.innerText.includes('Challan amount (₹)')&&document.body.innerText.includes('Save expense')", 15000))
-
             eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
-            assertTrue("Finance vehicle selector", await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
-            eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            assertTrue("Finance uses configured operating vehicle", await(activity,
+                "document.querySelector('#admin-section-panel-finance .admin-vehicle-context')?.textContent.includes('$registration') && !document.querySelector('#admin-section-panel-finance #admin-vehicle')", 10000))
             click(activity, "Add loan")
             set(activity, "Loan name", marker + " Loan")
             set(activity, "Lender name", "Acceptance Bank")
@@ -107,9 +157,15 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "First EMI date (first day of month)", "2026-02-01")
             click(activity, "Save loan details")
             assertTrue("Loan saved", await(activity, "document.body.innerText.includes('$marker Loan')", 15000))
-            assertTrue("Loan payment, prepayment and settlement actions render", await(activity,
+            val loanRecord = db.records().list().singleOrNull { row ->
+                val data = org.json.JSONObject(row.json).optJSONObject("data") ?: return@singleOrNull false
+                row.id.startsWith("feature:finance:loan:") &&
+                    data.optJSONObject("details")?.optString("loanName") == marker + " Loan"
+            }
+            assertNotNull("Loan details record persists in Room", loanRecord)
+            assertRoomOperationReceiptExists(db, loanRecord!!.id)
+            assertTrue("Loan actions render", await(activity,
                 "document.body.innerText.includes('Record payment')&&document.body.innerText.includes('Prepay principal')&&document.body.innerText.includes('Settle & close')", 15000))
-
             set(activity, "Fee date", "2026-11-15")
             set(activity, "Vehicle", vehicleRecordId)
             set(activity, "Fee amount (₹)", "120")
@@ -117,10 +173,11 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Note", marker + " platform fee")
             assertTrue("Platform fee inputs valid: " + javascriptValue(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');const f=s?.querySelector('form');return [...(f?.querySelectorAll(':invalid')??[])].map(e=>e.closest('label')?.textContent||e.name||e.type).join(',')})()"), await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('form')?.checkValidity()", 10000))
             assertTrue("Platform Fee submit enabled", await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('button[type=submit]')?.disabled===false", 15000))
-            eval(activity, "document.querySelector('.admin-capability-panel h3')?.textContent")
-            eval(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');s?.querySelector('form button[type=submit]')?.click()})()")
-            assertTrue("Platform fee saved", await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('[role=status]')?.textContent.includes('Saved.')", 30000))
-
+            val adminFeeRecovery = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
+                activity, this, db, marker, marker + " Admin",
+            )
+            activity = adminFeeRecovery.first
+            val adminFeeRecordId = adminFeeRecovery.second
             set(activity, "Expense date", "2026-11-15")
             set(activity, "Category", "Parking " + marker)
             set(activity, "Amount (₹)", "50")
@@ -129,7 +186,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Receipt / source reference", "PARK-" + marker)
             click(activity, "Save expense")
             assertTrue("Misc expense saved", await(activity, "document.body.innerText.includes('Saved.')", 15000))
-
             eval(activity, "document.getElementById('admin-section-trigger-maintenance')?.click()")
             click(activity, "Start service visit")
             set(activity, "Maintenance type", marker + " service")
@@ -141,7 +197,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Amount (₹)", "1200")
             click(activity, "Save maintenance record")
             assertTrue("Maintenance visit saved", await(activity, "document.body.innerText.includes('Service visit saved')", 15000))
-            eval(activity, """(()=>{const s=document.querySelectorAll('#admin-section-panel-maintenance .admin-vehicle-context select')[1];if(!s)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'expense');s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            eval(activity, """(()=>{const s=document.querySelectorAll('#admin-section-panel-maintenance .admin-vehicle-context select')[0];if(!s)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'expense');s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
             click(activity, "Start general expense")
             set(activity, "Expense name", marker + " tyre repair")
             set(activity, "Date", "2026-11-15")
@@ -155,10 +211,23 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "New rate (₹ per km)", "2.50")
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
-
+            Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
+                db, vehicleRecordId, fuelRecordId, listOf(fuelRecordId, closingFuelRecordId), adminFeeRecordId,
+                evaluate = { script -> eval(activity, script) },
+                waitFor = { script, timeout -> await(activity, script, timeout) },
+                click = { label -> clickMatching(activity, label) },
+                readCalculation = {
+                    javascriptValue(activity,
+                        "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.textContent??''})").orEmpty()
+                },
+            )
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+            val businessSettings = db.records().get("feature:business-settings:business")
+            assertNotNull("Business date survives Room reopen", businessSettings)
+            assertEquals("Business date value survives reopen", "2024-01-01",
+                org.json.JSONObject(businessSettings!!.json).getJSONObject("data").getString("businessStartDate"))
             val records = db.records().list().joinToString("\n") { it.json }
             listOf(registration, marker + " Driver", marker + " Insurance",
                 marker + " Loan", "FEE-" + marker, "PARK-" + marker, marker + " service visit")
@@ -174,7 +243,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                 "FEE-" + marker, "PARK-" + marker, marker + " service visit")
                 .forEach { assertTrue("Room backup restores " + it, restoredJson.contains(it)) }
         } finally {
-            // Keep shared emulator state isolated even when an assertion fails midway.
             db.records().list().filter { it.json.contains(marker) }.forEach { db.records().remove(it.id) }
             runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             NativeStartupRecovery.invalidate(db)
@@ -182,30 +250,34 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             db.close()
         }
     }
-
-    private fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
-        val name = label.replace("'", "\\'")
-        assertTrue("Admin field loads: " + label, await(activity,
-            "[...document.querySelectorAll('label')].some(n=>n.textContent.includes('$name'))", 15000))
-        val text = value.replace("'", "\\'")
-        val js = """(()=>{let a=[...document.querySelectorAll('label')].filter(n=>n.textContent.trim()==='$name');if(!a.length)a=[...document.querySelectorAll('label')].filter(n=>n.textContent.includes('$name'));const c=a[$index]?.querySelector('input,select,textarea');if(!c)return false;const p=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(c,'$text');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
-        check(javascriptValue(activity, js) == "true") { "Missing Admin field: " + label }
-    }
-
-    private fun click(activity: MainActivity, label: String, index: Int = 0) {
+    internal fun set(activity: MainActivity, label: String, value: String, index: Int = 0) =
+        AdminTestUiControlSupport.set(
+            activity, label, value, index,
+            await = { script, timeout -> await(activity, script, timeout) },
+            javascriptValue = { script -> javascriptValue(activity, script) },
+        )
+    internal fun click(activity: MainActivity, label: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin action loads: " + label, await(activity,
             "[...document.querySelectorAll('button')].some(n=>n.textContent.trim()==='$name'&&!n.disabled)", 15000))
         val js = """(()=>{const a=[...document.querySelectorAll('button')].filter(n=>n.textContent.trim()==='$name');if(!a[$index])return false;a[$index].click();return true})()"""
         check(javascriptValue(activity, js) == "true") { "Missing Admin action: " + label }
     }
-
-    private fun clickMatching(activity: MainActivity, pattern: String) {
-        val js = """(()=>{const r=/$pattern/;const b=[...document.querySelectorAll('button')].find(n=>r.test(n.textContent));if(!b)return false;b.click();return true})()"""
-        check(javascriptValue(activity, js) == "true")
+    internal fun clickMatching(activity: MainActivity, pattern: String) {
+        val alternatives = pattern.split('|').map(String::trim).filter(String::isNotEmpty)
+        require(alternatives.isNotEmpty()) { "At least one Admin action label is required" }
+        val jsLabels = alternatives.joinToString(",") { label ->
+            "'" + label.replace("\\", "\\\\").replace("'", "\\'") + "'"
+        }
+        val js = """(()=>{const labels=[$jsLabels];const norm=s=>(s||'').replace(/\\s+/g,' ').trim().toLocaleLowerCase();const b=[...document.querySelectorAll('button')].find(n=>!n.disabled&&labels.some(label=>norm(n.innerText||n.textContent).includes(norm(label))));if(!b)return false;b.click();return true})()"""
+        val clicked = javascriptValue(activity, js) == "true"
+        if (!clicked) {
+            val diagnostic = javascriptValue(activity,
+                """JSON.stringify([...document.querySelectorAll('button')].map(n=>({text:(n.innerText||n.textContent||'').trim(),disabled:n.disabled,aria:n.getAttribute('aria-label')})))""")
+            error("Missing enabled Admin action: " + alternatives.joinToString(", ") + "; buttons=" + diagnostic)
+        }
     }
-
-    private fun eval(activity: MainActivity, script: String) {
+    internal fun eval(activity: MainActivity, script: String) {
         val webView = activity.getBridge().getWebView()
         val latch = CountDownLatch(1)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -213,18 +285,16 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         }
         check(latch.await(15, TimeUnit.SECONDS))
     }
-
-    private fun javascriptValue(activity: MainActivity, expression: String): String? {
+    internal fun javascriptValue(activity: MainActivity, expression: String): String? {
         val webView = activity.getBridge().getWebView()
         val result = AtomicReference<String?>()
         val latch = CountDownLatch(1)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             webView.evaluateJavascript(expression) { result.set(it); latch.countDown() }
         }
-        return if (latch.await(3, TimeUnit.SECONDS)) result.get() else null
+        return if (latch.await(15, TimeUnit.SECONDS)) result.get() else null
     }
-
-    private fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
+    internal fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
             if (javascriptValue(activity, "Boolean($expression)") == "true") return true

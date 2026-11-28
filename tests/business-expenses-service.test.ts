@@ -1,17 +1,30 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
   calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
+  fuelBusinessDateFromInstant,
 } from "../packages/features/business-expenses";
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
   async list<T>() { return [...this.rows.values()] as Array<RecordEnvelope<T>>; }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    if (!mutations.length || new Set(mutations.map(item => item.id)).size !== mutations.length) {
+      throw new Error("atomic_record_batch_invalid");
+    }
+    for (const item of mutations) {
+      const current = this.rows.get(item.id);
+      if (item.expectedRevision === null ? current !== undefined : current?.revision !== item.expectedRevision) return false;
+      if (item.next.revision !== (item.expectedRevision ?? 0) + 1) throw new Error("atomic_record_batch_revision_invalid");
+    }
+    mutations.forEach(item => this.rows.set(item.id, item.next as RecordEnvelope<unknown>));
+    return true;
+  }
   async remove(id: string) { this.rows.delete(id); }
   async compareAndSet<T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) {
     const current = this.rows.get(id);
@@ -34,6 +47,7 @@ const domain = {
   calculateDailyExpenses: calculateDailyBusinessExpenses,
   calculateFuelIntervals,
   calculateFuelCostRateHistory,
+  fuelBusinessDateFromInstant,
 };
 function setup() {
   const repository = new MemoryRepository();
@@ -49,24 +63,66 @@ describe("BusinessExpensesService", () => {
     const purchase = await service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174000", source: "web",
       data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
         partialRefill: true,
       },
     });
     expect(purchase.id).toBe("feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000");
-    expect(purchase.businessDate).toBe("2026-11-15");
+    expect(purchase.businessDate).toBe("2026-11-14");
     expect((await service.listDailyExpenseOutputs())[0]).toMatchObject({
-      businessDate: "2026-11-15", fuelPaise: 18000, normalOperatingExpensePaise: 18000,
+      businessDate: "2026-11-14", fuelPaise: 18000, normalOperatingExpensePaise: 18000,
     });
     await expect(service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174000", source: "web",
       data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
         partialRefill: true,
       },
     })).rejects.toThrow("feature_record_already_exists");
+  });
+
+
+  it("replays a committed Fuel purchase with its original timestamp and rejects changed payload reuse", async () => {
+    const { service, repository } = setup();
+    const input = {
+      uuid: "123e4567-e89b-42d3-a456-426614174099", source: "web" as const,
+      now: "2026-11-19T04:00:00.000Z",
+      operation: { operationId: "fuel-form-operation-1", payloadFingerprint: '{"amountRupees":825,"priceRupeesPerKg":82.5}' },
+      data: {
+        businessDate: "2026-11-19", occurredAt: "2026-11-19T04:00:00.000Z",
+        vehicleId, odometerKm: 45000, pricePaisePerKg: 8250, amountPaise: 82500,
+        partialRefill: false,
+      },
+    };
+    const first = await service.createFuelPurchase(input);
+    const replay = await service.createFuelPurchase({ ...input, now: "2026-11-19T05:00:00.000Z" });
+    expect(replay).toEqual(first);
+    expect(first.createdAt).toBe("2026-11-19T04:00:00.000Z");
+    expect(first.data.occurredAt).toBe("2026-11-19T04:00:00.000Z");
+    expect(first.data.businessDate).toBe("2026-11-19");
+    expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
+    await expect(service.createFuelPurchase({
+      ...input, data: { ...input.data, amountPaise: 90000 },
+    })).rejects.toThrow("feature_record_operation_payload_conflict");
+  });
+
+
+  it("replays a committed Admin expense with its original receipt and rejects changed payload reuse", async () => {
+    const { service, repository } = setup();
+    const input = { uuid: "123e4567-e89b-42d3-a456-426614174098", source: "web" as const,
+      now: "2026-11-19T06:00:00.000Z", operation: { operationId: "admin-expense-operation-1", payloadFingerprint: '{"amountRupees":12.5}' },
+      data: { sourceKind: "platform_fee" as const, businessDate: "2026-11-19", amountPaise: 1250,
+        currencyCode: "INR" as const, effect: "charge" as const, vehicleId, reference: "trip-99" } };
+    const first = await service.createExpenseEntry(input);
+    const replay = await service.createExpenseEntry({ ...input, now: "2026-11-19T07:00:00.000Z" });
+    expect(replay).toEqual(first);
+    expect(first.createdAt).toBe("2026-11-19T06:00:00.000Z");
+    expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
+    await expect(service.createExpenseEntry({ ...input, data: { ...input.data, amountPaise: 1500 } }))
+      .rejects.toThrow("feature_record_operation_payload_conflict");
+    expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
   });
 
   it("exposes a derived historical rate timeline from completed intervals", async () => {
@@ -75,12 +131,10 @@ describe("BusinessExpensesService", () => {
       ["123e4567-e89b-42d3-a456-426614174040","2026-11-01T09:00:00.000Z",100,false,50_000],
       ["123e4567-e89b-42d3-a456-426614174041","2026-11-05T09:00:00.000Z",110,true,20_000],
       ["123e4567-e89b-42d3-a456-426614174042","2026-11-10T09:00:00.000Z",120,false,30_000],
-    ] as const) {
-      await service.createFuelPurchase({ uuid, source:"web", data: {
-        businessDate: new Date(Date.parse(occurredAt)+330*60_000).toISOString().slice(0,10),
-        occurredAt, vehicleId, odometerKm, pricePaisePerKg:10_000, amountPaise, partialRefill,
-      }});
-    }
+    ] as const) await service.createFuelPurchase({ uuid, source:"web", data: {
+      businessDate: fuelBusinessDateFromInstant(occurredAt), occurredAt, vehicleId, odometerKm,
+      pricePaisePerKg:10_000, amountPaise, partialRefill,
+    }});
     const history = await service.listFuelCostRateHistory();
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ effectiveFrom:"2026-11-11",
@@ -110,7 +164,7 @@ describe("BusinessExpensesService", () => {
     await service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174030", source: "web",
       data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
         partialRefill: true,
       },
@@ -185,7 +239,7 @@ describe("BusinessExpensesService", () => {
     ] as const;
     for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of purchases) {
       await service.createFuelPurchase({ uuid, source: "web", data: {
-        businessDate: new Date(Date.parse(occurredAt) + 330 * 60_000).toISOString().slice(0, 10),
+        businessDate: fuelBusinessDateFromInstant(occurredAt),
         occurredAt, vehicleId, odometerKm, pricePaisePerKg: 10_000, amountPaise, partialRefill,
       }});
     }
@@ -330,13 +384,13 @@ describe("BusinessExpensesService", () => {
     const { service } = setup();
     await expect(service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174020", source: "web",
-      data: { businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId: "feature:vehicle:UNKNOWN", odometerKm: 10, pricePaisePerKg: 9000,
         amountPaise: 1000, partialRefill: false },
     })).rejects.toThrow("business_expense_vehicle_not_found");
     await expect(service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174021", source: "web",
-      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
+      data: { businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 10, pricePaisePerKg: 9000,
         amountPaise: 1000, partialRefill: false },
     })).rejects.toThrow("fuel_purchase_invalid");

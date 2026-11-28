@@ -4,10 +4,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeMaintenanceBackupTest {
-    private val timestamp = "2026-10-31T20:00:00Z"
+    private val timestamp = "2026-10-31T23:00:00Z"
     private val vehicleId = "feature:vehicle:MH01AB1234"
     private val rateId = "feature:maintenance:rate:feature%3Avehicle%3AMH01AB1234"
 
@@ -69,12 +70,104 @@ class NativeMaintenanceBackupTest {
     }
 
     @Test
+    fun acceptsOrdinaryMaintenanceExpenseWithFeatureIdentity() {
+        val expense = row(
+            "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003",
+            "maintenance-records",
+            JSONObject().put("featureId", "maintenance").put("kind", "expense")
+                .put("amountPaise", 400000L),
+        )
+        NativeMaintenanceCorrectionBackup.validate(listOf(expense), listOf(expense))
+    }
+
+    @Test
+    fun acceptsAppendOnlyServiceVisitTotalCorrectionInBackup() {
+        val visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174000"
+        val visit = visitRow()
+        val correctionId = "visit-total-correction-1"
+        val recordedAt = "2026-11-03T08:00:00Z"
+        val correctionData = JSONObject()
+            .put("schemaVersion", 1).put("correctionId", correctionId)
+            .put("targetRecordId", visitId).put("targetRecordRevision", 1)
+            .put("featureId", "maintenance").put("chainRevision", 1)
+            .put("fieldPath", "totalPaise").put("beforeValue", 200000L)
+            .put("afterValue", 225000L).put("reason", "Final garage invoice verified")
+            .put("actor", JSONObject().put("role", "admin").put("actorId", "maintenance-admin")
+                .put("adminPinVerifiedAt", recordedAt))
+            .put("recordedAt", recordedAt).put("businessEffectiveDate", "2026-10-05")
+        val correctionEnvelope = JSONObject()
+            .put("id", "historical-correction:$correctionId").put("schemaVersion", 1)
+            .put("createdAt", recordedAt).put("updatedAt", recordedAt)
+            .put("source", "web").put("revision", 1)
+            .put("createdBy", JSONObject().put("personId", "maintenance-admin").put("role", "admin"))
+            .put("data", correctionData)
+        val correction = JSONObject().put("id", correctionEnvelope.getString("id"))
+            .put("json", correctionEnvelope.toString()).put("schemaVersion", 1)
+            .put("updatedAt", recordedAt).put("participantId", "maintenance-records")
+        val headId = "historical-correction-chain:" + java.net.URLEncoder.encode(visitId, "UTF-8")
+        val headEnvelope = JSONObject()
+            .put("id", headId).put("schemaVersion", 1)
+            .put("createdAt", recordedAt).put("updatedAt", recordedAt)
+            .put("source", "web").put("revision", 1)
+            .put("data", JSONObject().put("schemaVersion", 1).put("targetRecordId", visitId)
+                .put("chainRevision", 1).put("headCorrectionId", correctionId))
+        val head = JSONObject().put("id", headId).put("json", headEnvelope.toString())
+            .put("schemaVersion", 1).put("updatedAt", recordedAt).put("participantId", "maintenance-records")
+
+        NativeMaintenanceCorrectionBackup.validate(listOf(visit), listOf(visit, correction, head))
+    }
+
+    @Test
+    fun ignoresOtherFeaturesHistoricalCorrectionRecords() {
+        val expense = row(
+            "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003",
+            "maintenance-records",
+            JSONObject().put("featureId", "maintenance").put("kind", "expense")
+                .put("amountPaise", 400000L),
+        )
+        val otherTarget = "feature:platform-fees:expense:other-1"
+        val correction = row(
+            "historical-correction:platform-fee-fix-1",
+            "platform-fees",
+            JSONObject().put("featureId", "platform-fees").put("targetRecordId", otherTarget),
+        )
+        val headId = "historical-correction-chain:" +
+            java.net.URLEncoder.encode(otherTarget, "UTF-8")
+        val head = row(
+            headId,
+            "platform-fees",
+            JSONObject().put("featureId", "platform-fees").put("targetRecordId", otherTarget),
+        )
+        NativeMaintenanceCorrectionBackup.validate(listOf(expense), listOf(expense, correction, head))
+    }
+
+    @Test
+    fun ignoresOtherFeatureCorrectionThatReferencesMaintenanceExpense() {
+        val expenseId = "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003"
+        val expense = row(
+            expenseId,
+            "maintenance-records",
+            JSONObject().put("featureId", "maintenance").put("kind", "expense")
+                .put("amountPaise", 400000L),
+        )
+        val foreignCorrection = row(
+            "historical-correction:foreign-fix-1",
+            "platform-fees",
+            JSONObject().put("featureId", "platform-fees").put("targetRecordId", expenseId),
+        )
+        NativeMaintenanceCorrectionBackup.validate(
+            listOf(expense),
+            listOf(expense, foreignCorrection),
+        )
+    }
+
+    @Test
     fun rejectsMaintenanceRecordWithoutVehicle() = withParticipants {
         val records = JSONArray().put(visitRow())
         val failure = assertThrows(IllegalStateException::class.java) {
             NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
         }
-        assertEquals("maintenance_vehicle_not_found", failure.message)
+        assertTrue(failure.message.orEmpty().startsWith("maintenance_vehicle_not_found: requested=$vehicleId; available="))
     }
 
     @Test

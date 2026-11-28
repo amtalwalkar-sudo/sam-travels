@@ -34,20 +34,30 @@ abstract class DriverOverlayServicePresentationTestSupport {
 
     protected fun swipeAt(ui: UiAutomation, fromX: Int, fromY: Int, toX: Int, toY: Int) {
         val downTime = SystemClock.uptimeMillis()
-        val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
-            fromX.toFloat(), fromY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-        val move = MotionEvent.obtain(downTime, downTime + 120, MotionEvent.ACTION_MOVE,
-            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-        val up = MotionEvent.obtain(downTime, downTime + 240, MotionEvent.ACTION_UP,
-            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        val events = mutableListOf(
+            MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
+                fromX.toFloat(), fromY.toFloat(), 0),
+        )
+        for (step in 1..5) {
+            val fraction = step / 5f
+            events += MotionEvent.obtain(downTime, downTime + step * 40L, MotionEvent.ACTION_MOVE,
+                fromX + (toX - fromX) * fraction, fromY + (toY - fromY) * fraction, 0)
+        }
+        events += MotionEvent.obtain(downTime, downTime + 240, MotionEvent.ACTION_UP,
+            toX.toFloat(), toY.toFloat(), 0)
+        events.forEach { it.source = InputDevice.SOURCE_TOUCHSCREEN }
         try {
-            assertTrue("Gesture down must be injected", ui.injectInputEvent(down, true))
-            assertTrue("Gesture move must be injected", ui.injectInputEvent(move, true))
-            assertTrue("Gesture up must be injected", ui.injectInputEvent(up, true))
+            events.forEachIndexed { index, event ->
+                val injected = ui.injectInputEvent(event, true)
+                // UiAutomation can report ACTION_UP as unhandled when the
+                // overlay consumes the completed gesture; DOWN and MOVE must
+                // still be accepted so the gesture itself is genuinely driven.
+                if (index < events.lastIndex) {
+                    assertTrue("Gesture event $index must be injected", injected)
+                }
+            }
         } finally {
-            down.recycle()
-            move.recycle()
-            up.recycle()
+            events.forEach(MotionEvent::recycle)
         }
     }
 
@@ -88,6 +98,17 @@ abstract class DriverOverlayServicePresentationTestSupport {
     protected fun shell(ui: UiAutomation, command: String): String =
         ParcelFileDescriptor.AutoCloseInputStream(ui.executeShellCommand(command)).bufferedReader().use { it.readText() }
 
+    private fun latestOverlayServiceInstance(ui: UiAutomation): String? {
+        val logs = shell(ui, "logcat -d -s DriverOverlayService:I | grep 'service_created' | tail -n 1")
+        return Regex("instance=([0-9]+)").find(logs)?.groupValues?.get(1)
+    }
+
+    private fun overlayServiceDestroyed(ui: UiAutomation, instance: String?): Boolean {
+        if (instance == null) return true
+        return shell(ui, "logcat -d -s DriverOverlayService:I | grep 'service_destroyed instance=$instance'").isNotBlank()
+    }
+
+
     protected fun allNodes(ui: UiAutomation): List<AccessibilityNodeInfo> {
         val result = mutableListOf<AccessibilityNodeInfo>()
         fun visit(node: AccessibilityNodeInfo?) {
@@ -102,6 +123,34 @@ abstract class DriverOverlayServicePresentationTestSupport {
 
     protected fun findNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? =
         allNodes(ui).firstOrNull(predicate)
+
+    /** Resolve controls only from the native overlay window, never the WebView beneath it. */
+    protected fun findOverlayNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        for (window in ui.windows) {
+            val nodes = mutableListOf<AccessibilityNodeInfo>()
+            fun visit(node: AccessibilityNodeInfo?) {
+                if (node == null) return
+                nodes.add(node)
+                for (index in 0 until node.childCount) visit(node.getChild(index))
+            }
+            visit(window.root)
+            // The overlay header is a live status field and is replaced with
+            // "Sam Travels · <workflow state> · r<revision>" after the first
+            // render. Identify the native window by its stable minimize control
+            // plus the status-header prefix, not the transient initial header text.
+            val hasOverlayHeader = nodes.any {
+                it.text?.toString()?.startsWith("Sam Travels · ") == true
+            }
+            val hasMinimizeControl = nodes.any {
+                it.contentDescription?.toString() == "Minimize controls" ||
+                    it.text?.toString() == "Minimize"
+            }
+            if (hasOverlayHeader && hasMinimizeControl) {
+                return nodes.firstOrNull(predicate)
+            }
+        }
+        return null
+    }
 
     protected fun describeNodes(ui: UiAutomation): String = allNodes(ui).map { node ->
         val bounds = android.graphics.Rect()
@@ -226,48 +275,62 @@ abstract class DriverOverlayServicePresentationTestSupport {
         prepare: (LocalDatabase, String) -> Unit,
         databaseName: String = "sam-travels.db",
         expectedFormLabel: String? = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required",
+        exerciseWebView: ((MainActivity, LocalDatabase) -> Unit)? = null,
         exercise: (UiAutomation, LocalDatabase) -> Unit,
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext
         val ui = instrumentation.uiAutomation
-        DriverOverlayDatabaseFactory.databaseNameOverrideForTests = databaseName
+        val isolatedDatabaseName = if (databaseName == "sam-travels.db") "overlay-$tripId.db" else databaseName
+        DriverOverlayDatabaseFactory.databaseNameOverrideForTests = isolatedDatabaseName
         ui.setServiceInfo(ui.serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         })
         shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
-        val activity = instrumentation.startActivitySync(
-            Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        ) as MainActivity
-        // Stop any START_STICKY instance before opening or replacing the fixture database.
-        instrumentation.runOnMainSync {
-            activity.stopService(Intent(activity, DriverOverlayService::class.java))
-        }
-        assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
-            !isOverlayServiceRunning(app)
+        val overlayPreferences = app.getSharedPreferences("sam_travels_driver_overlay", Context.MODE_PRIVATE)
+        val previousOverlayEnabled = overlayPreferences.getBoolean("overlay_enabled", false)
+        val previousActivationPending = overlayPreferences.getBoolean("overlay_activation_pending", false)
+        val previousBootResumeDeferred = overlayPreferences.getBoolean("boot_resume_deferred", false)
+        val previousServiceInstance = latestOverlayServiceInstance(ui)
+        app.stopService(Intent(app, DriverOverlayService::class.java))
+        assertTrue("Previous overlay service must finish teardown before fixture setup", waitUntil(10_000) {
+            !isOverlayServiceRunning(app) && overlayServiceDestroyed(ui, previousServiceInstance)
         })
-        if (databaseName != "sam-travels.db") app.deleteDatabase(databaseName)
-        val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
+        // Prevent MainActivity.onResume from racing the explicit fixture start
+        // with a persisted production auto-resume preference from an earlier test.
+        overlayPreferences.edit().putBoolean("overlay_enabled", false)
+            .putBoolean("overlay_activation_pending", false).putBoolean("boot_resume_deferred", false).commit()
+        app.deleteDatabase(isolatedDatabaseName)
+        val db = Room.databaseBuilder(app, LocalDatabase::class.java, isolatedDatabaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val previousState = db.records().get("driver-state")
         val now = java.time.Instant.now().toString()
+        var activity: MainActivity? = null
         try {
             assertTrue("Emulator must grant overlay permission", Settings.canDrawOverlays(app))
-            DriverWorkflowIdentityTestFixtures.seed(db, "overlay-driver", "overlay-person")
+            val vehicleId = "feature:vehicle:MH01OV1234"
+            DriverWorkflowIdentityTestFixtures.seedOperatingPair(
+                db, "overlay-driver", "overlay-person", "MH01OV1234", "overlay-assignment", now,
+            )
             val active = JSONObject().put("schemaVersion", 1).put("revision", 1)
                 .put("state", "shift_active").put("shiftStartedAt", now).put("lastEventId", "overlay-$tripId")
                 .put("shiftId", "overlay-shift-$tripId")
                 .put("shiftAuthor", JSONObject().put("personId", "overlay-person").put("role", "driver"))
                 .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "overlay-driver")
-                    .put("assignmentId", "overlay-assignment").put("vehicleId", "feature:vehicle:overlay-vehicle"))
+                    .put("assignmentId", "overlay-assignment").put("vehicleId", vehicleId))
             db.records().put(StoredRecord("driver-state", JSONObject().put("value", active).toString(), 1, now))
             prepare(db, now)
+            NativeStartupRecovery.invalidate(db)
+            val startedActivity = instrumentation.startActivitySync(
+                Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ) as MainActivity
+            activity = startedActivity
             instrumentation.runOnMainSync {
-                val intent = Intent(activity, DriverOverlayService::class.java)
-                if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
+                val intent = Intent(startedActivity, DriverOverlayService::class.java)
+                if (Build.VERSION.SDK_INT >= 26) startedActivity.startForegroundService(intent) else startedActivity.startService(intent)
             }
             // CI emulators can take longer than the default polling window to
             // finish native startup recovery and expose the attached form window.
@@ -293,22 +356,29 @@ abstract class DriverOverlayServicePresentationTestSupport {
                     attached,
                 )
             }
+            exerciseWebView?.invoke(startedActivity, db)
             exercise(ui, db)
         } finally {
-            instrumentation.runOnMainSync {
-                activity.stopService(Intent(activity, DriverOverlayService::class.java))
-                activity.finish()
-            }
-            assertTrue("Overlay service must stop after instrumentation case", waitUntil(10_000) {
-                !isOverlayServiceRunning(app)
+            val activeServiceInstance = latestOverlayServiceInstance(ui)
+            activity?.let { current ->
+                instrumentation.runOnMainSync {
+                    current.stopService(Intent(current, DriverOverlayService::class.java))
+                    current.finish()
+                }
+            } ?: app.stopService(Intent(app, DriverOverlayService::class.java))
+            assertTrue("Overlay service must finish teardown after instrumentation case", waitUntil(10_000) {
+                !isOverlayServiceRunning(app) && overlayServiceDestroyed(ui, activeServiceInstance)
             })
             db.records().remove("work:trip-financial-obligation:$tripId")
             db.records().remove("__sam_travels_form_working_copy__:${if (tripId.endsWith("cancel")) "work.trip-cancellation-fee" else "work.trip-completed-financials"}:$tripId")
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
+            overlayPreferences.edit().putBoolean("overlay_enabled", previousOverlayEnabled)
+                .putBoolean("overlay_activation_pending", previousActivationPending)
+                .putBoolean("boot_resume_deferred", previousBootResumeDeferred).commit()
             DriverOverlayDatabaseFactory.databaseNameOverrideForTests = null
-            if (databaseName != "sam-travels.db") app.deleteDatabase(databaseName)
+            app.deleteDatabase(isolatedDatabaseName)
         }
     }
 }

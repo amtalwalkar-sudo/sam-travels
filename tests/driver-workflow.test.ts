@@ -25,6 +25,9 @@ describe("durable single-driver workflow",()=>{
   const base=createDriverCommand({schemaVersion:1,revision:1,state:"shift_active"},"trip_start","pwa","trip-context","2026-11-08T10:00:00.000Z");
   const context={schemaVersion:1 as const,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234"};
   expect(()=>assertDriverCommandContract({...base,driverContext:context})).not.toThrow();
+  const revisionedContext={...context,selectionRevision:2,driverRevision:3,vehicleRevision:4,assignmentRevision:5};
+  expect(()=>assertDriverCommandContract({...base,driverContext:revisionedContext})).not.toThrow();
+  expect(()=>assertDriverCommandContract({...base,driverContext:{...context,selectionRevision:2}})).toThrow("invalid_driver_context");
   expect(()=>assertDriverCommandContract({...base,driverContext:{...context,driverName:"Example Driver"}})).toThrow("invalid_driver_context");
   expect(()=>assertDriverCommandContract({...base,eventType:"shift_start",driverContext:context})).toThrow("invalid_driver_context");
  });
@@ -33,10 +36,17 @@ describe("durable single-driver workflow",()=>{
   const records=[
    {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
    {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",assignedAt:timestamp}]}},
-   {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+   {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:4,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+   {id:"work:selected-driver",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:2,data:{schemaVersion:1,driverId:"driver-001"}},
   ];
-  expect(resolveDriverContextV1(records)).toEqual({schemaVersion:1,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234"});
-  expect(()=>resolveDriverContextV1(records.slice(1))).toThrow("work_driver_selection_missing");
+  records[0].revision=3;
+  records[1].revision=5;
+  expect(resolveDriverContextV1(records)).toEqual({schemaVersion:1,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",selectionRevision:2,driverRevision:3,vehicleRevision:4,assignmentRevision:5});
+  expect(()=>resolveDriverContextV1(records.slice(1))).toThrow("operating_driver_missing");
+  const lockedRecords=records.map(record=>record.id==="work:selected-driver"?{...record,data:{schemaVersion:1,driverId:"driver-001",lockedShiftId:"shift-active"}}:record);
+  expect(resolveDriverContextV1(lockedRecords,"shift-active")).toEqual(resolveDriverContextV1(records));
+  expect(()=>resolveDriverContextV1(lockedRecords)).toThrow("operating_driver_selection_locked");
+  expect(()=>resolveDriverContextV1(lockedRecords,"different-shift")).toThrow("operating_driver_selection_locked");
  });
  it("queues first and atomically commits event, projection, status and outbox",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot(),command=createDriverCommand(state,"shift_start","pwa","cmd-1","2026-11-03T10:00:00.000Z");
@@ -152,6 +162,7 @@ describe("durable single-driver workflow",()=>{
     {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
     {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",assignedAt:timestamp}]}},
     {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+    {id:"work:selected-driver",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001"}},
   ]);
 
   const runtime=createApplicationRuntimeRegistry({extensions:[LOGBOOK_FEATURE_EXTENSION]});
@@ -206,6 +217,20 @@ describe("durable single-driver workflow",()=>{
   expect(replayed).toEqual([]);
   expect(readTripHistoryProjection()).toHaveLength(1);
   expect(readTripHistoryProjection()[0].status).toBe("completed");
+ });
+
+ it("leaves native-overlay GPS recovery to the Android overlay service",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const transitionAt=new Date().toISOString();
+  const command=createDriverCommand(await repo.getSnapshot(),"shift_start","native_overlay","cmd-native-overlay-owner",transitionAt);
+  await repo.queueIntent({command,status:"pending_location",createdAt:transitionAt,updatedAt:transitionAt});
+  let captures=0;
+  const service=new DriverWorkflowService(repo,{capture:async()=>{captures++;return {...gps,fixAt:transitionAt};}});
+  const pending=await service.resumePendingBackground();
+  expect(captures).toBe(0);
+  expect(pending).toHaveLength(1);
+  expect(pending[0].command.originSurface).toBe("native_overlay");
+  expect(pending[0].status).toBe("pending_location");
  });
 
  it("returns a saved driver action before GPS finishes and commits it in the background",async()=>{

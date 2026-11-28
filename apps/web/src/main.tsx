@@ -13,7 +13,7 @@ import {
   
   
   PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
-  TripFinancialService
+  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1, HistoricalTripBackfillCorrectionServiceV1, OperatingConfigurationServiceV1
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -35,7 +35,9 @@ import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichm
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
+import { WorkDriverSelectionService } from "../../../packages/application/src/work-driver-selection-service";
 import { createAdminFormRuntimeV1 } from "./admin-form-runtime";
+import { seedInitialAdminProfile } from "./initial-admin-profile";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
@@ -45,17 +47,21 @@ async function bootstrap(): Promise<void> {
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
+  const operatingConfiguration = new OperatingConfigurationServiceV1(repository);
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
   const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
+  await businessExpenseEnrichmentQueue.recoverInterruptedFuelLocationCaptures();
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
-  FeatureRecordService.setAuthorResolver(async () => {
+  const currentAuthor = async () => {
     const actor = await getPersonIdentityService().currentActor();
     return { personId: actor.actorId, role: actor.role };
-  });
+  };
+  FeatureRecordService.setAuthorResolver(currentAuthor);
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
-  const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
+  const workDriverSelection = new WorkDriverSelectionService(repository, undefined, undefined, currentAuthor);
+  const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords, operatingConfiguration });
   const historicalCorrections = createBusinessExpenseHistoricalCorrections(
     repository, getApplicationRecordSource(), getPersonIdentityService(),
   );
@@ -66,18 +72,18 @@ async function bootstrap(): Promise<void> {
     calculateDailyExpenses: calculateDailyBusinessExpenses,
     calculateFuelIntervals,
     calculateFuelCostRateHistory,
-  }, vehicles, undefined, historicalCorrections);
+  }, vehicles, undefined, historicalCorrections, operatingConfiguration);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
     getApplicationBusinessExpensesService(), getApplicationRecordSource(), businessExpenseEnrichmentQueue,
   );
-  const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
+  const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, undefined, operatingConfiguration);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
-    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
+    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, undefined, currentAuthor, operatingConfiguration,
   );
-  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
-  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
-  initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments, currentAuthor, operatingConfiguration);
+  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments, undefined, currentAuthor, operatingConfiguration);
+  initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles, undefined, operatingConfiguration);
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {
       const actor = await getPersonIdentityService().currentActor();
@@ -95,9 +101,15 @@ async function bootstrap(): Promise<void> {
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
-    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
+    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, undefined, operatingConfiguration,
   );
   initializeApplicationFeatureLifecycle(repository);
+  await seedInitialAdminProfile({
+    vehicles,
+    drivers: driverRecords,
+    compliance: getApplicationComplianceService(),
+    financeLoans,
+  });
   const formRuntime = createAdminFormRuntimeV1({
     repository,
     recordSource: getApplicationRecordSource(),
@@ -109,10 +121,25 @@ async function bootstrap(): Promise<void> {
     getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
     getApplicationFinanceLoanPaymentService(), undefined, repository, getApplicationRecordSource(),
   );
-  const tripFinancials = new TripFinancialService(repository, getApplicationRecordSource());
+  const tripFinancialCorrections = new TripFinancialCorrectionServiceV1(
+    repository, getPersonIdentityService(), getApplicationRecordSource(),
+  );
+  const tripFinancials = new TripFinancialService(
+    repository, getApplicationRecordSource(), undefined, currentAuthor, tripFinancialCorrections,
+  );
+  const historicalTripBackfills = new HistoricalTripBackfillServiceV1(repository, {
+    currentActor: async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { role: actor.role, actorId: actor.actorId };
+    },
+  }, getApplicationRecordSource());
+  const historicalTripBackfillCorrections = new HistoricalTripBackfillCorrectionServiceV1(
+    repository, getPersonIdentityService(), getApplicationRecordSource(),
+  );
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
-    getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository,
+    getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository, operatingConfiguration,
+    historicalTripBackfills, historicalTripBackfillCorrections,
   );
   const performanceCalculation = createPerformanceCalculationServiceV1({
     businessSettings: getApplicationBusinessSettingsService(),
@@ -120,15 +147,19 @@ async function bootstrap(): Promise<void> {
     fullCost: fullCostBreakeven,
     allocation: costAllocation,
     tripFinancials,
+    historicalTripBackfills,
+    historicalTripBackfillCorrections,
     recordRepository: repository,
   });
   const adminServices = Object.freeze({
     formRuntime,
+    operatingConfiguration,
     businessSettings: getApplicationBusinessSettingsService(),
     costAllocation,
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
+    workDriverSelection,
     compliance: getApplicationComplianceService(),
     complianceAnalysis: getApplicationComplianceAnalysisService(),
     maintenance: getApplicationMaintenanceService(),
@@ -143,13 +174,31 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance}>
+      <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance} historicalTripBackfills={historicalTripBackfills}>
         <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} performanceCalculation={performanceCalculation} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );
 }
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  console.error("Sam Travels application bootstrap failed", error);
+  const root = document.getElementById("root");
+  if (!root) return;
+  const panel = document.createElement("main");
+  panel.className = "application-startup-failure";
+  panel.setAttribute("role", "alert");
+  const heading = document.createElement("h1");
+  heading.textContent = "Sam Travels could not start";
+  const detail = document.createElement("p");
+  const reason = error instanceof Error ? error.message : String(error);
+  detail.textContent = "The local workspace could not be initialized. " + reason;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.textContent = "Retry";
+  retry.addEventListener("click", () => window.location.reload());
+  panel.append(heading, detail, retry);
+  root.replaceChildren(panel);
+});
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js")

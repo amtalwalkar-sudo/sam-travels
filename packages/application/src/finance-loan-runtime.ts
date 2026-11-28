@@ -6,6 +6,7 @@ import type {
   FinanceLoanVehicleDirectory,
 } from "./finance-loan-service";
 import { FinanceLoanService } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 
 export function createApplicationFinanceLoanService(
   repository: AtomicRecordRepository,
@@ -14,8 +15,9 @@ export function createApplicationFinanceLoanService(
   buildScheduleVersion: FinanceLoanScheduleBuilder,
   calculationInputsChanged: FinanceLoanInputsChanged,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): FinanceLoanService {
-  return new FinanceLoanService(repository, vehicles, validate, buildScheduleVersion, calculationInputsChanged, now);
+  return new FinanceLoanService(repository, vehicles, validate, buildScheduleVersion, calculationInputsChanged, now, operatingConfiguration);
 }
 
 let applicationFinanceLoanService: FinanceLoanService | undefined;
@@ -27,10 +29,11 @@ export function initializeApplicationFinanceLoanService(
   buildScheduleVersion: FinanceLoanScheduleBuilder,
   calculationInputsChanged: FinanceLoanInputsChanged,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): FinanceLoanService {
   if (applicationFinanceLoanService) throw new Error("Application Finance Loan service is already initialized");
   applicationFinanceLoanService = createApplicationFinanceLoanService(
-    repository, vehicles, validate, buildScheduleVersion, calculationInputsChanged, now,
+    repository, vehicles, validate, buildScheduleVersion, calculationInputsChanged, now, operatingConfiguration,
   );
   return applicationFinanceLoanService;
 }

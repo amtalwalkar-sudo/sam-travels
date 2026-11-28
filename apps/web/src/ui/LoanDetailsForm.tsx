@@ -34,6 +34,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) 
   const services = useAdminFormRuntime();
   const [drafts, setDrafts] = useState<readonly FormWorkingCopy[]>([]);
   const [copy, setCopy] = useState<FormWorkingCopy | null>(null);
+  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const copyRef = useRef<FormWorkingCopy | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const updateError = useRef<unknown>(null);
@@ -72,6 +73,9 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) 
     if (!vehicleId || !vehicleActive) return;
     setBusy(true);
     try {
+      const configuration = await services.operatingConfiguration.get();
+      if (configuration.vehicleId !== vehicleId) throw new Error("operating_configuration_stale");
+      setOperatingSnapshot(configuration);
       let next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, crypto.randomUUID());
       const initial: Record<string, unknown> = {
         vehicleId, loanName: "", lenderName: "", loanAccountReference: "",
@@ -92,6 +96,11 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) 
   async function resume(draft: FormWorkingCopy) {
     setBusy(true);
     try {
+      const configuration = await services.operatingConfiguration.get();
+      if (configuration.vehicleId !== vehicleId || draft.values.vehicleId !== configuration.vehicleId) {
+        throw new Error("loan_draft_operating_vehicle_mismatch");
+      }
+      setOperatingSnapshot(configuration);
       const next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, draft.instanceId);
       activate(next);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not resume loan draft."); }
@@ -126,6 +135,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) 
     await queue.current;
     copyRef.current = null;
     setCopy(null);
+    setOperatingSnapshot(undefined);
     setValues(EMPTY);
     setMessage("Draft retained. You can resume it later.");
     await loadDrafts();
@@ -140,6 +150,8 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) 
       if (updateError.current) throw updateError.current;
       const current = copyRef.current;
       if (!current) throw new Error("loan_details_form_not_ready");
+      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       await services.formRuntime.save(LOAN_DETAILS_FORM_V1, current);
       copyRef.current = null;
       setCopy(null);

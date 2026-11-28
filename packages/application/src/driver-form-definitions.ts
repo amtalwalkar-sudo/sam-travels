@@ -71,6 +71,5 @@ export const FUEL_ENTRY_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "priceRupeesPerKg", label: "Price per kg (₹)", type: "number", required: true },
     { id: "amountRupees", label: "Amount paid (₹)", type: "number", required: true },
     { id: "partialRefill", label: "Partial refill", type: "checkbox", required: true },
-    { id: "locationEvidenceJson", label: "Location evidence", type: "text", maxLength: 1000 },
   ],
 });

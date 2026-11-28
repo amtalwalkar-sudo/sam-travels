@@ -5,6 +5,7 @@ import {
   type BusinessExpensesDomain,
   type BusinessExpenseHistoricalCorrectionPortV1,
 } from "./business-expenses-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 
 export function createApplicationBusinessExpensesService(
   repository: AtomicRecordRepository,
@@ -12,8 +13,9 @@ export function createApplicationBusinessExpensesService(
   vehicles: BusinessExpenseVehicleDirectory,
   now?: () => string,
   historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): BusinessExpensesService {
-  return new BusinessExpensesService(repository, domain, vehicles, now, historicalCorrections);
+  return new BusinessExpensesService(repository, domain, vehicles, now, historicalCorrections, operatingConfiguration);
 }
 
 let applicationBusinessExpensesService: BusinessExpensesService | undefined;
@@ -24,9 +26,10 @@ export function initializeApplicationBusinessExpensesService(
   vehicles: BusinessExpenseVehicleDirectory,
   now?: () => string,
   historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): BusinessExpensesService {
   if (applicationBusinessExpensesService) throw new Error("Application Business Expenses service is already initialized");
-  applicationBusinessExpensesService = createApplicationBusinessExpensesService(repository, domain, vehicles, now, historicalCorrections);
+  applicationBusinessExpensesService = createApplicationBusinessExpensesService(repository, domain, vehicles, now, historicalCorrections, operatingConfiguration);
   return applicationBusinessExpensesService;
 }
 

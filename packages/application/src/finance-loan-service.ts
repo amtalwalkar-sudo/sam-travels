@@ -1,6 +1,7 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export type FinanceLoanDetailsV1 = Readonly<{
   loanName: string;
@@ -87,6 +88,7 @@ export class FinanceLoanService {
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
     _calculationInputsChanged: FinanceLoanInputsChanged,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "finance",
@@ -95,21 +97,30 @@ export class FinanceLoanService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string): Promise<void> {
+  private async requireVehicle(
+    vehicleId: string,
+    expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>,
+    allowUnselectedImport = false,
+  ) {
+    const configuration = expectedConfiguration ?? (allowUnselectedImport ? undefined : await this.operatingConfiguration?.get());
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("finance_loan_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
     if (vehicle.id !== vehicleId || !vehicleId.startsWith("feature:vehicle:")) {
       throw new Error("finance_loan_vehicle_identity_invalid");
     }
+    return configuration;
   }
 
   async create(input: {
     uuid: string;
     details: FinanceLoanDetailsV1;
     source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
-    await this.requireVehicle(input.details.vehicleId);
-    const createdAt = this.now();
+    const operating = await this.requireVehicle(input.details.vehicleId, undefined, input.source === "import");
+    const createdAt = input.now ?? this.now();
     const data: FinanceLoanRecordV1 = {
       schemaVersion: 1,
       kind: "loan",
@@ -118,27 +129,67 @@ export class FinanceLoanService {
       scheduleVersions: [this.buildScheduleVersion(1, input.details, createdAt)],
       lifecycleState: "active",
     };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
       id: recordId(input.uuid),
       data,
       source: input.source,
       businessDate: input.details.loanStartDate,
       now: createdAt,
+      operation: input.operation,
     });
+  }
+
+  /** Identity-only existence check for import/recovery; unlike getForReadOnly it is not scoped to the current operating vehicle. */
+  async hasRecord(id: string): Promise<boolean> {
+    assertRecordId(id);
+    return (await this.records.get(id)) !== undefined;
+  }
+
+  async getForReadOnly(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> {
+    assertRecordId(id);
+    const record = await this.records.get(id);
+    if (!record) return undefined;
+    const operatingVehicle = await this.operatingConfiguration?.getVehicleForReadOnly?.();
+    // Match list(): a read-only lookup outside the configured vehicle is not visible.
+    // Command-side get()/create() still fail closed on a vehicle mismatch.
+    if (operatingVehicle && operatingVehicle.vehicleId !== record.data.details.vehicleId) return undefined;
+    const vehicle = await this.vehicles.getById(record.data.details.vehicleId);
+    if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
+    if (vehicle.id !== record.data.details.vehicleId || !record.data.details.vehicleId.startsWith("feature:vehicle:")) {
+      throw new Error("finance_loan_vehicle_identity_invalid");
+    }
+    return record;
   }
 
   async get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> {
     assertRecordId(id);
-    return this.records.get(id);
+    const record = await this.records.get(id);
+    if (record) await this.requireVehicle(record.data.details.vehicleId);
+    return record;
   }
 
   async list(): Promise<Array<RecordEnvelope<FinanceLoanRecordV1>>> {
     const records = await this.records.list();
-    for (const record of records) {
+    const operatingVehicle = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
+      : undefined;
+    const scoped = operatingVehicle
+      ? records.filter(record => record.data.details.vehicleId === operatingVehicle.vehicleId)
+      : records;
+    for (const record of scoped) {
       assertRecordId(record.id);
-      await this.requireVehicle(record.data.details.vehicleId);
+      const vehicle = await this.vehicles.getById(record.data.details.vehicleId);
+      if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
+      if (vehicle.id !== record.data.details.vehicleId || !vehicle.id.startsWith("feature:vehicle:")) {
+        throw new Error("finance_loan_vehicle_identity_invalid");
+      }
     }
-    return records;
+    return scoped;
   }
 
   async update(_input: {

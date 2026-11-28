@@ -32,15 +32,24 @@ function validateVehicleReference(
 /** Validate Maintenance's append-only correction chains inside a complete backup snapshot. */
 export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEnvelope<unknown>[]): void {
   const originals = new Map(records.filter(record =>
-    record.id.startsWith(PREFIX + "expense:")).map(record => [record.id, record]));
+    record.id.startsWith(PREFIX + "expense:") || record.id.startsWith(PREFIX + "visit:"))
+    .map(record => [record.id, record]));
   const correctionsByTarget = new Map<string, Array<RecordEnvelope<unknown>>>();
+  const isMaintenanceTarget = (id: string) =>
+    id.startsWith(PREFIX + "expense:") || id.startsWith(PREFIX + "visit:");
   for (const record of records.filter(item => item.id.startsWith("historical-correction:"))) {
     const data = record.data as { featureId?: unknown; targetRecordId?: unknown } | undefined;
     if (data?.featureId !== "maintenance") continue;
     assertHistoricalCorrectionV1(record.data);
-    if (record.revision !== 1 ||
-        typeof data.targetRecordId !== "string" || !data.targetRecordId.startsWith(PREFIX + "expense:") ||
-        record.id !== "historical-correction:" + (record.data as { correctionId: string }).correctionId) {
+    const correction = record.data as {
+      correctionId: string; actor: { actorId: string; role: "admin" | "driver" };
+    };
+    const createdBy = record.createdBy;
+    if (record.revision !== 1 || typeof data.targetRecordId !== "string" ||
+        !isMaintenanceTarget(data.targetRecordId) ||
+        record.id !== "historical-correction:" + correction.correctionId ||
+        !createdBy || createdBy.personId !== correction.actor.actorId ||
+        createdBy.role !== correction.actor.role) {
       throw new Error("maintenance_correction_backup_identity_invalid");
     }
     const rows = correctionsByTarget.get(data.targetRecordId) ?? [];
@@ -51,17 +60,25 @@ export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEn
   for (const [targetId, rows] of correctionsByTarget) {
     const target = originals.get(targetId);
     if (!target || target.revision < 1) throw new Error("maintenance_correction_backup_target_missing");
+    const targetData = target.data as { kind?: string; totalPaise?: number; amountPaise?: number };
+    const expectedKind = targetId.startsWith(PREFIX + "visit:") ? "visit" : "expense";
+    const expectedField = expectedKind === "visit" ? "totalPaise" : "amountPaise";
+    const initialAmount = expectedKind === "visit" ? targetData.totalPaise : targetData.amountPaise;
+    if (targetData.kind !== expectedKind || !Number.isSafeInteger(initialAmount) || (initialAmount ?? -1) < 0) {
+      throw new Error("maintenance_correction_backup_target_invalid");
+    }
     const ordered = rows.map(row => row.data as import("../../../packages/domain/src/historical-correction").HistoricalCorrectionV1)
       .sort((a, b) => a.chainRevision - b.chainRevision);
     if (ordered.some((row, index) => row.chainRevision !== index + 1 ||
         row.targetRecordId !== targetId || row.targetRecordRevision !== target.revision ||
-        row.featureId !== "maintenance" || row.fieldPath !== "amountPaise")) {
+        row.featureId !== "maintenance" || row.fieldPath !== expectedField)) {
       throw new Error("maintenance_correction_backup_chain_invalid");
     }
     const projection = projectHistoricalCorrectionsV1(target.data, ordered);
-    if (projection.status !== "valid" ||
-        !Number.isSafeInteger((projection.data as { amountPaise?: number }).amountPaise) ||
-        ((projection.data as { amountPaise: number }).amountPaise) < 0) {
+    const projected = projection.data as { kind?: string; totalPaise?: number; amountPaise?: number };
+    const projectedAmount = expectedKind === "visit" ? projected.totalPaise : projected.amountPaise;
+    if (projection.status !== "valid" || projected.kind !== expectedKind ||
+        !Number.isSafeInteger(projectedAmount) || (projectedAmount ?? -1) < 0) {
       throw new Error("maintenance_correction_backup_projection_invalid");
     }
     const chainHeadId = "historical-correction-chain:" + encodeURIComponent(targetId);
@@ -76,13 +93,12 @@ export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEn
   }
 
   const maintenanceHeads = records.filter(record => record.id.startsWith("historical-correction-chain:") &&
-    (record.data as { targetRecordId?: string } | undefined)?.targetRecordId?.startsWith(PREFIX + "expense:"));
+    isMaintenanceTarget((record.data as { targetRecordId?: string } | undefined)?.targetRecordId ?? ""));
   if (maintenanceHeads.some(head => !correctionsByTarget.has(
     (head.data as { targetRecordId: string }).targetRecordId))) {
     throw new Error("maintenance_correction_backup_chain_missing");
   }
 }
-
 /** Register Maintenance backup validation for all owned records and Vehicle references. */
 export function registerMaintenanceBrowserBackupParticipant(): () => void {
   return registerBrowserFeatureBackupParticipant({

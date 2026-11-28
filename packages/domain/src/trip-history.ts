@@ -1,6 +1,18 @@
 import type { DriverEvent } from "./driver-workflow";
+import type { HistoricalTripBackfillV1 } from "./historical-trip-backfill";
 export type TripHistoryStatus = "active" | "completed" | "cancelled" | "needs_attention";
 export interface TripHistoryRecord {
+ source?: "work_event" | "historical_backfill";
+ farePaise?: number;
+ tollPaise?: number;
+ tollPayer?: "driver" | "customer";
+ parkingPaise?: number;
+ parkingPayer?: "driver" | "customer";
+ driverId?: string;
+ vehicleId?: string;
+ operationalDate?: string;
+ attribution?: "admin_declared";
+ actor?: HistoricalTripBackfillV1["actor"];
  id:string; creationEventId?:string; createdAt?:string; startEventId?:string; startedAt?:string;
  startGps?:DriverEvent["gps"]; endEventId?:string; endedAt?:string; endGps?:DriverEvent["gps"];
  status:TripHistoryStatus; reason?:string; driverContext?:DriverEvent["command"]["driverContext"];
@@ -14,12 +26,12 @@ export function buildTripHistory(events:readonly DriverEvent[]):TripHistoryRecor
   const kind=event.command.eventType;
   if(kind==="trip_create"){
    if(active){active.status="needs_attention";active.reason="overlapping_trip_creation";}
-   active={id:event.eventId,creationEventId:event.eventId,createdAt:event.command.transitionAt,tripContext:event.command.tripContext,status:"active"};
+   active={id:event.eventId,source:"work_event",creationEventId:event.eventId,createdAt:event.command.transitionAt,tripContext:event.command.tripContext,status:"active"};
    trips.push(active);continue;
   }
   if(kind==="trip_start"){
    if(active){active.status="needs_attention";active.reason="overlapping_trip_start";}
-   active={id:event.eventId,startEventId:event.eventId,startedAt:event.command.transitionAt,startGps:event.gps,
+   active={id:event.eventId,source:"work_event",startEventId:event.eventId,startedAt:event.command.transitionAt,startGps:event.gps,
     ...(event.command.driverContext?{driverContext:event.command.driverContext}:{}),status:"active"};
    trips.push(active);continue;
   }
@@ -45,4 +57,37 @@ export function buildTripHistory(events:readonly DriverEvent[]):TripHistoryRecor
   active.status=kind==="ride_cancel"||kind==="cancel_ride"?"cancelled":"completed";active=undefined;
  }
  return trips.sort((a,b)=>Date.parse(b.createdAt??b.startedAt??b.endedAt??"")-Date.parse(a.createdAt??a.startedAt??a.endedAt??""));
+}
+
+/** Combine immutable Work-derived history with separately attributed manual records.
+ * Backfills deliberately carry no Work event IDs, GPS fixes, or shift snapshot.
+ */
+export function buildTripHistoryWithBackfills(
+ events: readonly DriverEvent[],
+ backfills: readonly HistoricalTripBackfillV1[],
+): TripHistoryRecord[] {
+ const eventTrips = buildTripHistory(events).map(trip => ({ ...trip, source: "work_event" as const }));
+ const manualTrips = backfills.map(row => ({
+  id: "historical-backfill:" + row.backfillId,
+  source: "historical_backfill" as const,
+  createdAt: row.recordedAt,
+  startedAt: row.startedAt,
+  endedAt: row.endedAt,
+  status: "completed" as const,
+  reason: row.reason,
+  farePaise: row.farePaise,
+  tollPaise: row.tollPaise,
+  tollPayer: row.tollPayer,
+  parkingPaise: row.parkingPaise,
+  parkingPayer: row.parkingPayer,
+  driverId: row.driverId,
+  vehicleId: row.vehicleId,
+  operationalDate: row.operationalDate,
+  attribution: row.attribution,
+  actor: row.actor,
+ }));
+ return [...eventTrips, ...manualTrips].sort((a, b) =>
+  Date.parse(b.startedAt ?? b.createdAt ?? b.endedAt ?? "") -
+  Date.parse(a.startedAt ?? a.createdAt ?? a.endedAt ?? "") || a.id.localeCompare(b.id)
+ );
 }

@@ -12,6 +12,7 @@ import type { FinancePaymentLedgerV1 } from "../packages/application/src/finance
 import { BusinessStartDateCostAllocationService } from "../packages/application/src/business-start-date-cost-allocation-service";
 
 const loanId = "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000";
+const adminAuthor = async () => ({ personId: "finance-admin-1", role: "admin" as const });
 const details = { loanName: "Vehicle loan", lenderName: "Example lender",
   vehicleId: "feature:vehicle:MH01AB1234", principalPaise: 10_000_000,
   annualInterestRateBasisPoints: 1200, loanStartDate: "2026-01-10",
@@ -53,7 +54,7 @@ function setup() {
     { async get(id) { return repository.get<FinanceLoanRecordV1>(id); } },
     (value, loan, id) => assertFinanceLoanPrepaymentStateV1(value, loan, id),
     createLoanPrepaymentRevisionV1,
-    () => "2026-01-15T10:00:0" + tick++ + ".000Z");
+    () => "2026-01-15T10:00:0" + tick++ + ".000Z", adminAuthor);
   return { repository, service };
 }
 describe("FinanceLoanPrepaymentService", () => {
@@ -64,6 +65,7 @@ describe("FinanceLoanPrepaymentService", () => {
     expect(preview.principalAfterPaise).toBe(9_000_000);
     const committed = await service.commit({ preview, source: "web" });
     expect(committed.version).toBe(2);
+    expect(committed.createdBy).toEqual({ personId: "finance-admin-1", role: "admin" });
     expect((await repository.get<FinanceLoanRecordV1>(loanId))?.revision).toBe(2);
     const state = await repository.get<{ currentScheduleVersion: number }>(FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX + loanId.slice("feature:finance:loan:".length));
     expect(state?.revision).toBe(1);
@@ -74,6 +76,41 @@ describe("FinanceLoanPrepaymentService", () => {
     expect(ledger?.revision).toBe(1);
     expect(ledger?.data.entries).toHaveLength(0);
     expect(await service.commit({ preview, source: "web" })).toEqual(committed);
+  });
+  it("fails closed when a prepayment has no active Admin actor", async () => {
+    const repository = new MemoryRepository();
+    await repository.put(loanEnvelope);
+    const service = new FinanceLoanPrepaymentService(repository,
+      { async get(id) { return repository.get<FinanceLoanRecordV1>(id); } },
+      (value, loan, id) => assertFinanceLoanPrepaymentStateV1(value, loan, id),
+      createLoanPrepaymentRevisionV1, () => "2026-01-15T10:00:00.000Z");
+    const preview = await service.preview({ loanId, commandId: "prepay-no-admin",
+      businessDate: "2026-01-15", amountPaise: 500_000, mode: "reduce_tenure", source: "web" });
+    await expect(service.commit({ preview, source: "web" })).rejects.toThrow("finance_admin_actor_required");
+    expect(await repository.get(FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX + loanId.slice("feature:finance:loan:".length)))
+      .toBeUndefined();
+    expect((await repository.get<FinanceLoanRecordV1>(loanId))?.revision).toBe(1);
+  });
+  it("rejects a Driver session as prepayment author", async () => {
+    const repository = new MemoryRepository();
+    await repository.put(loanEnvelope);
+    const service = new FinanceLoanPrepaymentService(repository,
+      { async get(id) { return repository.get<FinanceLoanRecordV1>(id); } },
+      (value, loan, id) => assertFinanceLoanPrepaymentStateV1(value, loan, id),
+      createLoanPrepaymentRevisionV1, () => "2026-01-15T10:00:00.000Z",
+      async () => ({ personId: "driver-1", role: "driver" }));
+    const preview = await service.preview({ loanId, commandId: "prepay-driver",
+      businessDate: "2026-01-15", amountPaise: 500_000, mode: "reduce_tenure", source: "web" });
+    await expect(service.commit({ preview, source: "web" })).rejects.toThrow("finance_admin_actor_required");
+    expect(await repository.get(FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX + loanId.slice("feature:finance:loan:".length)))
+      .toBeUndefined();
+  });
+  it("uses the first-submit timestamp for the committed prepayment revision", async () => {
+    const { service } = setup();
+    const preview = await service.preview({ loanId, commandId: "prepay-submit-time",
+      businessDate: "2026-01-15", amountPaise: 500_000, mode: "reduce_tenure", source: "web" });
+    const committed = await service.commit({ preview, source: "web", now: "2026-11-19T09:31:00.000Z" });
+    expect(committed.createdAt).toBe("2026-11-19T09:31:00.000Z");
   });
   it("rebuilds daily EMI allocations from the real prepayment schedule and its earlier final due date", async () => {
     const { repository, service } = setup();
@@ -94,21 +131,26 @@ describe("FinanceLoanPrepaymentService", () => {
     const allocation = new BusinessStartDateCostAllocationService(
       { async get() { return { id: "feature:business-settings:business", revision: 1,
         data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
-      { async getOverview() { return { records: [], overlaps: [] }; } } as never,
+      { async getAllocationOverview() { return { records: [], overlaps: [] }; } } as never,
       { async list() { const currentLoan = await repository.get<FinanceLoanRecordV1>(loanId); return currentLoan ? [currentLoan] : []; } } as never,
       service,
       { async list() { return []; } } as never,
       () => "2026-11-13T00:00:00.000Z",
     );
     const report = await allocation.getReport();
-    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" ||
-      item.sourceKind === "emi-pre-business-carry-forward");
+    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
     expect(emiSources.length).toBeGreaterThan(0);
     expect(emiSources.every(item => item.scheduleVersion === committed.version)).toBe(true);
-    const lastAllocatedDay = report.result.daily[report.result.daily.length - 1].date;
     const [year, month] = preview.finalDueDate.split("-").map(Number);
     const expectedAllocationEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    const normalEmiRows = emiSources.filter(item => item.disposition === "allocated" &&
+      (item.sourcePeriod?.from ?? "9999-12-31") >= "2026-02-15" &&
+      (item.eligibleTo ?? "0000-01-01") <= expectedAllocationEnd).flatMap(item => item.daily);
+    const lastAllocatedDay = normalEmiRows[normalEmiRows.length - 1].date;
     expect(lastAllocatedDay).toBe(expectedAllocationEnd);
+    const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
+    expect(pool?.eligibleTo).toBe("2027-08-14");
+    expect(report.result.daily[report.result.daily.length - 1].date).toBe("2027-08-14");
     expect(report.result.allocatedAmountPaise).toBe(
       emiSources.reduce((sum, item) => sum + item.sourceAmountPaise, 0),
     );
@@ -147,7 +189,7 @@ describe("FinanceLoanPrepaymentService", () => {
   it("rejects EMI-reduction mode under the fixed contractual EMI rule", async () => {
     const { service } = setup();
     await expect(service.preview({ loanId, commandId: "prepay-reduce-emi",
-      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi", source: "web" }))
+      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi" as never, source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_input_invalid");
   });
   it("serializes competing prepayments against the same loan and payment-ledger revisions", async () => {

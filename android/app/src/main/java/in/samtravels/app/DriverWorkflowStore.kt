@@ -385,13 +385,9 @@ object DriverWorkflowStore {
             .filter { it.id.startsWith("driver-intent:") }
             .map { JSONObject(it.json).also(DriverWorkflowContract::validateIntent) }
 
-    /** Find the original pending-location intent eligible for service-start recovery. */
-    fun firstPendingLocation(db: LocalDatabase): JSONObject? =
-        listIntents(db).firstOrNull { it.optString("status") == "pending_location" }
+    /** Find a pending-location intent owned by the requested runtime, when supplied. */
+    fun firstPendingLocation(db: LocalDatabase, originSurface: String? = null): JSONObject? = listIntents(db).firstOrNull { it.optString("status") == "pending_location" && (originSurface == null || it.optJSONObject("command")?.optString("originSurface") == originSurface) }
 
     /** Find a recoverable intent without reviving an expired GPS evidence window. */
-    fun firstRecoverableIntent(db: LocalDatabase): JSONObject? = listIntents(db).firstOrNull {
-        it.optString("status") == "pending_location" ||
-            (it.optString("status") == "needs_attention" && it.optString("reason") != "gps_recovery_window_expired")
-    }
+    fun firstRecoverableIntent(db: LocalDatabase, originSurface: String? = null): JSONObject? = listIntents(db).firstOrNull { (originSurface == null || it.optJSONObject("command")?.optString("originSurface") == originSurface) && (it.optString("status") == "pending_location" || (it.optString("status") == "needs_attention" && it.optString("reason") != "gps_recovery_window_expired")) }
 }

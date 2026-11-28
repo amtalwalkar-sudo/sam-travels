@@ -7,6 +7,10 @@ import {
   decryptBackupWithRecoveryKey,
   parseBackupPackage,
   serializeBackupPackage,
+  assertBackupPackageByteLength,
+  MAX_BACKUP_PACKAGE_BYTES,
+  assertBackupPlaintextPreflight,
+  estimateEncryptedPackageBytes,
   type Argon2idProvider,
   HashWasmArgon2idProvider,
 } from "../packages/features/backup";
@@ -46,6 +50,26 @@ describe("backup-encryption-v1", () => {
     expect(new TextDecoder().decode(await decryptBackupWithRecoveryKey(second.backup, recoveryKey))).toBe("second");
   });
 
+  it("rejects malformed and truncated serialized packages before restore", async () => {
+    const recoveryKey = generateBackupRecoveryKey();
+    const { backup } = await createEncryptedBackup({
+      plaintext: new TextEncoder().encode('{"records":[],"snapshotRevision":0,"schemaVersion":1}'),
+      manifest: { ...manifest, recordCounts: { records: 0 } },
+      mode: "recovery-key-only", recoveryKey,
+    });
+    const serialized = serializeBackupPackage(backup);
+    expect(() => parseBackupPackage(new TextEncoder().encode('{"manifest":'))).toThrow();
+    expect(() => parseBackupPackage(serialized.slice(0, serialized.length - 9))).toThrow();
+    expect(() => parseBackupPackage(new Uint8Array([0xff, 0xfe, 0xfd]))).toThrow();
+    const missingPayload = structuredClone(backup) as any;
+    delete missingPayload.payload;
+    expect(() => parseBackupPackage(new TextEncoder().encode(JSON.stringify(missingPayload)))).toThrow("backup_invalid_envelope");
+    const truncatedCiphertext = structuredClone(backup);
+    truncatedCiphertext.payload.ciphertext = "AA==";
+    const parsed = parseBackupPackage(new TextEncoder().encode(JSON.stringify(truncatedCiphertext)));
+    await expect(decryptBackupWithRecoveryKey(parsed, recoveryKey)).rejects.toBeTruthy();
+  });
+
   it("round-trips with either independent recovery method", async () => {
     const plaintext = new TextEncoder().encode('{"records":[1,2,3]}');
     const { backup, recoveryKey } = await createEncryptedBackup({ plaintext, manifest, passphrase: "correct horse battery", argon2id: testKdf });
@@ -77,11 +101,66 @@ describe("backup-encryption-v1", () => {
     })).rejects.toThrow("backup_recovery_key_required");
   });
 
+  it("rejects aggregate record counts over the shared limit before package creation", async () => {
+    await expect(createEncryptedBackup({
+      plaintext: new TextEncoder().encode("must not be hashed or encrypted"),
+      manifest: {
+        ...manifest,
+        recordCounts: { records: 1_000_000, driverEvents: 1 },
+      },
+      mode: "recovery-key-only",
+      recoveryKey: generateBackupRecoveryKey(),
+    })).rejects.toThrow("backup_record_count_limit");
+  });
+
+  it("rejects an over-limit aggregate manifest when parsing a package", async () => {
+    const { backup } = await createEncryptedBackup({
+      plaintext: new TextEncoder().encode("valid"),
+      manifest,
+      mode: "recovery-key-only",
+      recoveryKey: generateBackupRecoveryKey(),
+    });
+    backup.manifest.recordCounts = { records: 1_000_000, driverEvents: 1 };
+    expect(() => serializeBackupPackage(backup)).toThrow("backup_record_count_limit");
+    const untrustedSerialized = new TextEncoder().encode(JSON.stringify(backup));
+    expect(() => parseBackupPackage(untrustedSerialized)).toThrow("backup_record_count_limit");
+  });
+
   it("rejects wrong passphrases and tampered authenticated payloads", async () => {
     const { backup } = await createEncryptedBackup({ plaintext: new TextEncoder().encode("sensitive"), manifest, passphrase: "correct horse battery", argon2id: testKdf });
     await expect(decryptBackupWithPassphrase(backup, "incorrect passphrase", testKdf)).rejects.toBeTruthy();
     const tampered = structuredClone(backup);
     tampered.manifest.snapshotRevision += 1;
     await expect(decryptBackupWithPassphrase(tampered, "correct horse battery", testKdf)).rejects.toBeTruthy();
+  });
+});
+
+
+describe("backup plaintext preflight", () => {
+  it("measures the AES-GCM and base64 package expansion before encryption", () => {
+    expect(estimateEncryptedPackageBytes(0)).toBe(1024 * 1024 + 24);
+    expect(estimateEncryptedPackageBytes(3)).toBe(1024 * 1024 + 28);
+    expect(() => assertBackupPlaintextPreflight(0)).not.toThrow();
+    expect(() => assertBackupPlaintextPreflight(Number.MAX_SAFE_INTEGER)).toThrow("backup_plaintext_preflight_exceeded");
+    expect(() => estimateEncryptedPackageBytes(-1)).toThrow("backup_invalid_plaintext_size");
+  });
+
+  it("rejects an oversized plaintext snapshot before key generation or encryption", async () => {
+    await expect(createEncryptedBackup({
+      plaintext: { byteLength: MAX_BACKUP_PACKAGE_BYTES } as unknown as Uint8Array,
+      manifest,
+      mode: "recovery-key-only",
+      recoveryKey: generateBackupRecoveryKey(),
+    })).rejects.toThrow("backup_plaintext_preflight_exceeded");
+  });
+});
+
+describe("backup package size limits", () => {
+  it("accepts the inclusive byte limit and rejects the first byte over it", () => {
+    expect(MAX_BACKUP_PACKAGE_BYTES).toBe(512 * 1024 * 1024);
+    expect(() => assertBackupPackageByteLength(MAX_BACKUP_PACKAGE_BYTES)).not.toThrow();
+    expect(() => assertBackupPackageByteLength(MAX_BACKUP_PACKAGE_BYTES + 1)).toThrow("backup_package_too_large");
+    expect(() => parseBackupPackage({ byteLength: MAX_BACKUP_PACKAGE_BYTES + 1 } as Uint8Array)).toThrow("backup_package_too_large");
+    expect(() => assertBackupPackageByteLength(-1)).toThrow("backup_invalid_package_size");
   });
 });

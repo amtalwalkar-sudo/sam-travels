@@ -1,14 +1,15 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 import type { SubmitHistoricalCorrectionV1 } from "./historical-correction-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
+import { driverRecordId } from "../../domain/src/driver-record-identity";
 
 export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1; kind: "fuel_purchase"; id: string; revision: number;
   businessDate: string; occurredAt: string; vehicleId: string; odometerKm: number;
   pricePaisePerKg: number; amountPaise: number; partialRefill: boolean;
-  locationEvidence?: Readonly<{ latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device" }>;
 }>;
 export type BusinessExpenseEntryV1 = Readonly<{
   schemaVersion: 1; kind: "business_expense"; id: string; revision: number;
@@ -43,6 +44,11 @@ export type DailyBusinessExpenseV1 = Readonly<{
   trafficChallansPaise: number; miscellaneousPaise: number; reportedSourceExpensePaise: number;
   normalOperatingExpensePaise: number; fullCostExpensePaise: number;
   sourceIds: readonly string[]; sourceRevisions: readonly number[];
+}>;
+export type FuelReadModelsV1 = Readonly<{
+  fuelPurchases: readonly RecordEnvelope<FuelPurchaseV1>[];
+  fuelCostRates: readonly FuelCostRateHistoryEntryV1[];
+  dailyExpenseOutputs: readonly DailyBusinessExpenseV1[];
 }>;
 
 export type BusinessExpensesDomain = Readonly<{
@@ -83,6 +89,8 @@ export class BusinessExpensesService {
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
     private readonly historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> &
+      Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly" | "assertCurrentForReadOnly" | "assertVehicleCurrentForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "business-expenses",
@@ -91,28 +99,45 @@ export class BusinessExpensesService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string): Promise<void> {
+  private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
+    const configuration = expectedConfiguration ?? await this.operatingConfiguration?.get();
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("business_expense_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("business_expense_vehicle_not_found");
+    return configuration;
   }
 
   async createFuelPurchase(input: {
     uuid: string; data: FuelPurchaseInputV1; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<FuelPurchaseV1>> {
-    await this.requireVehicle(input.data.vehicleId);
+    const operating = await this.requireVehicle(input.data.vehicleId);
     const id = sourceId(FUEL_PREFIX, input.uuid);
     const data: FuelPurchaseV1 = { ...input.data, schemaVersion: 1, kind: "fuel_purchase", id, revision: 1 };
     this.domain.validateFuelPurchase(data);
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate }) as
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
+    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate, operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<FuelPurchaseV1>>;
   }
 
+
   async createExpenseEntry(input: {
     uuid: string; data: BusinessExpenseEntryInputV1; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<BusinessExpenseEntryV1>> {
     const id = sourceId(ENTRY_PREFIX, input.uuid);
+    const operating = await this.operatingConfiguration?.get();
+    const driverId = input.data.driverId ?? (
+      operating && input.data.effect === "charge" &&
+      (input.data.sourceKind === "traffic_challan" || input.data.sourceKind === "miscellaneous")
+        ? driverRecordId(operating.driverId)
+        : undefined
+    );
     const data: BusinessExpenseEntryV1 = {
-      ...input.data, schemaVersion: 1, kind: "business_expense", id, revision: 1,
+      ...input.data,
+      ...(driverId ? { driverId } : {}),
+      schemaVersion: 1, kind: "business_expense", id, revision: 1,
     };
     if (data.sourceKind === "platform_fee" && !data.vehicleId) {
       throw new Error("platform_fee_vehicle_required");
@@ -125,8 +150,11 @@ export class BusinessExpensesService {
         data.tripExpenseTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
+    if (operating && data.driverId !== undefined && data.driverId !== driverRecordId(operating.driverId)) {
+      throw new Error("business_expense_operating_driver_mismatch");
+    }
     this.domain.validateExpenseEntry(data);
-    if (data.vehicleId) await this.requireVehicle(data.vehicleId);
+    if (data.vehicleId) await this.requireVehicle(data.vehicleId, operating);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
       throw new Error("traffic_challan_vehicle_required");
     }
@@ -197,7 +225,9 @@ export class BusinessExpensesService {
         throw new Error("business_expense_source_already_reversed");
       }
     }
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate }) as
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
+return this.records.create({ id, data, source: input.source, businessDate: data.businessDate,
+      operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<BusinessExpenseEntryV1>>;
   }
 
@@ -215,6 +245,12 @@ export class BusinessExpensesService {
     })));
   }
 
+  /** Returns the append-only correction events for audit history presentation. */
+  async listCorrectionHistory(targetRecordId: string): Promise<readonly HistoricalCorrectionV1[]> {
+    if (!this.historicalCorrections) return Object.freeze([]);
+    return Object.freeze(await this.historicalCorrections.listForTarget(targetRecordId));
+  }
+
   /** Returns immutable correction-chain references separately from the original source revision. */
   async listCorrectionReferences(targetRecordId: string): Promise<readonly Readonly<{ sourceId: string; revision: number }>[]> {
     if (!this.historicalCorrections) return Object.freeze([]);
@@ -227,19 +263,64 @@ export class BusinessExpensesService {
 
   async listFuelPurchases(): Promise<readonly RecordEnvelope<FuelPurchaseV1>[]> {
     const records = await this.records.list();
-    const fuel = records.filter(item => item.data.kind === "fuel_purchase") as RecordEnvelope<FuelPurchaseV1>[];
+    const operatingVehicle = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
+      : undefined;
+    const fuel = records.filter(item => item.data.kind === "fuel_purchase" &&
+      (!operatingVehicle || item.data.vehicleId === operatingVehicle.vehicleId)) as RecordEnvelope<FuelPurchaseV1>[];
     return await this.projectCorrections(fuel);
   }
 
   async listExpenseEntries(): Promise<readonly RecordEnvelope<BusinessExpenseEntryV1>[]> {
     const records = await this.records.list();
-    const expenses = records.filter(item => item.data.kind === "business_expense") as RecordEnvelope<BusinessExpenseEntryV1>[];
+    const [operatingVehicle, operating] = this.operatingConfiguration
+      ? await Promise.all([
+          this.operatingConfiguration.getVehicleForReadOnly
+            ? this.operatingConfiguration.getVehicleForReadOnly()
+            : this.operatingConfiguration.getForReadOnly
+              ? this.operatingConfiguration.getForReadOnly()
+              : this.operatingConfiguration.get(),
+          this.operatingConfiguration.getForReadOnly
+            ? this.operatingConfiguration.getForReadOnly().catch(error => {
+                // Vehicle expense projections remain useful without a complete
+                // Work assignment. Driver-attributed entries stay excluded below
+                // until a valid operating Driver–Vehicle pair exists.
+                if (error instanceof Error && [
+                  "work_driver_not_selected", "operating_driver_missing", "operating_assignment_missing",
+                ].includes(error.message)) return undefined;
+                throw error;
+              })
+            : this.operatingConfiguration.get(),
+        ])
+      : [undefined, undefined];
+    const expenses = records.filter(item => item.data.kind === "business_expense" &&
+      (!operatingVehicle || (item.data.vehicleId === undefined || item.data.vehicleId === operatingVehicle.vehicleId)) &&
+      (operating
+        ? item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId)
+        : item.data.driverId === undefined)
+    ) as RecordEnvelope<BusinessExpenseEntryV1>[];
     return await this.projectCorrections(expenses);
   }
 
   async listDailyExpenseOutputs(): Promise<readonly DailyBusinessExpenseV1[]> {
     const [fuel, expenses] = await Promise.all([this.listFuelPurchases(), this.listExpenseEntries()]);
     return this.domain.calculateDailyExpenses(fuel.map(item => item.data), expenses.map(item => item.data));
+  }
+
+  /** Builds all Fuel screen readbacks from one projected purchase snapshot. */
+  async listFuelReadModels(): Promise<FuelReadModelsV1> {
+    const [fuel, expenses] = await Promise.all([this.listFuelPurchases(), this.listExpenseEntries()]);
+    const purchases = fuel.map(item => item.data);
+    const intervals = this.domain.calculateFuelIntervals(purchases);
+    return Object.freeze({
+      fuelPurchases: fuel,
+      fuelCostRates: this.domain.calculateFuelCostRateHistory(purchases, intervals),
+      dailyExpenseOutputs: this.domain.calculateDailyExpenses(purchases, expenses.map(item => item.data)),
+    });
   }
 
   async listFuelIntervalOutputs(): Promise<readonly FuelIntervalV1[]> {
@@ -262,16 +343,40 @@ export class BusinessExpensesService {
     afterValue: import("../../domain/src/historical-correction").CorrectionJsonValue;
     reason: string;
     businessEffectiveDate?: string;
+    expectedTargetRevision?: number;
+    expectedChainRevision?: number;
   }>) {
     if (!this.historicalCorrections?.submit) throw new Error("business_expense_historical_correction_unavailable");
     const target = await this.records.get(input.targetRecordId);
     if (!target) throw new Error("historical_correction_target_unavailable");
+    const targetData = target.data as BusinessExpenseRecordV1;
+    const vehicle = await this.operatingConfiguration?.getVehicleForReadOnly?.();
+    if (vehicle && targetData.vehicleId !== vehicle.vehicleId) {
+      throw new Error("business_expense_operating_context_mismatch");
+    }
+    const operating = targetData.kind === "business_expense" && targetData.driverId !== undefined
+      ? await (this.operatingConfiguration?.getForReadOnly?.() ?? this.operatingConfiguration?.get())
+      : undefined;
+    if (operating && targetData.kind === "business_expense" &&
+        targetData.driverId !== driverRecordId(operating.driverId)) {
+      throw new Error("business_expense_operating_context_mismatch");
+    }
     const corrections = await this.historicalCorrections.listForTarget(input.targetRecordId);
+    if (vehicle && this.operatingConfiguration?.assertVehicleCurrentForReadOnly) {
+      await this.operatingConfiguration.assertVehicleCurrentForReadOnly(vehicle);
+    }
+    if (operating) {
+      if (this.operatingConfiguration?.assertCurrentForReadOnly) {
+        await this.operatingConfiguration.assertCurrentForReadOnly(operating);
+      } else {
+        await this.operatingConfiguration?.assertCurrent(operating);
+      }
+    }
     return this.historicalCorrections.submit({
       correctionId: input.correctionId,
       targetRecordId: input.targetRecordId,
-      expectedTargetRevision: target.revision,
-      expectedChainRevision: corrections.length,
+      expectedTargetRevision: input.expectedTargetRevision ?? target.revision,
+      expectedChainRevision: input.expectedChainRevision ?? corrections.length,
       fieldPath: input.fieldPath,
       afterValue: input.afterValue,
       reason: input.reason,

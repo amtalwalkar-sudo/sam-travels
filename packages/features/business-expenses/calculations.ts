@@ -7,10 +7,6 @@
  */
 export type ExpenseSourceKindV1 = "fuel" | "platform_fee" | "traffic_challan" | "miscellaneous";
 
-export type FuelLocationEvidenceV1 = Readonly<{
-  latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device";
-}>;
-
 export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1;
   kind: "fuel_purchase";
@@ -23,7 +19,6 @@ export type FuelPurchaseV1 = Readonly<{
   pricePaisePerKg: number;
   amountPaise: number;
   partialRefill: boolean;
-  locationEvidence?: FuelLocationEvidenceV1;
 }>;
 
 export type BusinessExpenseEntryV1 = Readonly<{
@@ -96,6 +91,21 @@ function validInstant(value: unknown): value is string {
     new Date(value).toISOString() === value;
 }
 
+/** Fuel purchases use the same Asia/Kolkata 04:00 operational date as Maintenance and Work. */
+export function fuelBusinessDateFromInstant(instant: string): string {
+  const timestamp = Date.parse(instant);
+  if (!Number.isFinite(timestamp)) throw new Error("fuel_timestamp_invalid");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const calendarDate = values.year + "-" + values.month + "-" + values.day;
+  if (Number(values.hour) >= 4) return calendarDate;
+  return new Date(Date.parse(calendarDate + "T00:00:00.000Z") - 86_400_000)
+    .toISOString().slice(0, 10);
+}
+
 function positiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
@@ -125,33 +135,22 @@ export function deriveFuelQuantityMilliKg(amountPaise: number, pricePaisePerKg: 
   return Number(rounded);
 }
 
-function validFuelLocationEvidence(value: unknown): value is FuelLocationEvidenceV1 {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const row = value as Record<string, unknown>;
-  return Object.keys(row).sort().join("|") === ["latitude", "longitude", "accuracyMeters", "capturedAt", "provider"].sort().join("|") &&
-    typeof row.latitude === "number" && Number.isFinite(row.latitude) && row.latitude >= -90 && row.latitude <= 90 &&
-    typeof row.longitude === "number" && Number.isFinite(row.longitude) && row.longitude >= -180 && row.longitude <= 180 &&
-    typeof row.accuracyMeters === "number" && Number.isFinite(row.accuracyMeters) && row.accuracyMeters > 0 &&
-    validInstant(row.capturedAt) && row.provider === "device";
-}
 
 export function assertFuelPurchaseV1(value: unknown): asserts value is FuelPurchaseV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("fuel_purchase_invalid");
   const row = value as Record<string, unknown>;
   const required = ["schemaVersion", "kind", "id", "revision", "businessDate", "occurredAt",
     "vehicleId", "odometerKm", "pricePaisePerKg", "amountPaise", "partialRefill"];
-  const optional = ["locationEvidence"];
-  if (required.some(key => !(key in row)) || Object.keys(row).some(key => !required.includes(key) && !optional.includes(key)) ||
+  if (required.some(key => !(key in row)) || Object.keys(row).some(key => !required.includes(key)) ||
       row.schemaVersion !== 1 || row.kind !== "fuel_purchase" ||
       typeof row.id !== "string" || !row.id.trim() ||
       !Number.isSafeInteger(row.revision) || (row.revision as number) < 1 ||
       !validDate(row.businessDate) || !validInstant(row.occurredAt) ||
-      row.businessDate !== new Date(Date.parse(row.occurredAt as string) + 330 * 60_000).toISOString().slice(0, 10) ||
+      row.businessDate !== fuelBusinessDateFromInstant(row.occurredAt as string) ||
       typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:") ||
       !Number.isSafeInteger(row.odometerKm) || (row.odometerKm as number) <= 0 ||
       !positiveInteger(row.pricePaisePerKg) || !positiveInteger(row.amountPaise) ||
-      typeof row.partialRefill !== "boolean" ||
-      (row.locationEvidence !== undefined && !validFuelLocationEvidence(row.locationEvidence))) {
+      typeof row.partialRefill !== "boolean") {
     throw new Error("fuel_purchase_invalid");
   }
 }
@@ -191,7 +190,7 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.sourceKind !== "traffic_challan" && row.paymentStatus !== undefined) ||
       (row.sourceKind === "platform_fee" && (row.vehicleId === undefined || row.alreadyNettedFromIncome === true)) ||
       (row.vehicleId !== undefined && (typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:"))) ||
-      (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver:")))) {
+      (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver-records:driver:")))) {
     throw new Error("business_expense_entry_invalid");
   }
 }

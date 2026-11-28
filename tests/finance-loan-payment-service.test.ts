@@ -28,6 +28,7 @@ class MemoryRepository implements AtomicRecordBatchRepository {
   }
 }
 const loanId = "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000";
+const adminAuthor = async () => ({ personId: "finance-admin-1", role: "admin" as const });
 const rows = [
   { installmentNumber: 1, dueDate: "2026-11-01", installmentAmountPaise: 10000, closingPrincipalPaise: 20000 },
   { installmentNumber: 2, dueDate: "2026-12-01", installmentAmountPaise: 10000, closingPrincipalPaise: 10000 },
@@ -52,7 +53,7 @@ function setup() {
   const repo = new MemoryRepository(); let clock = 0;
   void repo.put(loanEnvelope);
   const service = new FinanceLoanPaymentService(repo, { async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } },
-    () => "2026-11-08T04:00:0" + (clock++ % 10) + ".000Z");
+    () => "2026-11-08T04:00:0" + (clock++ % 10) + ".000Z", undefined, adminAuthor);
   return { repo, service };
 }
 const base = { loanId, businessDate: "2026-11-08", amountPaise: 15000, method: "upi" as const,
@@ -61,6 +62,51 @@ describe("FinanceLoanPaymentService", () => {
   it("suggests oldest due EMI first and does not allocate future installments", () => {
     expect(proposeFinancePaymentAllocationV1(loanData, [], 1, "2026-11-08", 25000))
       .toEqual([{ installmentNumber: 1, amountPaise: 10000 }]);
+  });
+  it("fails closed when a Finance payment has no active Admin actor", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    const service = new FinanceLoanPaymentService(repo, {
+      async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; },
+    });
+    await expect(service.record({ ...base, id: "payment-no-admin", commandId: "payment-no-admin", allocations: [] }))
+      .rejects.toThrow("finance_admin_actor_required");
+    expect(await repo.get("feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")).toBeUndefined();
+    expect((await repo.get<FinanceLoanRecordV1>(loanId))?.revision).toBe(1);
+  });
+  it("rejects a Driver session as Finance event author", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    const service = new FinanceLoanPaymentService(repo, {
+      async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; },
+    }, undefined, undefined, async () => ({ personId: "driver-1", role: "driver" }));
+    await expect(service.record({ ...base, id: "payment-driver", commandId: "payment-driver", allocations: [] }))
+      .rejects.toThrow("finance_admin_actor_required");
+    expect(await repo.get("feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")).toBeUndefined();
+  });
+  it("persists the original form submission timestamp on payment entries", async () => {
+    const { service } = setup();
+    const payment = await service.record({
+      ...base, id: "payment-submit-time", commandId: "payment-submit-time",
+      allocations: [], now: "2026-11-19T09:30:00.000Z",
+    });
+    expect(payment.createdAt).toBe("2026-11-19T09:30:00.000Z");
+    expect(payment.createdBy).toEqual({ personId: "finance-admin-1", role: "admin" });
+  });
+  it("keeps the first Admin actor on an idempotent payment retry", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    let activeAdmin = "finance-admin-first";
+    const service = new FinanceLoanPaymentService(repo, {
+      async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; },
+    }, undefined, undefined, async () => ({ personId: activeAdmin, role: "admin" }));
+    const input = { ...base, id: "payment-actor-replay", commandId: "payment-actor-replay", allocations: [] };
+    const original = await service.record(input);
+    activeAdmin = "finance-admin-second";
+    const replayed = await service.record(input);
+    expect(replayed).toEqual(original);
+    expect(replayed.createdBy).toEqual({ personId: "finance-admin-first", role: "admin" });
+    expect((await service.list(loanId))).toHaveLength(1);
   });
   it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
     const repo = new MemoryRepository();
@@ -71,7 +117,7 @@ describe("FinanceLoanPaymentService", () => {
       {
         async getScheduleRows() { return [{ installmentNumber: 1, dueDate: "2027-01-01", installmentAmountPaise: 9000 }]; },
         async getScheduleVersionForDate(_id, businessDate) { return businessDate >= "2026-12-15" ? 2 : 1; },
-      });
+      }, adminAuthor);
     await expect(service.record({ ...base, id: "payment-old-schedule", commandId: "old-schedule-command",
       businessDate: "2026-12-20", scheduleVersion: 1, amountPaise: 1000, allocations: [] }))
       .rejects.toThrow("finance_payment_schedule_version_not_effective_for_date");
@@ -127,6 +173,7 @@ describe("FinanceLoanPaymentService", () => {
     const reversal = await service.reverse({ id: "reversal-1", commandId: "reversal-command-1", loanId,
       paymentId: "payment-1", businessDate: "2026-11-08", reason: "Entered twice", source: "web" });
     expect(reversal.kind).toBe("reversal");
+    expect(reversal.createdBy).toEqual({ personId: "finance-admin-1", role: "admin" });
     await expect(service.reverse({ id: "reversal-1", commandId: "reversal-command-1", loanId,
       paymentId: "payment-1", businessDate: "2026-11-08", reason: "Different reason", source: "web" }))
       .rejects.toThrow("finance_payment_idempotency_conflict");
@@ -147,8 +194,8 @@ describe("FinanceLoanPaymentService", () => {
       async getScheduleRows() { return rows; },
       async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
     };
-    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules);
-    const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z");
+    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules, adminAuthor);
+    const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z", adminAuthor);
     await expect(settlementService.preview({ loanId, businessDate: "2026-11-02" }))
       .rejects.toThrow("finance_payment_settlement_not_emi_date");
     await expect(settlementService.preview({ loanId, businessDate: "2026-11-01" }))
@@ -159,8 +206,8 @@ describe("FinanceLoanPaymentService", () => {
     expect(preview).toMatchObject({ amountPaise: 20000, scheduleVersion: 1, paidThroughInstallment: 1 });
     const settlementInput = { id: "settlement-1", commandId: "settlement-command-1", loanId,
       businessDate: "2026-11-01", method: "bank_transfer" as const, source: "web" as const, preview };
-    const settlement = await settlementService.commit(settlementInput);
-    expect(settlement).toMatchObject({ kind: "settlement", amountPaise: 20000, paidThroughInstallment: 1 });
+    const settlement = await settlementService.commit({ ...settlementInput, now: "2026-11-19T09:32:00.000Z" });
+    expect(settlement).toMatchObject({ kind: "settlement", amountPaise: 20000, paidThroughInstallment: 1, createdAt: "2026-11-19T09:32:00.000Z", createdBy: { personId: "finance-admin-1", role: "admin" } });
     expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).toBe("closed");
     expect(await settlementService.commit(settlementInput)).toEqual(settlement);
     await expect(settlementService.commit({ ...settlementInput, id: "settlement-2", commandId: "settlement-command-2" }))
@@ -172,6 +219,25 @@ describe("FinanceLoanPaymentService", () => {
       .rejects.toThrow("finance_loan_closed");
     expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(1);
   });
+  it("does not close a Loan when settlement has no active Admin actor", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    const loans = { async get(id: string) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } };
+    const schedules = {
+      async getScheduleRows() { return rows; },
+      async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
+    };
+    const payments = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules, adminAuthor);
+    await payments.record({ ...base, id: "settlement-prerequisite", commandId: "settlement-prerequisite",
+      businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
+    const settlement = new FinanceLoanSettlementService(repo, loans, schedules);
+    const preview = await settlement.preview({ loanId, businessDate: "2026-11-01" });
+    await expect(settlement.commit({ id: "settlement-no-admin", commandId: "settlement-no-admin", loanId,
+      businessDate: "2026-11-01", method: "bank_transfer", source: "web", preview }))
+      .rejects.toThrow("finance_admin_actor_required");
+    expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).not.toBe("closed");
+    expect((await payments.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(0);
+  });
   it("rejects a settlement confirmation when the payment ledger changed after preview", async () => {
     const repo = new MemoryRepository();
     await repo.put(loanEnvelope);
@@ -180,7 +246,7 @@ describe("FinanceLoanPaymentService", () => {
       async getScheduleRows() { return rows; },
       async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
     };
-    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules);
+    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules, adminAuthor);
     const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z");
     await service.record({ ...base, id: "emi-payment-stale", commandId: "emi-command-stale",
       businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
@@ -193,4 +259,42 @@ describe("FinanceLoanPaymentService", () => {
     expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).not.toBe("closed");
     expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(0);
   });
+  it("proposes oldest-due-first across multiple due EMIs and leaves future EMIs untouched", async () => {
+    const { service } = setup();
+    await service.record({ ...base, id: "older-partial", commandId: "older-partial-command",
+      amountPaise: 4000, allocations: [{ installmentNumber: 1, amountPaise: 4000 }] });
+    expect(await service.propose({ loanId, scheduleVersion: 1, businessDate: "2026-12-08", amountPaise: 25000 }))
+      .toEqual([
+        { installmentNumber: 1, amountPaise: 6000 },
+        { installmentNumber: 2, amountPaise: 10000 },
+      ]);
+  });
+  it("accepts a reviewed manual allocation while enforcing per-installment and payment bounds", async () => {
+    const { service } = setup();
+    const manuallyAdjusted = await service.record({ ...base, businessDate: "2026-12-08", id: "manual-allocation", commandId: "manual-allocation-command",
+      amountPaise: 12000, allocations: [{ installmentNumber: 1, amountPaise: 5000 },
+        { installmentNumber: 2, amountPaise: 7000 }] });
+    expect(manuallyAdjusted.allocations.map(item => [item.installmentNumber, item.amountPaise]))
+      .toEqual([[1, 5000], [2, 7000]]);
+    await expect(service.record({ ...base, id: "manual-overpay-installment", commandId: "manual-overpay-installment-command",
+      amountPaise: 12000, allocations: [{ installmentNumber: 1, amountPaise: 10001 }] }))
+      .rejects.toThrow("finance_payment_installment_overallocated");
+    await expect(service.record({ ...base, businessDate: "2026-12-08", id: "manual-overpay-payment", commandId: "manual-overpay-payment-command",
+      amountPaise: 1000, allocations: [{ installmentNumber: 2, amountPaise: 1001 }] }))
+      .rejects.toThrow("finance_payment_allocations_exceed_amount");
+  });
+  it("keeps unallocated credit separate from later EMI proposals and rejects future-EMI allocation", async () => {
+    const { service } = setup();
+    const payment = await service.record({ ...base, id: "credit-only", commandId: "credit-only-command",
+      amountPaise: 15000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
+    expect(payment.unallocatedCreditPaise).toBe(5000);
+    expect(await service.propose({ loanId, scheduleVersion: 1, businessDate: "2026-11-08", amountPaise: 10000 }))
+      .toEqual([]);
+    await expect(service.record({ ...base, id: "future-emi", commandId: "future-emi-command",
+      amountPaise: 1000, allocations: [{ installmentNumber: 2, amountPaise: 1000 }] }))
+      .rejects.toThrow("finance_payment_allocation_invalid");
+    expect((await service.list(loanId)).find(entry => entry.id === "credit-only"))
+      .toMatchObject({ unallocatedCreditPaise: 5000 });
+  });
+
 });

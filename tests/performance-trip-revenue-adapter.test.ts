@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
 import type { RecordEnvelope } from "../packages/core/src/types";
+import type { HistoricalTripBackfillV1 } from "../packages/domain/src/historical-trip-backfill";
 import type { CancellationFeeObligation, CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
 
 function envelope<T>(id: string, data: T, revision = 1): RecordEnvelope<T> {
@@ -41,6 +42,31 @@ describe("Performance trip revenue adapter v1", () => {
     await expect(adapter.getCompleteness("2026-04-05", "2026-04-06")).resolves.toEqual([
       { source: "trip-financials", status: "complete" },
     ]);
+  });
+
+  it("includes admin-declared backfill fares with independent record revision provenance", async () => {
+    const backfill = envelope("historical-trip-backfill:paper-ride-1", {
+      schemaVersion: 1, kind: "historical_trip_backfill", backfillId: "paper-ride-1",
+      status: "submitted", attribution: "admin_declared", driverId: "driver-1",
+      vehicleId: "vehicle-1", operationalDate: "2026-04-07",
+      startedAt: "2026-04-07T03:00:00.000Z", endedAt: "2026-04-07T03:35:00.000Z",
+      farePaise: 8750, reason: "Reconciled from the paper trip sheet",
+      recordedAt: "2026-04-08T10:00:00.000Z",
+      actor: { role: "admin", actorId: "admin-1" },
+    } satisfies HistoricalTripBackfillV1, 4);
+    const adapter = new PerformanceTripRevenueAdapterV1({
+      submittedTripFinancialRecords: async () => [],
+    }, { list: async () => [backfill] });
+    await expect(adapter.listVerifiedDailyRevenue("2026-04-01", "2026-04-30")).resolves.toEqual([
+      { date: "2026-04-07", grossFarePaise: 8750, cancellationFeePaise: 0,
+        verified: true, attribution: "admin_declared",
+        sourceRefs: [{ sourceId: backfill.id, revision: 4, attribution: "admin_declared" }] },
+    ]);
+    await expect(adapter.getCompleteness("2026-04-01", "2026-04-30")).resolves.toEqual([
+      { source: "trip-financials", status: "complete" },
+      { source: "historical-trip-backfills", status: "complete" },
+    ]);
+    expect(await adapter.getSourceSnapshotIdentity()).toContain(backfill.id + "@4");
   });
 
   it("uses the captured operational date on either side of the 04:00 boundary", async () => {

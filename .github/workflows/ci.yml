@@ -1,9 +1,10 @@
 name: Sam Travels CI
+# Keep rendered Work workflow acceptance in the required browser gate.
 on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, foundation/native-android-architecture, 'phase-*/*', fix/performance-calculation-contract-v1]
+    branches: [main, foundation/native-android-architecture, 'phase-*/*', fix/performance-calculation-contract-v1, 'docs/**']
 concurrency:
   group: sam-travels-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -32,6 +33,46 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Capture and classify dependency advisories
+        run: |
+          npm audit --json > npm-audit-full.json || true
+          npm audit --omit=dev --json > npm-audit-production.json || true
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const read = (path) => {
+            const raw = fs.readFileSync(path, "utf8");
+            try { return JSON.parse(raw); }
+            catch { throw new Error(`Dependency audit report is missing or invalid: ${path}`); }
+          };
+          const full = read("npm-audit-full.json");
+          const production = read("npm-audit-production.json");
+          const summary = (label, report) => {
+            const counts = report.metadata?.vulnerabilities ?? {};
+            console.log(`${label}: ${JSON.stringify(counts)}`);
+            for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+              console.log(JSON.stringify({
+                scope: label, name, severity: item.severity, isDirect: item.isDirect,
+                range: item.range, nodes: item.nodes, via: item.via, fixAvailable: item.fixAvailable,
+              }));
+            }
+          };
+          summary("all-dependencies", full);
+          summary("production-dependencies", production);
+          const actionable = Object.entries(full.vulnerabilities ?? {})
+            .filter(([, item]) => ["moderate", "high", "critical"].includes(item.severity));
+          if (actionable.length) {
+            console.error("Moderate-or-higher dependency advisories must be remediated before merge.");
+            process.exit(1);
+          }
+          NODE
+      - name: Upload dependency advisory reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-advisory-reports
+          path: npm-audit-*.json
+          if-no-files-found: warn
+          retention-days: 30
       - name: Validate local Markdown documentation links
         run: npm run check:docs
       - name: Gate Stage 3 cross-feature data coordination and calculation provenance
@@ -51,6 +92,13 @@ jobs:
           path: android/app/src/androidTest/assets/generated/timeline-projection-parity-oracle-v1.json
           if-no-files-found: error
           retention-days: 7
+      - name: Publish TypeScript-produced populated semantic backup package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts-populated-semantic-backup-v2
+          path: android/app/src/androidTest/assets/generated/ts-populated-semantic-backup-v2.json
+          if-no-files-found: error
+          retention-days: 7
       - run: npm run build
       - name: Install headless Chromium for rendered PWA acceptance
         run: |
@@ -66,6 +114,12 @@ jobs:
         run: node scripts/admin-workspace-browser-acceptance.mjs
       - name: Verify Admin form workflows through the rendered PWA
         run: node scripts/admin-form-browser-acceptance.mjs
+      - name: Verify Fuel Entry draft recovery through the rendered PWA
+        run: node scripts/fuel-entry-browser-acceptance.mjs
+      - name: Verify Work shift transitions through the rendered PWA
+        run: node scripts/driver-workflow-browser-acceptance.mjs
+      - name: Verify BackupPanel OAuth, encrypted backup and restore through the rendered PWA
+        run: node scripts/backup-panel-browser-acceptance.mjs
       - name: Verify Performance calculations and dashboard end to end through the rendered PWA
         run: node scripts/performance-screen-browser-acceptance.mjs
   geocoder-production:
@@ -128,10 +182,19 @@ jobs:
           java-version: 21
       - run: npm install
       - run: npm run cap:sync
+      - name: Stage repository persistence fixtures for Android instrumentation
+        run: mkdir -p android/app/src/androidTest/assets && cp -R fixtures/. android/app/src/androidTest/assets/
+      - name: Download TypeScript-produced populated semantic backup package
+        uses: actions/download-artifact@v4
+        with:
+          name: ts-populated-semantic-backup-v2
+          path: android/app/src/androidTest/assets/generated
       - name: Build the shared headless Timeline projection for Android parity tests
         run: npm run build:timeline-parity
       - name: Build the shared Full-cost Work-distance projection for Android parity tests
         run: npm run build:full-cost-distance-parity
+      - name: Build the shared production semantic calculation parity bundle for Android WebView
+        run: npm run build:semantic-fixture-parity
       - name: Stage the shared workflow parity contract for Android tests
         run: mkdir -p android/app/src/androidTest/assets && cp tests/fixtures/driver-workflow-parity-v1.json android/app/src/androidTest/assets/driver-workflow-parity-v1.json
       - name: Download the exact Dexie projection oracle for Android comparison
@@ -173,27 +236,18 @@ jobs:
       - name: Ensure Android Emulator host runtime dependency
         run: |
           set -euo pipefail
-          # The Ubuntu 22.04 runner image normally includes libpulse0. Avoid
-          # contacting an apt mirror unless the emulator runtime is genuinely absent.
           if ldconfig -p | grep -Fq 'libpulse.so.0'; then
             echo "Android Emulator PulseAudio runtime is already available"
             exit 0
           fi
-          source_list="$(mktemp)"
-          trap 'rm -f "$source_list"' EXIT
-          echo "deb [arch=amd64] https://archive.ubuntu.com/ubuntu jammy main universe" > "$source_list"
-          sudo apt-get \
-            -o Dir::Etc::sourcelist="$source_list" \
-            -o Dir::Etc::sourceparts="-" \
-            -o Acquire::Retries=3 \
-            -o Acquire::https::Timeout=20 \
-            -o Acquire::http::Timeout=20 update
-          sudo apt-get \
-            -o Dir::Etc::sourcelist="$source_list" \
-            -o Dir::Etc::sourceparts="-" \
-            -o Acquire::Retries=3 \
-            -o Acquire::https::Timeout=20 \
-            -o Acquire::http::Timeout=20 install -y libpulse0
+          codename="$(. /etc/os-release && printf '%s' "$VERSION_CODENAME")"
+          if [ "$codename" = "noble" ]; then
+            package="libpulse0t64"
+          else
+            package="libpulse0"
+          fi
+          sudo apt-get update -o Acquire::Retries=5 -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45
+          sudo apt-get install -y "$package" -o Acquire::Retries=5 -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45
           ldconfig -p | grep -Fq 'libpulse.so.0'
       - name: Install and verify Android Emulator SDK package
         run: |
@@ -219,7 +273,14 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            bash -euo pipefail -c 'echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest; echo "Run shared active-driving-day PWA/Room parity"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceActiveDrivingDayRoomParityTest; echo "Install target and instrumentation APKs before restart phases"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state in a direct instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Preparation instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Preparation instrumentation reported failures" >&2; exit 1 ;; esac; echo "Force-stop target and instrumentation packages to prove process restart"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover pending workflow in a separate instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Recovery instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Recovery instrumentation reported failures" >&2; exit 1 ;; esac; echo "Run remaining Android instrumentation suite excluding special cases"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest,in.samtravels.app.PerformanceCalculationRoomParityTest,in.samtravels.app.PerformanceActiveDrivingDayRoomParityTest'
+            bash -euo pipefail -c 'echo "Run isolated Compliance correction WebView acceptance on a clean emulator database"; adb -s emulator-5554 logcat -c; if ! gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.ComplianceCorrectionCapacitorAcceptanceTest; then echo "Capture native and Chromium diagnostics for the first WebView startup failure"; adb -s emulator-5554 logcat -d -v threadtime | grep -E -i "chromium|AndroidRuntime|FATAL EXCEPTION|SQLiteException|WebView" | tail -n 300 || true; exit 1; fi; echo "Run isolated Maintenance correction WebView acceptance on the same single-vehicle fixture"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.MaintenanceCorrectionCapacitorAcceptanceTest; echo "Run isolated Device Readiness Settings-return acceptance"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DeviceReadinessWebViewAcceptanceTest; echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest; echo "Run shared active-driving-day PWA/Room parity"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceActiveDrivingDayRoomParityTest; echo "Run restored Room repository through the actual Android WebView Performance screen"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.RestoredRoomPerformanceWebViewAcceptanceTest; echo "Install target and instrumentation APKs before restart phases"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state in a direct instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Preparation instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Preparation instrumentation reported failures" >&2; exit 1 ;; esac; echo "Force-stop target and instrumentation packages before the full OS reboot"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Reboot the Android emulator operating system"; adb -s emulator-5554 reboot; adb -s emulator-5554 wait-for-device; booted=0; for attempt in $(seq 1 120); do state="$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r")"; if [ "$state" = "1" ]; then booted=1; break; fi; sleep 5; done; if [ "$booted" -ne 1 ]; then echo "Android emulator did not complete OS reboot within 10 minutes" >&2; exit 1; fi; echo "Android OS reboot completed; verify boot counter and recover persisted workflow"; echo "Recover pending workflow in a separate instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Recovery instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Recovery instrumentation reported failures" >&2; exit 1 ;; esac; echo "Run remaining Android instrumentation suite excluding special cases"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest,in.samtravels.app.PerformanceCalculationRoomParityTest,in.samtravels.app.PerformanceActiveDrivingDayRoomParityTest,in.samtravels.app.RestoredRoomPerformanceWebViewAcceptanceTest,in.samtravels.app.ComplianceCorrectionCapacitorAcceptanceTest,in.samtravels.app.MaintenanceCorrectionCapacitorAcceptanceTest,in.samtravels.app.DeviceReadinessWebViewAcceptanceTest; echo "Reinstall target and instrumentation APKs after Gradle instrumentation teardown"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Re-run populated Room lifecycle fixture as the final instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.SharedSevenDomainBackupLifecycleTest" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Final populated Room lifecycle instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Final populated Room lifecycle instrumentation reported failures" >&2; exit 1 ;; esac; mkdir -p "$RUNNER_TEMP/android-populated-backup"; adb -s emulator-5554 exec-out run-as in.samtravels.app cat files/android-populated-semantic-backup-v2.json > "$RUNNER_TEMP/android-populated-backup/android-populated-semantic-backup-v2.json"; test -s "$RUNNER_TEMP/android-populated-backup/android-populated-semantic-backup-v2.json"; node -e "const fixture = JSON.parse(require(\"node:fs\").readFileSync(process.argv[1], \"utf8\")); if (typeof fixture.recoveryKey !== \"string\" || !fixture.backup || !fixture.expectedSnapshot) throw new Error(\"Android populated backup artifact is missing its recovery key, encrypted package, or semantic oracle\"); console.log(\"Verified Android-produced populated backup artifact JSON and semantic oracle\");" "$RUNNER_TEMP/android-populated-backup/android-populated-semantic-backup-v2.json"'
+      - name: Publish Android-produced populated semantic backup package
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-populated-semantic-backup-v2
+          path: ${{ runner.temp }}/android-populated-backup/android-populated-semantic-backup-v2.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Build update-compatible signed APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -274,10 +335,27 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  cross-platform-backup:
+    name: Cross-platform encrypted backup restore
+    needs: [web, android]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Download Android-produced populated semantic backup package
+        uses: actions/download-artifact@v4
+        with:
+          name: android-populated-semantic-backup-v2
+          path: fixtures/generated
+      - name: Restore Android-produced package through production Browser/Dexie path
+        run: npm test -- tests/android-produced-backup-restore.test.ts
   integrated-regression:
     name: Integrated regression gate
     if: always()
-    needs: [architecture, web, geocoder-production, android]
+    needs: [architecture, web, geocoder-production, android, cross-platform-backup]
     runs-on: ubuntu-24.04
     steps:
       - name: Require PR checks and, on main, the post-deployment production geocoder check
@@ -286,11 +364,13 @@ jobs:
           WEB_RESULT: ${{ needs.web.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
           GEOCODER_RESULT: ${{ needs.geocoder-production.result }}
+          CROSS_PLATFORM_BACKUP_RESULT: ${{ needs.cross-platform-backup.result }}
           REQUIRE_PRODUCTION_GEOCODER: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           test "$ARCHITECTURE_RESULT" = "success"
           test "$WEB_RESULT" = "success"
           test "$ANDROID_RESULT" = "success"
+          test "$CROSS_PLATFORM_BACKUP_RESULT" = "success"
           if [ "$REQUIRE_PRODUCTION_GEOCODER" = "true" ]; then
             test "$GEOCODER_RESULT" = "success"
           else

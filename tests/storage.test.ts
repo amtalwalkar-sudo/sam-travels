@@ -13,12 +13,17 @@ describe("browser IndexedDB repository", () => {
 
   it("persists and retrieves versioned records", async () => {
     const repo = new DexieRecordRepository(), now = new Date().toISOString();
-    const record = { id: "record-1", schemaVersion: 1, createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { label: "test" } };
+    const record = { id: "feature:sample:record-1", schemaVersion: 1, createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { label: "test" } };
     await repo.put(record);
-    expect(await repo.get("record-1")).toEqual(record);
+    expect(await repo.get(record.id)).toEqual(record);
     expect(await repo.list()).toHaveLength(1);
-    await repo.remove("record-1");
-    expect(await repo.get("record-1")).toBeUndefined();
+    await expect(repo.remove(record.id)).rejects.toThrow("record_delete_forbidden");
+    expect(await repo.get(record.id)).toEqual(record);
+
+    const workingCopy = { ...record, id: "__sam_travels_form_working_copy__:test:one" };
+    await repo.put(workingCopy);
+    await repo.remove(workingCopy.id);
+    expect(await repo.get(workingCopy.id)).toBeUndefined();
   });
 
   it("defaults internet access to disabled and persists the choice", async () => {

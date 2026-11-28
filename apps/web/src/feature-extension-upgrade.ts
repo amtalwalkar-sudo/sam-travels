@@ -26,8 +26,9 @@ export async function upgradeInstalledBrowserFeatureExtension(input: {
   currentSchemaVersion: number;
   handlers: Readonly<Record<string, FeatureMigrationHandler<BrowserFeatureMigrationContext>>>;
 }): Promise<number> {
+  const featureId = input.next.feature.id;
   const transaction = Capacitor.isNativePlatform()
-    ? new RoomFeatureExtensionUpgradeTransaction()
-    : new DexieFeatureExtensionUpgradeTransaction();
+    ? new RoomFeatureExtensionUpgradeTransaction(featureId)
+    : new DexieFeatureExtensionUpgradeTransaction(featureId);
   return new FeatureExtensionUpgradeCoordinator().apply({ ...input, transaction });
 }

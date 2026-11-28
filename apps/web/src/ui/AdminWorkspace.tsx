@@ -10,13 +10,15 @@ import { useAdminIdentityAdapter } from "./admin-services-context";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
 import { TrafficChallanSection } from "./AdminTrafficChallanSection";
 import { AdminPerformanceSettingsSection } from "./AdminPerformanceSettingsSection";
+import { AdminHistoricalTripBackfillSection } from "./AdminHistoricalTripBackfillSection";
+import { TripFinancialCorrectionSection } from "./TripFinancialCorrectionSection";
 
 export function AdminWorkspace() {
   const identityAdapter = useAdminIdentityAdapter();
   const sections = [
     { id: "business-setup", label: "Business setup", content: <><BusinessSetupSection /><BusinessStartDateCostAllocationPanel /></> },
     { id: "vehicle", label: "Vehicle", content: <VehicleSection /> },
-    { id: "driver", label: "Driver", content: <DriverSection /> },
+    { id: "driver", label: "Driver", content: <><DriverSection /><AdminHistoricalTripBackfillSection /><TripFinancialCorrectionSection /></> },
     { id: "compliance", label: "Compliance", content: <><ComplianceSection /><TrafficChallanSection /></> },
     { id: "finance", label: "Finance", content: <AdminFinanceSection /> },
     { id: "maintenance", label: "Maintenance", content: <MaintenanceSection /> },

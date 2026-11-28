@@ -1,10 +1,10 @@
 import { assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../../domain/src/driver-workflow";
-import { assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
+import { assertBackupRecordCount, assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
 import { registerFeatures, registerBackupParticipants } from "../../core/src/features";
-
+import { isNonRestorableImportedRecord, isPreservedLocalRecord, isRuntimeLocalRecord } from "./backup-local-record-policy";
 export interface BrowserSnapshotData {
   records: unknown[];
   driverState: unknown[];
@@ -19,14 +19,12 @@ type Checkpoint = {
   snapshot: BrowserSnapshotData;
 };
 export type BrowserSnapshotTable = keyof BrowserSnapshotData;
-
 export type BrowserBackupParticipant = {
   id: string;
   featureId: string | "platform";
   schemaVersion: number;
   tableNames: BrowserSnapshotTable[];
 };
-
 /** One authoritative mapping from registered feature obligations to browser tables. */
 export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = Object.freeze([
   { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
@@ -40,7 +38,6 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
   { id: "finance-records", featureId: "finance", schemaVersion: 1, tableNames: ["records"] },
   { id: "performance-records", featureId: "performance", schemaVersion: 1, tableNames: ["records"] },
 ]);
-
 function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   const features = registerFeatures();
   const discovered = registerBackupParticipants(features);
@@ -66,7 +63,6 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   if (new Set(ids).size !== ids.length) throw new Error("backup_duplicate_participant_id");
   return resolved;
 }
-
 export type BrowserFeatureBackupAdapter = Readonly<{
   feature: import("../../core/src/features").FeatureDefinition;
   participantId: string;
@@ -74,9 +70,7 @@ export type BrowserFeatureBackupAdapter = Readonly<{
   validateRecord(record: import("../../core/src/types").RecordEnvelope<unknown>, allFeatureRecords: readonly import("../../core/src/types").RecordEnvelope<unknown>[]): void;
   validateSnapshot?(allRecords: readonly import("../../core/src/types").RecordEnvelope<unknown>[]): void;
 }>;
-
 const customBrowserFeatureBackupAdapters = new Map<string, BrowserFeatureBackupAdapter>();
-
 /** Register executable feature-owned backup and restore validation for namespaced records. */
 export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureBackupAdapter): () => void {
   const existing = registerFeatures().get(adapter.feature.id);
@@ -110,7 +104,6 @@ export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureB
   customBrowserFeatureBackupAdapters.set(adapter.participantId, Object.freeze({ ...adapter }));
   return () => { customBrowserFeatureBackupAdapters.delete(adapter.participantId); };
 }
-
 function currentParticipantManifest() {
   const required = [...registerBackupParticipants(registerFeatures()).values()]
     .filter(contract => !customBrowserFeatureBackupAdapters.has(contract.id)).map(
@@ -149,12 +142,10 @@ export function assertBrowserBackupTableCoverage(
     );
   }
 }
-
 function liveTables() {
   assertBrowserBackupTableCoverage();
   return tableNames().map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
-
 async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<BrowserSnapshotData> {
   const entries = await Promise.all(tables.map(async table => [table.name, await table.toArray()] as const));
   return Object.fromEntries(entries) as unknown as BrowserSnapshotData;
@@ -240,7 +231,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   }
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
-  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
+  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch:" + revision + ":" + manifest.snapshotRevision);
   const primaryKeys: Record<BrowserSnapshotTable, (row: Record<string, unknown>) => string> = {
     records: row => String(row.id ?? ""),
     driverState: row => String(row.id ?? ""),
@@ -275,6 +266,12 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
 }> {
   const tables = liveTables();
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
+  // Runtime identity and restore-recovery material is local state, not portable business data.
+  data.records = data.records.filter(row => {
+    const id = String((row as { id?: unknown } | null)?.id ?? "");
+    return !isNonRestorableImportedRecord(id);
+  });
+  assertBackupRecordCount(Object.values(data).reduce((total, rows) => total + rows.length, 0));
   data.records.forEach(assertRecordEnvelope);
   validateSnapshotRows(data);
   validateCustomFeatureBackupRecords(data.records);
@@ -302,6 +299,11 @@ export async function restoreBrowserSnapshot(input: {
   const tables = liveTables();
   const current = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
 
+  const idOf = (row: unknown) => String((row as { id?: unknown } | null)?.id ?? "");
+  const preserved = current.records.filter(row => isPreservedLocalRecord(idOf(row)));
+  const incoming = input.data.records.filter(row => !isNonRestorableImportedRecord(idOf(row)) && !isRuntimeLocalRecord(idOf(row)));
+  const incomingLocal = input.data.records.filter(row => isRuntimeLocalRecord(idOf(row)) && !preserved.some(local => idOf(local) === idOf(row)));
+  const restoredData: BrowserSnapshotData = { ...input.data, records: [...incoming, ...incomingLocal, ...preserved] };
   const checkpointId = crypto.randomUUID();
   const checkpoint: Checkpoint = {
     id: checkpointId,
@@ -315,14 +317,14 @@ export async function restoreBrowserSnapshot(input: {
     await browserDatabase.transaction("rw", [...tables, checkpointTable()], async () => {
       for (let index = 0; index < tables.length; index += 1) {
         await tables[index].clear();
-        const rows = input.data[tableNames()[index]];
+        const rows = restoredData[tableNames()[index]];
         if (rows.length) await tables[index].bulkPut(rows);
       }
       await checkpointTable().put({ ...checkpoint, status: "restored_unverified" });
     });
 
     const verified = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
-    if (!snapshotsEqual(verified, input.data)) throw new Error("backup_post_restore_verification_failed");
+    if (!snapshotsEqual(verified, restoredData)) throw new Error("backup_post_restore_verification_failed");
     return {
       checkpointId,
       restoredCounts: Object.fromEntries(tableNames().map(name => [name, verified[name].length])),
@@ -387,4 +389,11 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
   if (!snapshotsEqual(restored, checkpoint.snapshot)) {
     throw new Error("backup_checkpoint_rollback_verification_failed");
   }
+}
+
+/** Validate before converting to the cross-platform canonical interchange envelope. */
+export function assertBrowserSnapshotForCanonical(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
+  const canonical = (items: NonNullable<SnapshotManifest["participants"]>) => items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
+  if (!manifest.participants || JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(currentParticipantManifest()))) throw new Error("backup_participant_manifest_mismatch");
+  validateSnapshot(data, manifest);
 }

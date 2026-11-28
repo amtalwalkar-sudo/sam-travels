@@ -190,7 +190,15 @@ internal class DriverOverlayPresentation(
                     }
                 }
                 MotionEvent.ACTION_UP -> {
-                    val confirmed = swipeMoved && slider.progress >= swipePresentation.completionPercent
+                    // Measure the gesture in screen coordinates. SeekBar's local x
+                    // includes thumb/track padding and can under-report a full-width
+                    // overlay swipe on WindowManager-attached views.
+                    val completionPercent = if (slider.width > 0) {
+                        ((event.rawX - (swipeStartX ?: event.rawX)) / slider.width.toFloat() * 100f)
+                            .toInt().coerceIn(0, 100)
+                    } else 0
+                    val confirmed = swipeMoved && completionPercent >= swipePresentation.completionPercent
+                    android.util.Log.i("DriverOverlayService", "swipe_touch_up moved=$swipeMoved completionMet=${completionPercent >= swipePresentation.completionPercent} confirmed=$confirmed")
                     swipeStartX = null
                     swipeMoved = false
                     if (confirmed) onSwipeTransition()

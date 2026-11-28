@@ -1,11 +1,12 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
-import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
+import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX, requireFinanceAdminAuthor,
   type FinancePaymentEntryV1, type FinancePaymentLedgerV1 } from "./finance-loan-payment-service";
 
 export const FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX = "feature:finance:prepayments:";
-export type FinanceLoanPrepaymentModeV1 = "reduce_tenure" | "reduce_emi";
+export type FinanceLoanPrepaymentModeV1 = "reduce_tenure";
 type ScheduleRow = Readonly<{ installmentNumber: number; dueDate: string; openingPrincipalPaise: number;
   interestPaise: number; installmentAmountPaise: number; principalComponentPaise: number;
   closingPrincipalPaise: number; finalAdjusted: boolean }>;
@@ -13,7 +14,7 @@ type ReamortizedOutput = Readonly<{ openingPrincipalPaise: number; regularEmiPai
   totalInterestPaise: number; totalScheduledPaymentsPaise: number; interestSavedPaise: number;
   finalDueDate: string; remainingInstallmentCount: number }>;
 export type FinanceLoanPrepaymentRevisionV1 = Readonly<{
-  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number; createdBy?: RecordAuthorV1;
   expectedPaymentLedgerRevision: number | null; source: string;
   commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
   principalBeforePaise: number; prepaymentAmountPaise: number; principalAfterPaise: number;
@@ -34,13 +35,15 @@ export type FinanceLoanPrepaymentRevisionBuilder = (input: {
 }) => FinanceLoanPrepaymentRevisionV1;
 export type FinanceLoanPrepaymentStateValidator = (value: unknown, loan: FinanceLoanRecordV1, loanId: string) => void;
 type Snapshot = { loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1>;
-  state?: RecordEnvelope<FinanceLoanPrepaymentStateV1> };
+  state?: RecordEnvelope<FinanceLoanPrepaymentStateV1>;
+  operating?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>> };
 export type FinanceLoanPrepaymentPreviewV1 = Readonly<{
   loanId: string; commandId: string; businessDate: string; source: string; mode: FinanceLoanPrepaymentModeV1;
   amountPaise: number; principalBeforePaise: number; principalAfterPaise: number;
   currentScheduleVersion: number; nextScheduleVersion: number; remainingInstallmentCount: number;
   regularEmiPaise: number; finalDueDate: string; interestSavedPaise: number;
   loanRevision: number; paymentLedgerRevision: number | null; prepaymentStateRevision: number | null;
+  operatingConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>;
   revision: FinanceLoanPrepaymentRevisionV1;
 }>;
 function validDate(value: string): boolean {
@@ -77,13 +80,37 @@ function scheduleFrom(snapshot: Snapshot) {
 }
 export class FinanceLoanPrepaymentService {
   constructor(private readonly repository: AtomicRecordBatchRepository,
-    private readonly loans: { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> },
+    private readonly loans: { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined>; getForReadOnly?(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> },
     private readonly validateState: FinanceLoanPrepaymentStateValidator,
     private readonly buildRevision: FinanceLoanPrepaymentRevisionBuilder,
-    private readonly now: () => string = () => new Date().toISOString()) {}
+    private readonly now: () => string = () => new Date().toISOString(),
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">) {}
 
   private async load(loanId: string): Promise<Snapshot> {
     const loan = await this.loans.get(loanId);
+    if (!loan) throw new Error("finance_loan_not_found");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && operating.vehicleId !== loan.data.details.vehicleId) throw new Error("finance_loan_prepayment_operating_vehicle_mismatch");
+    const [rawLedger, rawState] = await Promise.all([
+      this.repository.get<unknown>(paymentRecordId(loanId)),
+      this.repository.get<unknown>(prepaymentRecordId(loanId)),
+    ]);
+    if (rawLedger) assertFinancePaymentLedgerV1(rawLedger.data, loanId);
+    if (rawState) {
+      this.validateState(rawState.data, loan.data, loanId);
+      const state = rawState.data as FinanceLoanPrepaymentStateV1;
+      if (state.baseScheduleVersion !== loan.data.currentScheduleVersion) {
+        throw new Error("finance_loan_prepayment_base_schedule_changed");
+      }
+    }
+    return { loan, ledger: rawLedger as RecordEnvelope<FinancePaymentLedgerV1> | undefined,
+      state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined, operating };
+  }
+
+  /** Read-only schedule projections must remain available when Work has no selected Driver. */
+  private async loadForReadOnly(loanId: string): Promise<Snapshot> {
+    const loan = await (this.loans.getForReadOnly ? this.loans.getForReadOnly(loanId) : this.loans.get(loanId));
     if (!loan) throw new Error("finance_loan_not_found");
     const [rawLedger, rawState] = await Promise.all([
       this.repository.get<unknown>(paymentRecordId(loanId)),
@@ -159,12 +186,13 @@ export class FinanceLoanPrepaymentService {
       regularEmiPaise: revision.output.regularEmiPaise, finalDueDate: revision.output.finalDueDate,
       interestSavedPaise: revision.output.interestSavedPaise, loanRevision: snapshot.loan.revision,
       paymentLedgerRevision: snapshot.ledger?.revision ?? null, prepaymentStateRevision: snapshot.state?.revision ?? null,
+      ...(snapshot.operating ? { operatingConfiguration: snapshot.operating } : {}),
       revision,
     };
   }
 
   async getScheduleHistory(loanId: string) {
-    const snapshot = await this.load(loanId);
+    const snapshot = await this.loadForReadOnly(loanId);
     const versions = snapshot.loan.data.scheduleVersions.map(item => {
       const output = item.output as { rows?: readonly ScheduleRow[]; regularEmiPaise?: number };
       return { version: item.version, effectiveDate: item.effectiveDate, createdAt: item.createdAt,
@@ -175,7 +203,7 @@ export class FinanceLoanPrepaymentService {
     });
     for (const revision of snapshot.state?.data.revisions ?? []) {
       versions.push({ version: revision.version, effectiveDate: revision.effectiveDate, createdAt: revision.createdAt,
-        label: revision.mode === "reduce_tenure" ? "Prepayment · Reduce Tenure" : "Prepayment · Reduce EMI",
+        label: "Prepayment · Reduce Tenure",
         rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise,
         principalPaise: revision.output.openingPrincipalPaise,
         totalInterestPaise: revision.output.totalInterestPaise,
@@ -187,7 +215,7 @@ export class FinanceLoanPrepaymentService {
 
   async getScheduleVersionForDate(loanId: string, businessDate: string): Promise<number | undefined> {
     if (!validDate(businessDate)) throw new Error("finance_payment_amount_or_date_invalid");
-    const snapshot = await this.load(loanId);
+    const snapshot = await this.loadForReadOnly(loanId);
     const versions = snapshot.loan.data.scheduleVersions.map(item => ({
       version: item.version, effectiveDate: item.effectiveDate,
     }));
@@ -199,7 +227,7 @@ export class FinanceLoanPrepaymentService {
   }
 
   async getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined> {
-    const snapshot = await this.load(loanId);
+    const snapshot = await this.loadForReadOnly(loanId);
     const state = snapshot.state?.data;
     if (!state || scheduleVersion <= state.baseScheduleVersion) return undefined;
     return state.revisions.find(item => item.version === scheduleVersion)?.output.rows;
@@ -210,7 +238,7 @@ export class FinanceLoanPrepaymentService {
     return this.previewFrom(await this.load(input.loanId), input);
   }
 
-  async commit(input: { preview: FinanceLoanPrepaymentPreviewV1; source: RecordEnvelope<unknown>["source"] }) {
+  async commit(input: { preview: FinanceLoanPrepaymentPreviewV1; source: RecordEnvelope<unknown>["source"]; now?: string }) {
     const requested = input.preview;
     if (requested.source !== requested.revision.source || input.source !== requested.source) {
       throw new Error("finance_loan_prepayment_source_provenance_invalid");
@@ -222,6 +250,9 @@ export class FinanceLoanPrepaymentService {
         if (replay.prepaymentAmountPaise !== requested.amountPaise || replay.mode !== requested.mode ||
             replay.effectiveDate !== requested.businessDate || replay.source !== requested.source) throw new Error("finance_loan_prepayment_idempotency_conflict");
         return replay;
+      }
+      if (JSON.stringify(snapshot.operating ?? null) !== JSON.stringify(requested.operatingConfiguration ?? null)) {
+        throw new Error("finance_loan_prepayment_operating_context_stale");
       }
       if (snapshot.loan.revision !== requested.loanRevision ||
           (snapshot.ledger?.revision ?? null) !== requested.paymentLedgerRevision ||
@@ -236,12 +267,17 @@ export class FinanceLoanPrepaymentService {
           JSON.stringify(fresh.revision) !== JSON.stringify(requested.revision)) {
         throw new Error("finance_loan_prepayment_preview_stale");
       }
-      const createdAt = fresh.revision.createdAt;
+      const createdAt = input.now ?? fresh.revision.createdAt;
+      const createdBy = await requireFinanceAdminAuthor(this.currentAuthor);
+      const committedRevision = {
+        ...(createdAt === fresh.revision.createdAt ? fresh.revision : { ...fresh.revision, createdAt }),
+        createdBy,
+      };
       const stateData: FinanceLoanPrepaymentStateV1 = {
         schemaVersion: 1, kind: "loan-prepayment-state", loanId: requested.loanId,
         baseScheduleVersion: snapshot.state?.data.baseScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
         currentScheduleVersion: fresh.nextScheduleVersion,
-        revisions: [...(snapshot.state?.data.revisions ?? []), fresh.revision],
+        revisions: [...(snapshot.state?.data.revisions ?? []), committedRevision],
       };
       this.validateState(stateData, snapshot.loan.data, requested.loanId);
       const stateId = prepaymentRecordId(requested.loanId);
@@ -261,11 +297,12 @@ export class FinanceLoanPrepaymentService {
         updatedAt: createdAt, businessDate: requested.businessDate, source: input.source,
         revision: (snapshot.ledger?.revision ?? 0) + 1, data: ledgerData,
       };
+      if (snapshot.operating) await this.operatingConfiguration?.assertCurrent(snapshot.operating);
       if (await this.repository.compareAndSetMany([
         { id: snapshot.loan.id, expectedRevision: snapshot.loan.revision, next: loanNext },
         { id: ledgerId, expectedRevision: snapshot.ledger?.revision ?? null, next: ledgerNext },
         { id: stateId, expectedRevision: snapshot.state?.revision ?? null, next: nextState },
-      ])) return fresh.revision;
+      ])) return committedRevision;
     }
     throw new Error("finance_loan_prepayment_concurrent_write_retry_exhausted");
   }

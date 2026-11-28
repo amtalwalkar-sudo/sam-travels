@@ -4,7 +4,7 @@ import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
 import { maintenanceRateHistoryRecordId } from "../packages/features/maintenance";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
-import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
+import { registerMaintenanceBrowserBackupParticipant, validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
 
 describe("Maintenance browser backup participant", () => {
   let unregisterVehicle: (() => void) | undefined;
@@ -58,7 +58,7 @@ describe("Maintenance browser backup participant", () => {
       data: {
         schemaVersion: 1, kind: "rate_history", vehicleId,
         entries: [
-          { effectiveFrom: "2026-11-01", ratePaisePerKm: 250, savedAt: timestamp, isDefault: true },
+          { effectiveFrom: "2026-10-31", ratePaisePerKm: 250, savedAt: timestamp, isDefault: true },
           {
             effectiveFrom: "2026-11-02", ratePaisePerKm: 300,
             savedAt: "2026-11-02T10:00:00.000Z", isDefault: false,
@@ -112,6 +112,47 @@ describe("Maintenance browser backup participant", () => {
       data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true,
     });
     expect(await browserDatabase.records.get(maintenanceRateHistoryRecordId(vehicleId))).toBeDefined();
+  });
+
+  it("exports and restores an append-only corrected service-visit total without changing itemised evidence", async () => {
+    await seedVehicle();
+    await seedMaintenance();
+    const visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174000";
+    const correctionId = "visit-total-correction-1";
+    const recordedAt = "2026-11-03T08:00:00.000Z";
+    await browserDatabase.records.put({
+      id: "historical-correction:" + correctionId,
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web", revision: 1,
+      createdBy: { personId: "maintenance-admin", role: "admin" },
+      data: {
+        schemaVersion: 1, correctionId, targetRecordId: visitId, targetRecordRevision: 1,
+        featureId: "maintenance", chainRevision: 1, fieldPath: "totalPaise",
+        beforeValue: 200000, afterValue: 225000, reason: "Final garage invoice verified",
+        actor: { role: "admin", actorId: "maintenance-admin", adminPinVerifiedAt: recordedAt },
+        recordedAt, businessEffectiveDate: "2026-10-05",
+      },
+    });
+    await browserDatabase.records.put({
+      id: "historical-correction-chain:" + encodeURIComponent(visitId),
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web", revision: 1,
+      data: { schemaVersion: 1, targetRecordId: visitId, chainRevision: 1, headCorrectionId: correctionId },
+    });
+
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.records.clear();
+    await restoreBrowserSnapshot({ data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true });
+    const restored = await browserDatabase.records.get(visitId);
+    expect(restored?.data).toMatchObject({
+      totalPaise: 200000,
+      items: [{ description: "Oil", amountPaise: 200000 }],
+    });
+    const rows = await browserDatabase.records.toArray();
+    expect(() => validateMaintenanceCorrectionSnapshot(rows)).not.toThrow();
+    expect(rows.find(row => row.id === "historical-correction:" + correctionId)?.data).toMatchObject({
+      fieldPath: "totalPaise", beforeValue: 200000, afterValue: 225000,
+    });
   });
 
   it("restores pre-Maintenance snapshots when no Maintenance records exist", async () => {

@@ -1,0 +1,575 @@
+# PR #99 — Whole-Contract Completion Execution Plan
+
+**Status:** Approved execution sequence; whole contract remains **INCOMPLETE**.  
+**PR:** [#99](https://github.com/amtalwalkar-sudo/sam-travels/pull/99)  
+**Current operating scope:** One configured active Vehicle and one configured active Driver.  
+**Scope rule:** This plan organizes work already required by the PR #99 end-to-end contract and its referenced owner contracts. It does not authorize new product scope.
+
+## 1. Current position — subordinate four-stage closeout tracker
+
+The original four-stage closeout tracker is complete. It is subordinate to, and does not replace, the whole-contract definition of done in §1A of [PR_99_END_TO_END_DATA_CALCULATION_PERSISTENCE_BACKUP_CONTRACT.md](PR_99_END_TO_END_DATA_CALCULATION_PERSISTENCE_BACKUP_CONTRACT.md).
+
+| Original stage | Workstream | Status | Evidence / qualification |
+|---|---|---|---|
+| 1 | Finance Admin actor attribution | **COMPLETE** | Implementation and regression/CI evidence are recorded in the PR #99 implementation evidence matrix. |
+| 2 | Finance payment-allocation policy | **COMPLETE** | Owner approval dated 2026-11-22 and implementation/regression/CI evidence are recorded in the Finance owner contract and PR #99 evidence matrix. |
+| 3 | Reverse encrypted restore and semantic parity | **COMPLETE** | Both directions are covered: TypeScript-produced encrypted package → Android production decrypt/Room restore, and Android-produced encrypted package → Browser/Dexie production restore. The populated 29-record graph is compared through the production lifecycle. The known Finance prepayment/settlement fixture-lineage limitation remains a whole-contract gap; Stage 3 completion does not imply all-domain fixture completeness. |
+| 4 | Evidence and CI closeout | **COMPLETE** | Exact-head run [45035534802](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45035534802) passed on commit `c40dd84c6f218d34d65e156fb27510809955aab9`. Required jobs passed: Architecture, Web, Android, Cross-platform encrypted backup restore, and Integrated regression gate. Optional Production geocoder verification was skipped. |
+
+**Important head-validation rule:** Run 45035534802 proves the four-stage closeout at the exact head shown above. This execution-plan documentation commit will create a newer PR head; therefore the final whole-contract closeout must run and record required CI again on the exact final head. Do not represent run 45035534802 as validation of a later commit.
+
+The PR remains **open, draft and unmerged**. Four-stage completion and green CI do not satisfy the whole-contract definition of done.
+
+## 2. Remaining whole-contract execution — six sequential stages
+
+Execute these stages in order. Only one stage may be active at a time. Each stage must pass its own acceptance gate and have its evidence recorded before the next stage begins.
+
+### Stage 1 — Complete the shared populated semantic fixture
+
+**Purpose:** Make the shared synthetic fixture sufficiently populated and schema-valid to represent the contract-required business lifecycle, rather than relying on metadata declarations or a partial record graph.
+
+**Work, limited to existing contract requirements:**
+- Extend the existing fixture and its validators; preserve stable IDs and existing useful coverage.
+- Include the configured single Vehicle/Driver pair and the required linked records for Finance, Compliance, Maintenance, Fuel/Business Expenses, Performance, Work/Shift, Driver Workflow and Log Book.
+- Include the contract-required Finance payment, reversal, prepayment, revised schedule and settlement/closure lineage. The shared 46-record fixture now contains the required Finance payment, reversal, prepayment, revised schedule, settlement and closed-loan lineage; its inventory and validator evidence is recorded in the Stage 1 revalidation checkpoint.
+- Include required effective-dated rates, daily-kilometre source/revision links, renewal generations, correction chains, fuel full/partial/full history, calculation source references, and pending/retry/recovery workflow states.
+- Validate schema, participant ownership, references, revisions, event ordering and the required zero-record participant representation.
+
+**Acceptance gate:** The fixture contains the required schema-valid records and relationships for every applicable owner-contract dimension. Validators reject malformed, dangling, mismatched or wrongly owned records. The fixture's declared coverage matches its actual contents.
+
+**Exit evidence:** Named fixture and validator tests, with a concise record/participant coverage inventory. Do not claim production restore or calculation proof from fixture validation alone.
+
+### Stage 2 — Run the populated fixture through production Browser and Android backup/restore lifecycles
+
+**Purpose:** Prove that the same populated semantic data survives the actual production persistence, encrypted backup/restore, reopen and recovery paths.
+
+**Work:**
+- Run the shared records through Browser/Dexie production export, encrypted package handling, restore, database close/reopen, startup recovery, recomputation and re-export.
+- Run the same records through Android/Room production export, encrypted package handling, restore, database close/reopen, startup recovery, recomputation and re-export.
+- Exercise clean and pre-populated destinations where required by the contract.
+- Retain both restore directions and extend the existing populated lifecycle tests rather than creating parallel duplicate harnesses.
+- Compare normalized source records, stable IDs, revisions, references, event ordering, pending/outbox state, correction-chain heads, calculations and provenance.
+
+**Acceptance gate:** Both runtime paths preserve the same contract-required semantic state and lineage after restore/reopen/recovery/re-export. Cross-runtime comparisons pass in both directions. No fixture limitation is hidden by a narrower test subset.
+
+**Exit evidence:** Named production-path Browser and Android lifecycle tests, semantic comparison assertions, and exact CI results.
+
+### Stage 3 — Complete UI-originated lifecycle and cross-surface parity
+
+**Purpose:** Prove that supported user-entered records traverse the real UI/action-to-command boundary and remain consistent across the supported surfaces.
+
+**Work:**
+- Reuse existing rendered PWA and Android Admin/Fuel acceptance; do not rebuild already-proven entry paths.
+- Retain the already-proven direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility and stale-write rejection as closed; the exact rendered instrumentation assertion is recorded in the Stage 3 evidence revalidation below.
+- Prove the stale-write interleaving: PWA reads revision N, overlay commits N+1, stale PWA write is rejected, and both surfaces converge on the authoritative state.
+- Verify any remaining contract-required Admin/Fuel form recovery and durable retry/idempotency cases on Dexie and Room, including stable operation identity, payload fingerprint and first-submit timestamp.
+- Verify pending Android outbox recovery after process death only where existing assertions do not already prove it.
+- Build a compact same-record golden journey per runtime: create representative records through actual UI boundaries, run dependent production calculations, and carry those same record IDs into the production encrypted backup/restore lifecycle.
+
+**Acceptance gate:** Real UI-created records commit once, are visible from the other required surface, reject stale writes, recover safely after interruption, and remain the same records through calculations and backup/restore.
+
+**Exit evidence:** Named rendered/browser and Android WebView/overlay acceptance tests plus same-record identity and revision assertions.
+
+### Stage 4 — Complete calculation and correction lineage proof
+
+**Purpose:** Prove that the contract's business calculations and permitted correction effects remain correct and reproducible from the same populated source data.
+
+**Work:**
+- Work: previous-end-to-next-start odometer gap remains personal km; only confirmed allocated business km is published; 04:00 deferral, active-trip deferral, retry and duplicate-rotation behaviour remain correct.
+- Maintenance: accrual uses only fully allocated business km and the rate effective on the operational date; preserve immutable source/rate snapshots and exclude personal km.
+- Compliance and EMI: apply the owner-approved Business Start Date aggregate pre-business pool and 18-month recovery rule, with complete EMI amounts and deterministic paise residuals.
+- Finance: prepayment reduces tenure only; regular EMI amount and due dates remain unchanged, while the final instalment date may move earlier; preserve payment, reversal and settlement lineage.
+- Fuel and Business Expenses: derive quantity from amount/price per kg; partial purchases count as spend but not full-tank mileage checkpoints; verify full-to-full mileage and dependent cost calculations.
+- Performance: operating breakeven excludes Traffic Challans; full-cost breakeven includes the contracted expense categories; Driver Target remains a fixed daily rupee amount.
+- Corrections: retain original records and append-only correction provenance; verify only the downstream projections and recalculations required by each owning contract.
+
+**Acceptance gate:** Each required calculation is checked from the populated source records, and the same source revisions produce equivalent outputs and provenance across Browser and Android before and after restore. Do not treat isolated unit tests as proof of the integrated lifecycle.
+
+**Exit evidence:** Named domain, integration and parity tests with explicit input-source IDs/revisions and expected output assertions.
+
+### Stage 5 — Close remaining backup/restore negative, boundary and interruption requirements
+
+**Purpose:** Close only applicable safeguards required by this contract and its referenced owner contracts that are not already proven by existing tests.
+
+**Work:**
+- Invalid/incompatible data is rejected without corrupting the destination.
+- Interrupted restore preserves or recovers the original destination according to the restore contract.
+- Cross-feature references and participant ownership are validated.
+- Pending workflow/outbox records survive restore/recovery without duplicate business effects.
+- Required consistent-snapshot and participant-inventory behaviour is asserted, including zero-record participants and exclusions, where required by the backup contract.
+- Portable manifest, schema-version and validator-parity assertions are included only where normative contract clauses require them.
+
+**Acceptance gate:** Every applicable negative, boundary and interruption requirement has a named passing assertion. Failed restore leaves a valid, recoverable destination. Existing rollback, dangling-reference, idempotency and recovery tests are reused where they already prove the requirement.
+
+**Exit evidence:** Requirement-to-test mapping and passing negative/boundary/recovery test results. Do not add generic stress, arbitrary size caps or unrelated performance testing.
+
+### Stage 6 — Whole-contract evidence reconciliation and final acceptance
+
+**Purpose:** Establish completion against the whole contract, not merely completion of the six execution stages.
+
+**Work:**
+- Map every applicable normative requirement in this contract and referenced owner contracts to implementation and exact evidence.
+- Reconcile the implementation evidence matrix, repository-wide gap register, this plan and the PR description; supersede stale findings without deleting valid historical context.
+- Classify each item accurately as proven, incomplete, or an explicitly owner-accepted scoped deferral. Keep physical OEM certification, full OS reboot where not deterministic in CI, and real Dropbox account delivery as external/manual gates unless actually executed.
+- Verify every critical item has named assertions and exact evidence; distinguish source inspection from passing runtime tests.
+- Run required CI after all final implementation and documentation changes and record the exact final head SHA, run URL and required job outcomes.
+- Verify PR #99 remains open, draft and unmerged unless the owner separately authorizes merge.
+
+**Acceptance gate:** All eight whole-contract conditions in §1A of the end-to-end contract are satisfied. No applicable critical requirement remains open, partial or unproven. Required CI is green on the exact final PR head. External/manual gates are disclosed accurately and are not falsely marked passed.
+
+**Exit evidence:** Completed requirement/evidence matrix, reconciled gap register, exact-final-head CI record, external-gate disposition and verified PR metadata.
+
+## 3. Run discipline and change control
+
+For each stage, use this exact sequence:
+
+1. **Inspect:** Read the relevant normative clauses, current implementation and existing tests at the current PR head.
+2. **Gap list:** Identify only the missing contract-required assertions or implementation. Cite existing evidence for items already proven.
+3. **Focused implementation:** Change only files needed to close that stage. Do not start later stages in parallel.
+4. **Targeted verification:** Run the narrow tests first; fix failures before proceeding.
+5. **Required CI:** Run the applicable PR checks and inspect job-level outcomes on the resulting head.
+6. **Evidence update:** Record exact test names/assertions, commit SHA, run URL and any limitations in the evidence matrix/gap register.
+7. **Stage gate:** Advance only after the stage's acceptance gate is met.
+
+If a test fails, remain in the active stage, diagnose and fix it, and rerun. If existing tests already prove a requirement, record them instead of duplicating them. If an apparent gap is ambiguous, inspect the owning contract before changing code. Any item outside the existing PR #99 contract is excluded unless the owner explicitly changes scope.
+
+## 4. Explicit exclusions
+
+This plan does not authorize:
+- Multi-vehicle, multi-driver or fleet workflows.
+- New product features or unrelated UI redesign.
+- Broad architecture refactors unrelated to a normative PR #99 requirement.
+- Duplicate tests or generic stress/performance programmes not required by contract.
+- Treating a green stage CI run as whole-contract completion.
+- Merging or closing PR #99 before whole-contract acceptance and explicit owner authorization.
+
+## 5. Current status — reconciled 2026-11-25
+
+- Original four-stage closeout tracker: **COMPLETE** (subordinate only).
+- Stage 1 — shared populated semantic fixture: **COMPLETE — EVIDENCED**. The 46-record shared fixture contains Finance payment/reversal/prepayment/revised-schedule/settlement/closed-loan lineage, linked records across the applicable domains, correction chains, Work recovery states and zero-record participant policy. Inventory, calculation and validator-parity evidence is recorded in the Stage 1 revalidation checkpoint and implementation evidence matrix.
+- Stage 2 — production Browser/Dexie and Android/Room lifecycle: **COMPLETE — EVIDENCED**. The populated graph passes production encrypted export/restore/reopen/recovery/re-export in both runtimes and both cross-runtime import directions, with normalized source records, participant ownership, pending Work/outbox state, correction lineage and calculation/provenance comparisons.
+- Stage 3 — UI-originated lifecycle and cross-surface parity: **COMPLETE — EVIDENCED** on head `289d06255fa4d7bf80e5b53217a6cdf8aab5c560`; required CI [4398](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45478433937) passed Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate. The Stage 3 revalidation addendum records Admin/Fuel post-commit recovery, same-record PWA/Android golden journeys and two-way overlay workflow parity.
+- Stage 4 — calculation and correction lineage: **ACCEPTED** on exact head `f7b49970728a3991623c398f32630498a9f6cd58`; required CI [#45501365286](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45501365286) passed Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate. The integrated populated-fixture runner proves Performance/full-cost composition, Traffic Challan classification, fixed Driver Target, corrected Compliance recovery-pool lineage and complete calculation/provenance parity before and after restore.
+- Stage 5 — backup/restore negative, boundary and interruption proof: **ACCEPTED** on exact PR head ae59d7a77e079f31c9e14048c6dffbd0efb680ff; required CI [#45514874954](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45514874954) passed Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate on that exact SHA. Optional Production geocoder verification was skipped. The requirement-to-test map is in evidence matrix §9.51.
+- Stage 6 — whole-contract reconciliation and final acceptance: **ACTIVE — AUDIT IN PROGRESS; WHOLE-CONTRACT ACCEPTANCE BLOCKED**. The initial §1A audit identified unresolved entry-path, edit/correction, operating-configuration, provenance/deletion and external/manual requirements. See the Stage 6 checkpoint appended below and evidence matrix §9.52.
+- Whole-contract status: **INCOMPLETE**.
+- PR #99: **OPEN · DRAFT · UNMERGED**.
+
+Stages 1–5 have passed their scoped acceptance gates. Stage 6 is now active and is auditing the complete §1A definition of done. The whole contract remains INCOMPLETE until all critical gaps are closed or explicitly owner-accepted and final exact-head CI plus PR metadata checks pass.
+
+### Stage 6 reconciliation checkpoint — 2026-11-23
+
+The reconciliation baseline was PR head `34e01756922985ecfb1ba69a2b438d884efe7d8b`, with successful required CI run [45154128872](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45154128872). That run is not evidence for later documentation commits. The required final-head run remains pending.
+
+The Stage 6 audit found that the six-stage status had not been maintained in this plan and that the Stage 5 completion statement had not been accompanied by a complete exit-evidence mapping. The evidence matrix now records the exact limitation: the populated graph does not include Finance prepayment/settlement transaction lineage; the cross-surface PWA/overlay stale-write proof remains open; and backup exclusion, zero-record participant and snapshot-boundary assertions still need requirement-level reconciliation.
+
+**Stage 6 is not accepted as complete.** The §1A gate remains blocked by the unmet Stage 1–5 acceptance requirements. Return to Stage 1 and complete its fixture/validator gate before claiming Stage 2–5 completion. Retain physical OEM/device certification, full OS reboot where nondeterministic, live Dropbox account delivery and final owner visual approval as external/manual gates; do not imply they passed CI.
+
+
+### Stage 1 and Stage 2 evidence revalidation — 2026-11-23
+
+**Evidence head:** `e45823f09675ff4c8b8eceffad0e00faed68cbc2`; required CI [45165851554](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45165851554) completed successfully on that exact SHA. This revalidation supersedes the earlier Stage 6 audit's stale 29-record fixture assertion. The actual shared fixture at that head is `fixtures/semantic-backup-lifecycle-v1.json`, with `recordCount: 46` and 46 actual records.
+
+**Stage 1 — COMPLETE:** `tests/semantic-backup-lifecycle-fixture.test.ts` (6 passing tests), `tests/semantic-backup-lifecycle-fixture-inventory.test.ts` (3), `tests/semantic-backup-lifecycle-fixture-calculations.test.ts` (1), and `tests/semantic-backup-lifecycle-fixture-validator-parity.test.ts` (2) passed. The inventory verifies Finance payment → reversal/replacement → prepayment reduce-tenure revision → settlement on schedule version 2 → closed-loan state; Compliance renewal generations and superseding overlap review; effective-dated Maintenance rates and accrual source revisions; Fuel full/partial/full checkpoints and corrections; expenses and trip closeout references; Work intents/outbox/boundary states; correction-chain heads; and the registered zero-record participant policy. Browser validator parity accepts the valid graph and rejects the fixture's malformed, dangling, wrong-owner, broken-correction-head, malformed-revision and duplicate-identity mutations. Android's corresponding production validator matrix and Room lifecycle test also passed in the same run.
+
+**Stage 2 — COMPLETE:** `tests/semantic-backup-lifecycle-fixture.test.ts` exercises production Browser/Dexie export, encrypted restore, verification, database reopen, startup recovery and re-export using the populated graph and checks restored calculation/provenance. Android `SharedSevenDomainBackupLifecycleTest.sharedSevenDomainFixtureSurvivesProductionRoomRestoreReopenAndReexport` imports the TypeScript-produced encrypted package through the production Room coordinator, verifies canonical records, participants and source lineage after restore/reopen, runs the production calculation bundle over Room-read records, and publishes an Android-produced package. `tests/android-produced-backup-restore.test.ts` restores that Android-produced package through the production Browser/Dexie path and compares normalized canonical state after reopen/re-export. The exact-head workflow's Android and cross-platform encrypted-restore jobs passed.
+
+**Stage 3 remains active:** The direct two-way PWA/Android overlay workflow visibility and stale-write interleaving are not proven by the fixture or restore tests. Stage 4 and Stage 5 remain separate acceptance gates; the passing Stage 2 calculation assertions do not waive their broader requirements.
+
+**Head discipline:** run 45165851554 validates only `e45823f09675ff4c8b8eceffad0e00faed68cbc2`. The evidence/documentation update itself requires a new exact-head CI run before this revalidation checkpoint is treated as current-head green.
+
+
+### Stage 3 evidence revalidation — cross-surface Driver Workflow — 2026-11-23
+
+**Status: PARTIAL — one previously listed blocker is now closed; the Stage 3 acceptance gate remains open.**
+
+The earlier Stage 3 wording that described direct PWA ↔ overlay event/state/revision visibility and stale-write convergence as missing was stale. The current branch contains and the required Android instrumentation suite executes:
+
+- `DriverWorkflowCrossSurfaceEventParityTest.pwaCommittedTripCreationRefreshesOverlayAndOverlayRideStartRefreshesPWA` (`android/app/src/androidTest/java/in/samtravels/app/DriverWorkflowCrossSurfaceEventParityTest.kt`).
+  - Starts from a rendered PWA Drive workspace and a shared Room-backed overlay fixture.
+  - Commits a PWA-originated `trip_create` through the real Capacitor DriverWorkflow plugin; asserts the PWA renders “Going To Pickup”, Room state is `going_to_pickup` at revision 2, and the overlay refreshes to the same committed state/revision.
+  - Performs the overlay’s real “Swipe to Start trip” action, completes its GPS-backed `start_ride` command, and asserts Room advances once to `trip_active` revision 3 with the event origins preserved (`pwa`, then `native_overlay`).
+  - Asserts the PWA observes the overlay’s committed “Trip Active” state.
+  - Submits a stale PWA `start_ride` command based on `going_to_pickup` revision 2 after the overlay committed revision 3; asserts rejection, no additional durable intent/event, authoritative Room revision remains 3, and PWA remains converged.
+- `DriverWorkflowStaleWriteInterleavingTest.stalePwaWriteAfterOverlayCommitIsRejectedAndAuthoritativeRevisionWins` provides a narrower deterministic Room-store interleaving assertion; it is supplementary, not a substitute for the rendered cross-surface test.
+- `DriverWorkflowProcessRestartTest.preparePendingWorkflowForProcessRestart` / `recoverPendingWorkflowAfterProcessRestart` separately exercise pending intent durability, startup recovery, completion and replay idempotency across forced target/instrumentation process stops.
+- The exact-head CI run [45168382085](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45168382085) passed the Android job, including the required instrumentation gate. Its workflow excludes only the explicitly invoked special-case instrumentation classes from the broad suite; the cross-surface parity class remains in that suite.
+
+**Still required for Stage 3 acceptance:** a same-record golden journey for each authoritative runtime. Records must be created through actual supported UI/action boundaries, their dependent production calculations must be evaluated from those committed records, and the same stable record IDs/revisions must then be exported/restored through the production encrypted backup lifecycle and asserted after reopen/recovery. Existing rendered Work, Admin, Fuel, Performance and BackupPanel acceptances run as separate scripts/contexts and therefore do not yet establish this continuous identity chain. Also reconcile the precise Admin/Fuel draft recovery and durable retry/idempotency clauses against existing Dexie and Room assertions before claiming them complete.
+
+Do not mark Stage 3 complete based on the cross-surface test alone. Stages 4–6 remain unaccepted and the whole contract remains INCOMPLETE.
+
+
+### Stage 3 evidence reconciliation — 2026-11-23 (green CI does not close the gate)
+
+**Latest tested implementation head:** `c303557199b47ddafc8a15ad92c1642b1f84fc70`. Required CI run [45222283438](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45222283438) passed on that exact SHA: Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate. Optional Production geocoder verification was skipped. The evidence-matrix reconciliation is recorded in `docs/PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md`.
+
+**Covered by named passing assertions:**
+- Durable shared-form submission primitives are implemented: `SharedFormRuntime` persists pending intent with operation ID, payload fingerprint and submittedAt before dispatch; the business-expense adapter passes these values to the feature service; `FeatureRecordService` atomically stores the business record and operation receipt and replays the original result for matching identity. Component tests cover pending-intent recreation, concurrent taps, changed-payload rejection, create/update receipt replay, and Android Room atomic receipt persistence/reopen with original timestamp.
+- PWA Fuel working-copy draft persists and visibly resumes after page reload; full and partial purchases are committed offline and read back from IndexedDB. This is draft-recovery coverage, not process-death retry of a submission whose business record committed but whose working-copy completion did not.
+- PWA Admin/Performance rendered submissions and Performance dashboard/provenance rendering are covered, but not as one continuous same-record encrypted backup/restore journey.
+- Android `AdminEntryPathAuditCapacitorAcceptanceTest` and `Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore` now carry rendered Admin-created Vehicle/Fuel and dependent record IDs through Performance refresh and production encrypted Room restore; removed identities are restored and canonical record equality is asserted. The helper does not yet assert a captured calculation output/provenance fingerprint tied to those exact UI-created sources before and after restore.
+- The rendered PWA↔Android overlay stale-write interleaving and two-way committed workflow state/revision convergence are covered by `DriverWorkflowCrossSurfaceEventParityTest.pwaCommittedTripCreationRefreshesOverlayAndOverlayRideStartRefreshesPWA`.
+- Android pending Work outbox process-restart/replay recovery is covered by `DriverWorkflowProcessRestartTest.preparePendingWorkflowForProcessRestart` and `recoverPendingWorkflowAfterProcessRestart`; this does not establish shared Admin/Fuel form-submit retry semantics.
+
+**Acceptance blockers still open:**
+1. The durable shared-form protocol primitives and their component-level tests exist, but there is no integrated fault-injection test for the critical boundary after the feature record+receipt atomic commit succeeds and before the working-copy completion marker is written. Add one connected `SharedFormRuntime → form handler → FeatureRecordService → durable working-copy repository` retry test that recreates the runtime, replays the same operation and proves the original record/receipt, revision and first-submit timestamp are returned exactly once; conflicting payload reuse must fail closed. Prove representative Admin and Fuel cases on Browser/Dexie and Android/Room.
+2. The PWA golden journey remains split across independent scripts/browser contexts. No one lifecycle creates representative records through the rendered PWA, calculates from those exact committed record IDs, then uses production encrypted backup/restore/reopen and asserts those same identities and calculation provenance.
+3. Android same-record identity survives encrypted restore, but calculation output/provenance linked to the exact UI-created source IDs is not captured and compared across the restore boundary.
+4. Android WebView/Room Fuel draft recovery is not established by the current UI test. The Room receipt test proves atomic persistence and reopen, but not the full rendered form/runtime retry after a post-commit interruption.
+
+**Stage disposition: ACTIVE — NOT ACCEPTED.** The above are explicit contract-required proof gaps. Complete the durable shared-form submit/retry protocol and tests, the PWA same-record golden journey, and Android calculation/provenance assertions. Then rerun required CI on the exact resulting PR head and reconcile the evidence matrix before advancing to Stage 4. Do not close Stage 3 or start Stage 4 merely because run 45222283438 is green.
+
+
+### Stage 3 evidence revalidation — same-record lifecycle and submit recovery — 2026-11-25
+
+**Disposition on implementation head `098bc5624f5004137f564a4e3c906cdbb54463a5`: acceptance assertions are now present and passed in required CI run [4396](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45475014220).** This supersedes the 2026-11-23 Stage 3 blocker list above, which predates the integrated recovery and golden-journey assertions. The evidence-reconciliation documentation commit requires a fresh exact-head CI run before Stage 3 is formally closed.
+
+**Admin/Fuel post-commit recovery — Browser/Dexie:**
+- `tests/shared-form-dexie-recovery.test.ts` — `reopens and replays an Admin Vehicle create after the feature commit`, `reopens and replays an Admin Vehicle update without applying revision twice`, `reopens and replays Fuel purchase submission using the same Dexie operation receipt`, and `reopens and replays an Admin Platform Fee create after the Dexie feature commit but before working-copy completion`.
+- These inject failure at the working-copy completion write after the authoritative feature record/receipt commit, close and reopen the same Dexie database, recreate the runtime/handler, replay the pending operation, and assert one record/receipt, unchanged revision/envelope and original submission timestamp where applicable. Existing `shared-form-runtime-recovery.test.ts` and `feature-record-service.test.ts` retain the stable operation identity, payload fingerprint, changed-payload fail-closed and receipt replay assertions.
+
+**Admin/Fuel post-commit recovery — Android/Room:**
+- `AdminEntryPathAuditCapacitorAcceptanceTest` invokes `Stage3AdminFuelRecoveryAcceptance.recoverAdminAndFuel`.
+- `AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery` arms the Room working-copy completion fault, proves the Platform Fee record and receipt committed once, recreates the Activity/WebView, recovers the pending Admin form and replays the original receipt; it asserts one unchanged record, one receipt and a completed working copy.
+- `AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery` first proves a draft survives Activity/WebView recreation without submission, then injects the post-commit completion failure, recreates the Activity/WebView, replays the pending Fuel operation and asserts one unchanged Fuel record, one receipt, preserved first-submit timestamp and completed working copy.
+
+**Same-record PWA journey:**
+- CI runs `scripts/fuel-entry-browser-acceptance.mjs`, which invokes `assertBrowserWorkDistanceThroughUi` and `assertBrowserFuelPerformanceAndBackupJourney` from `scripts/stage3-browser-golden-journey.mjs`.
+- `assertBrowserStage3GoldenJourney` captures the rendered production Performance dashboard and provenance, snapshots the actual UI-created source IDs/revisions/schema/payload, creates a production v2 encrypted Browser backup, removes a UI-created record, restores through `restoreBackupForCurrentRuntime`, and asserts canonical source-record equality and identity restoration. It refreshes Performance and asserts the dashboard output and provenance are unchanged. The enclosing journey additionally checks the UI-created Fuel purchases are the expected calculation sources and that the opening full-tank baseline is not incorrectly treated as interval spend.
+
+**Same-record Android journey:**
+- `AdminEntryPathAuditCapacitorAcceptanceTest` invokes `Stage3AdminFuelRecoveryAcceptance.assertPerformanceAndRestore`, which delegates to `Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore`.
+- The rendered Android WebView Performance screen is refreshed from the UI-created Vehicle/Fuel/Admin expense records. The test captures dashboard plus provenance, asserts a calculation ID and the exact Fuel/Admin source IDs, creates the v2 encrypted package from the Room snapshot, removes the UI-created Vehicle and dependent records, and restores through `NativeBackupRestoreCoordinator.restoreEncrypted` (the coordinator used by the production BackupPlugin restore path). It compares canonical records, asserts the same IDs are restored, refreshes the rendered Performance calculation and requires the complete dashboard/provenance snapshot to equal the pre-restore snapshot.
+
+**Cross-surface workflow parity remains covered:** `DriverWorkflowCrossSurfaceEventParityTest.pwaCommittedTripCreationRefreshesOverlayAndOverlayRideStartRefreshesPWA` proves PWA/overlay event, state and revision convergence and stale-write rejection; `DriverWorkflowProcessRestartTest.preparePendingWorkflowForProcessRestart` / `recoverPendingWorkflowAfterProcessRestart` proves pending Work outbox recovery and replay idempotency.
+
+**Exact-head CI evidence:** run [4396](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45475014220) passed Architecture, Web (including rendered PWA golden journey), Android (including Admin/Fuel recovery and Android same-record journey), Cross-platform encrypted backup restore and Integrated regression gate on the SHA above. Optional Production geocoder verification was skipped. No physical OEM certification, full OS reboot certification or live Dropbox account delivery is claimed by this CI run.
+
+**Stage 3 gate:** the previously open Admin/Fuel recovery, same-record PWA journey and Android calculation/provenance comparison now have named production-path assertions. Stage 3 may be marked COMPLETE only after required CI passes on the exact documentation-reconciled PR head. Stages 4, 5 and 6 remain separate sequential acceptance gates; whole-contract status remains INCOMPLETE.
+
+
+### Stage 4 audit and evidence checkpoint — 2026-11-25
+
+**Stage 3 exit:** Stage 3 is accepted on exact head `289d06255fa4d7bf80e5b53217a6cdf8aab5c560`, required CI run [4398](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45478433937). PR #99 remains open, draft and unmerged.
+
+**Stage 4 integrated work completed on the current branch (final exact-head CI pending):**
+- `tests/helpers/semantic-fixture-calculation-parity.ts` runs owning production domain calculators over records read from the platform repository: Fuel full-to-full intervals/rate history and daily expense totals; Maintenance daily accruals from fully allocated Work km and effective-dated rate history; Finance original and prepayment reamortization schedules; corrected Compliance daily allocation; Work daily business/personal/unallocated boundary rows; and source/correction provenance.
+- `tests/semantic-backup-lifecycle-fixture.test.ts` calculates before Browser/Dexie encrypted export and again after production restore, close/reopen and recovery; the complete returned calculation/provenance object is compared exactly.
+- Android `SharedSevenDomainBackupLifecycleTest.sharedSevenDomainFixtureSurvivesProductionRoomRestoreReopenAndReexport` runs the same compiled production calculation bundle against Room-read records before backup and after production encrypted restore, close/reopen and recovery; the complete returned calculation/provenance object is compared exactly.
+- The runner applies the fixture's valid Fuel and Compliance correction chains to the owning calculations. It also calls `createMaintenanceExpenseCorrectionAdapter` / `projectMaintenanceExpenseRecords` and asserts the corrected Maintenance expense value, chain revision and correction-record references while preserving the original expense record.
+- `tests/helpers/assert-restored-domain-calculation-parity.ts` asserts the fixture's exact Work allocation rows, corrected Compliance amount, Maintenance correction projection, Maintenance accruals, Fuel cost history, Finance prepayment schedule and provenance resolution.
+
+**Existing domain/application tests reused:** Work `driver-workflow-v2.test.ts` (04:00 operational date, active-trip deferral, odometer chaining/rollback, one-time rotation); Maintenance `maintenance-service.test.ts` (effective-date rate, fully allocated-only accrual, 04:00 completion and boundary withholding); Business Start Date `business-start-date-cost-allocation-service.test.ts` (corrected Compliance premium, correction references, EMI schedule, settlement cutoff and deterministic provenance); Finance `finance-loan-prepayment-service.test.ts` (fixed EMI/reduced tenure, earlier final due date, due-EMI guard and concurrency); Fuel/expenses `business-expenses-calculations.test.ts` (full/partial/full checkpoints, incomplete interval, weighted rate, paid challan/platform fee and reversal); Full-cost `full-cost-breakeven-service.test.ts` (per-vehicle fuel/maintenance/dated costs/annual allocation and withheld unallocated distance); Performance `performance-calculation-service.test.ts` (18-month pre-business pool, snapshot consistency, corrected trip revenue, revisioned fixed Driver Target).
+
+**Only remaining Stage 4 evidence gaps identified:**
+1. The shared 46-record calculation bundle does not yet invoke the production `PerformanceCalculationServiceV1` / `FullCostBreakevenService` composition on that same graph. The current full fixture proves its source-domain calculations, while the Performance service and full-cost service assertions use separate focused fixtures. Add one integrated same-source assertion for operating breakeven (Traffic Challans excluded), full-cost breakeven (Traffic Challans included), and the fixed daily Driver Target; capture exact source IDs/revisions and compare the complete Performance result/provenance before and after Browser and Android restore.
+2. The populated fixture's Compliance correction is applied to daily Compliance calculation, and focused allocation tests prove correction references and a corrected-premium pool input separately. Still join that exact historical correction chain to the production Business Start Date allocation and Performance recovery pool on the same populated graph, asserting the corrected source amount is counted once, the original remains immutable, and the correction refs survive restore.
+3. No additional Work retry assertion is currently outstanding: `driver-workflow-v2.test.ts` covers active-trip 04:00 deferral and one-time rotation; `maintenance-service.test.ts` proves completed-boundary accrual and idempotent replay, while the populated runner proves the still-pending contribution remains unallocated and is withheld from accrual.
+
+**Stage 4 disposition: ACTIVE — NOT ACCEPTED.** These are the remaining contract-specific integrated assertions, not a request for generic stress tests or a broad rewrite. Close them, update the evidence matrix with exact test names/assertions, then run all required CI on the exact resulting PR head. Only after that may Stage 4 be accepted and Stage 5 begin.
+
+
+### Stage 4 integrated calculation closure — 2026-11-25 (exact-head CI gate)
+
+The two Stage 4 implementation gaps identified in the preceding checkpoint now have integrated assertions in the shared calculation bundle. The exact resulting PR head must still pass every required CI job before Stage 4 is accepted.
+
+- tests/helpers/semantic-fixture-calculation-parity.ts now composes the production FullCostBreakevenService and createPerformanceCalculationServiceV1 over the populated fixture's repository-read Work, Maintenance, Fuel, business-expense, Finance, Performance and trip-financial records. It returns the full-cost daily/period output and provenance plus the complete Performance period, daily rows, recovery rows, target snapshot, completeness and source provenance.
+- The same runner asserts that the normal operating expense classification excludes paid Traffic Challans while the full-cost classification and production full-cost breakeven include them. The populated fixture's paid challan is included; the unpaid challan remains an unrecognized obligation. It also asserts the revisioned Admin Driver Target is consumed by Performance.
+- The exact Compliance source feature:compliance:123e4567-e89b-42d3-a456-426614174010 is projected through its stored compliance-fix-1 correction chain into the production BusinessStartDateCostAllocationService pre-business pool. The original record remains at 365000 paise; the corrected allocation is 366000 paise and is allocated once over the 18-month recovery window from the Business Start Date. The separate renewal/overlap chain remains in the populated graph; this focused recovery assertion isolates the corrected historical source, while the existing Compliance overlap tests continue to cover withholding decisions.
+- PerformanceFixedCostAllocationAdapterV1 now carries the allocation report's correction references into the pre-business recovery input. The recovery daily rows, Performance provenance and passbook source references preserve those append-only correction identities instead of retaining only the immutable Compliance source ID/revision.
+- tests/helpers/assert-restored-domain-calculation-parity.ts asserts the challan classification, full-cost and Performance outputs, fixed target, corrected Compliance pool amount, immutable original source and correction references. tests/performance-calculation-service.test.ts also checks recovery-row and Performance provenance references.
+- Browser/Dexie tests/semantic-backup-lifecycle-fixture.test.ts and Android/Room SharedSevenDomainBackupLifecycleTest.sharedSevenDomainFixtureSurvivesProductionRoomRestoreReopenAndReexport execute the same compiled bundle before backup and after production encrypted restore, reopen and recovery, then compare the complete returned calculation/provenance object.
+
+**Stage 4 disposition:** IMPLEMENTATION/EVIDENCE COMPLETE — PENDING REQUIRED CI ON THE EXACT RESULTING HEAD. Stage 4 is accepted only if Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate all pass on that same head. Stage 5 has not started and must remain gated until that exact-head CI result is green.
+
+
+### Stage 5 negative, boundary and interruption evidence — 2026-11-25
+
+**Scope:** This checkpoint closes only Stage 5 requirements already stated in the end-to-end contract and referenced owner contracts. Existing tests are reused where they already prove a clause; no generic stress programme, unrelated product change or additional feature scope is introduced.
+
+| Contract requirement | Browser/Dexie evidence | Android/Room evidence |
+|---|---|---|
+| Malformed, truncated and unauthenticated encrypted packages are rejected before restore mutation | `tests/backup-crypto.test.ts`, test `rejects malformed and truncated serialized packages before restore`: malformed JSON, truncated serialized bytes, invalid UTF-8, missing payload envelope and authenticated rejection of truncated ciphertext. | `NativeBackupV2PackageTest.rejectsMalformedAndTruncatedEncryptedPackagesBeforeRestore`: malformed JSON, missing payload, truncated ciphertext and invalid-length nonce rejection. Existing tamper/wrong-key assertions remain in `NativeBackupV2PackageTest.nativeDecryptsSharedRecoveryOnlyPackageAndRejectsTampering`. |
+| Pending Work intent survives encrypted restore/reopen and replay commits one business effect | `tests/stage5-work-outbox-encrypted-restore.test.ts`, test `restores a pending intent, commits it once, and replays the outbox once`: production v2 encrypted backup and restore, checkpoint verification, database close/reopen, startup pending-intent completion, one event, one outbox row, durable acknowledgement and eventId-deduplicated integration effect after service recreation/replay. | `NativeBackupWorkRestoreReplayTest.pendingWorkIntentSurvivesEncryptedRestoreAndCreatesOneEventAndOutboxEffect`: Room production encrypted restore coordinator, checkpoint verification, Room close/reopen/startup recovery, pending intent reactivation/completion and duplicate completion; asserts one Log Book event and one outbox row for the pending command, then replays/acknowledges by eventId and proves exactly one consumer effect. |
+| Snapshot and manifest represent one committed multi-table boundary under concurrent writes | `tests/backup-snapshot-consistency.test.ts`, test `captures all tables from one committed boundary while a writer updates both`: a concurrent writer changes the record and driver-state tables while export is held inside its read transaction; snapshot contains the before-state for both and the database contains the after-state. | `NativeBackupSnapshotConsistencyTest.snapshotAndManifestShareOneRoomTransactionBoundaryDuringConcurrentWrite`: Room writer is blocked by the snapshot transaction; the package contains the before-state of both platform record and Log Book event while Room contains the committed after-state. |
+| Local identity, credentials and recovery material are excluded from portable exports | `tests/backup-exclusions.test.ts`, test `excludes local credentials, diagnostics, recovery material and non-portable person identity from portable snapshots`; Work selected-driver state required for portable operational restore is retained. | `NativeBackupExclusionTest.portableSnapshotExcludesRoomLocalIdentityAndRestoreRecoveryRows`; Android-local person/driver-link bindings and recovery rows are excluded/preserved according to the Room restore contract. |
+| Zero-record participants and participant ownership are handled deterministically | `tests/semantic-backup-lifecycle-fixture-inventory.test.ts` validates the declared zero-record participant policy; `tests/backup-snapshot.test.ts` covers participant manifest, owner and snapshot-version drift and fail-closed unregistered records. | `SharedSemanticBackupFixtureTest.emptyRegisteredParticipantsAreAcceptedAndUnknownOwnersAreRejected` and `restoringEmptyParticipantsClearsTheirPreviouslyStoredRows`; `NativeBackupCoverageTest.rejectsUnknownParticipantAndDuplicateRows` and participant-manifest/version tests. |
+| Record/package count boundaries are enforced before mutation | `tests/backup-limits.test.ts` and `tests/backup-crypto.test.ts` cover inclusive limits, first-record-over rejection and package byte bounds. | `BackupPackageLimitsTest` and `NativeBackupRecordLimitAcceptanceTest.productionSnapshotBuilderRejectsOverLimitExport` / `productionRestoreRejectsRawRecordCountBeforeValidationOrCheckpoint`. |
+| Dangling references, malformed rows and participant mismatch are rejected without damaging destination | `tests/backup-invalid-reference-restore.test.ts`, `tests/backup-restore-failure-recovery.test.ts` and `tests/backup-snapshot.test.ts` cover authenticated dangling-reference rejection before checkpoint, malformed-row rejection, participant mismatch and clean rollback. | `NativeBackupRestoreCoordinatorTest.driverAssignmentWithDanglingVehicleIsRejectedBeforeRestoreMutation`, `rejectsDanglingVehicleReferencesAcrossComplianceMaintenanceAndBusinessExpenses`, and `NativeBackupCoverageTest` ownership/duplicate/unknown-owner rejection assertions. |
+| Interrupted replacement and startup recovery preserve the pre-restore destination | `tests/backup-restore-failure-recovery.test.ts` covers interrupted table replacement and recovery to the pre-restore snapshot; `tests/backup-snapshot.test.ts` covers retained checkpoint verification and rollback. | `BackupRestoreTransactionFailureTest.injectedFailureDuringReplacementRollsBackTheRoomTransaction`, `preRestoreCheckpointSurvivesRoomRestartAndRestoresAuthoritativeRecords`, and `NativeBackupRestoreCoordinatorTest.productionRestoreReopenRecoveryAndReexportPreservePreRestoreGraph`. |
+
+**Stage 5 implementation-head CI:** [Run #45512816930](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45512816930) passed on exact implementation head `d13a2862e2fd41e822d0781ce10b5eba81080252`: Architecture, Web (including rendered PWA acceptance), Android (including the required Room/workflow/backup reliability instrumentation gate), Cross-platform encrypted backup restore and Integrated regression gate. Optional Production geocoder verification was skipped. This run validates the Stage 5 implementation and tests; it does not validate the documentation commit being made now.
+
+**Stage 5 disposition:** Implementation and requirement-to-test evidence are complete. Formal Stage 5 acceptance on the final PR head is conditional on all required jobs passing on the documentation-updated exact head. PR #99 remains open, draft and unmerged. Stage 6 and whole-contract acceptance remain separate and are not claimed here.
+
+
+### Stage 6 whole-contract audit — 2026-11-25
+
+**Stage 5 — ACCEPTED.** Exact PR head: ae59d7a77e079f31c9e14048c6dffbd0efb680ff. Required workflow [Sam Travels CI run #45514874954](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45514874954) completed successfully on this exact SHA. All five required jobs passed: Architecture, Web, Android, Cross-platform encrypted backup restore, and Integrated regression gate. Optional Production geocoder verification was skipped and is not a required PR gate. Stage 5 assertions are mapped in evidence matrix §9.51.
+
+**Stage 6 disposition: ACTIVE — NOT ACCEPTED.** The audit is against the authoritative eight conditions in contract §1A, not merely the six stage labels.
+
+**Initial requirement-level findings (to be closed or explicitly owner-accepted):**
+1. **Entry-path coverage — PARTIAL:** Rendered PWA/Android acceptance covers principal Admin/Fuel/Work flows and Stage 3 same-record golden journeys. Still open: Fuel amount/price correction UI and downstream recalculation; trip/fare correction and missing-trip insertion with linked fare/toll/parking; Maintenance correction propagation into actual-expense/service read models; Compliance correction/renewal readback and immediate consumer refresh across supported surfaces; remaining form-definition/handler/accessibility conformance.
+2. **Operating configuration — PARTIAL:** The canonical one-Vehicle/one-Driver resolver and Compliance vehicle-only binding exist. The matrix still records incomplete end-to-end dependent-workflow binding for Fuel, Maintenance, Finance, Business Expenses and Performance, plus stale-configuration revision/no-write parity. Do not infer full §3.0.1 compliance from resolver unit tests or the Compliance slice.
+3. **Authority, provenance and mutation controls — PARTIAL:** Finance actor attribution is closed by Stage 1 evidence. The broader audit still requires explicit coverage of actor/update provenance where owner contracts require it, all production historical-delete call sites and legacy deletedAt compatibility, and domain-by-domain correction permissions and downstream recalculation.
+4. **Cross-runtime semantic/calculation lifecycle — SCOPED CORE PROVEN; ALL ENTRY-PATH DATA NOT PROVEN:** The 46-record fixture and same-record PWA/Android golden journeys prove the recorded source graph and calculations through production restore. This does not establish that every still-open edit/correction entry path can create the same source lineage on both platforms.
+5. **Negative/boundary/interruption proof — ACCEPTED FOR STAGE 5:** See §9.51 and the exact-head Stage 5 CI record above. Do not reopen mapped Stage 5 requirements absent a concrete regression or uncovered normative clause.
+6. **Evidence reconciliation — IN PROGRESS:** Historical audit statements remain preserved, but superseding status must be consistent across the plan, evidence matrix, gap register, contract closeout and PR description.
+7. **Exact-head CI — PASS AT THIS CHECKPOINT:** Run #45514874954 passed all five required jobs on ae59d7a77e079f31c9e14048c6dffbd0efb680ff. Any subsequent documentation change creates a new head and requires another complete required CI run.
+8. **PR metadata — VERIFIED:** PR #99 is open, draft and unmerged. No merge/close authorization is implied.
+
+**Open implementation/test work to track next:** (a) Fuel, trip/fare and Maintenance edit/correction paths plus immediate downstream recomputation; (b) Compliance correction/renewal cross-surface readback and immediate-consumer refresh; (c) dependent vehicle-context binding and stale-revision fail-closed parity; (d) historical deletion/actor/update provenance audit; (e) remaining form-definition/handler and accessibility conformance; (f) any event-specific GPS/device-readiness acceptance still required by the owning device/workflow contracts. These are not closed by Stage 5 backup tests.
+
+**External/manual or repository-administration gates (not CI passes):** physical OEM/device certification and owner usability approval; full OS reboot persistence where not deterministic in CI; live Dropbox account authentication/upload/download/scheduled-backup/restore; final owner visual approval; and repository branch-protection/ruleset verification.
+
+**Stage 6 exit rule:** Do not declare whole-contract completion until each applicable critical requirement is supported by named passing implementation evidence or explicitly accepted by the owner as a scoped deferral, the five required CI jobs pass on the exact final documentation/code head, and PR #99 metadata is verified open/draft/unmerged (unless separately authorized).
+
+
+### Stage 6 focused implementation checkpoint — Fuel correction path — 2026-11-25
+
+Stages 1–5 remain closed and accepted; Stage 6 is the only active stage. The first focused Stage 6 slice now has implementation and test changes on this branch:
+
+- apps/web/src/ui/FuelEntryPanel.tsx exposes previously recorded fuel purchases and corrected calculation readback.
+- apps/web/src/ui/FuelPurchaseCorrection.tsx provides append-only amount and price/kg correction, reason capture, correction history, and immediate readback refresh.
+- packages/application/src/business-expenses-service.ts exposes correction history and allows the UI to preserve target/chain revisions across an ambiguous retry.
+- tests/fuel-purchase-correction-presentation.test.tsx and tests/business-expense-correction-retry.test.ts cover the rendered entry point and retry revision contract; corrected price/kg interval recalculation is covered in the latter.
+- Android FuelCorrectionCapacitorAcceptanceTest drives the rendered WebView correction flow against the Room-backed repository and asserts the immutable original, correction chain, actor and refreshed daily read model.
+
+**Disposition: IMPLEMENTATION ADDED — VERIFICATION PENDING.** The Android test and Browser tests are authored but are not accepted evidence until the required CI jobs complete successfully on the final exact head. The slice is not marked closed yet. Continue with this evidence before moving to Stage 6 slice 2 (trip/fare correction and missing-trip entry).
+
+
+### Stage 6 closeout execution checkpoint — 2026-11-26
+
+This checkpoint supersedes the initial Stage 6 gap list where the same requirement is covered by the later implementation/evidence matrix addenda. Stages 1–5 remain accepted. All Stage 6 changes are consolidated on the existing PR #99 branch; earlier standalone slice PRs/runs are historical only and are not the integration or merge plan.
+
+| User-requested sequence item | Work completed on PR #99 | Current disposition |
+|---|---|---|
+| Close historical integrity/provenance audit; add only missing tests | Restricted generic Browser/Dexie and Room hard-delete to transient form working copies; changed failed-Admin bootstrap rollback to a revision-checked tombstone; scoped extension-migration deletes to their feature namespace; added envelope/update-actor, tombstone, identity rollback and migration-boundary regression tests. Existing Finance, Work, Fuel, Maintenance and Compliance actor/correction tests remain the owning evidence. | **IMPLEMENTATION + FOCUSED TESTS ADDED; FINAL CI PENDING** |
+| Close device/GPS/form assertions | Added rendered Android Settings handoff/return/recheck acceptance; pure focus/visibility recheck regression; six-event fresh GPS provider matrix; Android Capacitor bridge six-request/listener-release test; Android overlay-supported transition GPS matrix; Android distinct-fix persistence assertions; full rendered PWA seven-event Work journey; Android Compliance overlap reason→decision→Room persistence; Fuel form no-location-field assertion; strict Select/time definition validation; 390px Admin label/focus/overflow acceptance. | **IMPLEMENTATION + FOCUSED TESTS ADDED; FINAL CI PENDING** |
+| Reconcile the four project records and PR description | Evidence matrix §9.54, this execution-plan checkpoint, the end-to-end contract §1A addendum, architecture gap register §9.53 and the updated PR #99 body now describe the same Stage 6 scope and acceptance status. | **RECONCILED — FINAL EXACT-HEAD REVIEW PENDING** |
+| Run full required CI on final PR #99 head and fix failures | Earlier intermediate runs are not final evidence. A complete required workflow must be run after the last code and documentation commit; failures must be fixed and the workflow repeated on the resulting head. | **PENDING FINAL EXACT-HEAD WORKFLOW** |
+| Verify all eight §1A conditions; preserve draft/unmerged status | The §1A table is reconciled in the end-to-end contract addendum. Owner ratification remains required for the feature-specific Trip Financial correction UX/schema. Dependency advisory classification (§9.35), backup record-count/export boundary (§9.37) and plaintext-size preflight (§9.39) remain open critical contract gaps; external OEM/reboot/Dropbox/visual and branch-protection gates remain explicitly separate. PR #99 must remain open, draft and unmerged. | **WHOLE-CONTRACT ACCEPTANCE PENDING** |
+
+**Execution controls:** no new PRs; no merge; no unrelated feature work; do not reopen accepted Stages 1–5; do not call intermediate CI green for the final head; do not convert external/manual gates into automated passes. Continue only on the existing `docs/repository-foundation-audit-gap-register` branch.
+
+
+### Stage 6 closeout execution checkpoint — 2026-11-27
+
+The owner has explicitly approved the existing append-only Trip Financial correction UX/schema: preserve original fare and linked Work/GPS event; append before/after, reason, target/chain revisions and Admin actor; refresh the current fare projection. This resolves the trip-correction owner-ratification blocker. It does not authorize mutation of Work/GPS/odometer events.
+
+| Remaining gate | Implementation/test action on the existing PR #99 branch | Disposition |
+|---|---|---|
+| Trip Financial correction policy ratification | Explicit owner approval received 2026-11-27; approval recorded in the end-to-end contract and evidence matrix. | **OWNER APPROVED** |
+| Backup record-count export/create/restore boundary | Count raw Room export before canonicalization; validate native package manifest totals before crypto; cap raw Room restore records before snapshot/participant validation; add lower-limit pre-mutation regression. | **IMPLEMENTATION + FOCUSED TESTS ADDED; EXACT-HEAD CI PENDING** |
+| Plaintext-size preflight | Preserve TypeScript preflight; add Android exact UTF-8 byte counting before byte-array allocation and native package preflight; add boundary tests. | **ENFORCEMENT ADDED; PEAK-MEMORY/TIME ACCEPTANCE STILL OPEN** |
+| Dependency advisory classification | Initial audit found 3 dev-only advisories (`@vitest/mocker` moderate, `tinypool` critical, `vitest` critical); production audit found 0. Upgrade Vitest to 5.1.2 and fail Web CI on moderate-or-higher advisories across the full graph. | **UPGRADE COMMITTED; EXACT-HEAD RE-AUDIT PENDING** |
+| Final validation | Run Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate on the exact final PR head; inspect all job logs and audit artifacts, fix failures, rerun. | **PENDING** |
+
+Do not mark §1A condition 4 or whole-contract completion as accepted solely from authored tests. The dependency audit must be read, any critical production advisory fixed, and representative backup performance evidence must be recorded or explicitly dispositioned. Continue only on `docs/repository-foundation-audit-gap-register`; no new PR, no merge, and keep PR #99 draft/open/unmerged.
+
+
+### Stage 6 verification checkpoint — 2026-11-27 (superseding)
+
+This checkpoint supersedes the earlier pending/open status wording in the preceding Stage 6 tables only where explicitly updated below. Stages 1–5 remain accepted at their recorded exact heads; they are not reopened.
+
+- **Trip Financial correction:** owner approval received 2026-11-27 for the existing append-only submitted-fare correction UX/schema. Original fare and linked Work/GPS event remain immutable; correction appends before/after, reason, target/chain revisions and Admin actor; current fare projection refreshes.
+- **Backup record count:** raw Room export, native package manifest totals and raw Room restore are capped before normalization/validation/checkpoint mutation. Browser and Android focused tests cover inclusive/first-over and pre-mutation behavior. Exact-head CI is pending.
+- **Plaintext size:** TypeScript encodeBackupSnapshot now counts exact UTF-8 bytes and applies AES-GCM/base64/envelope preflight before TextEncoder allocation. The Android scheduled Dropbox worker performs the equivalent UTF-8 preflight before byte-array creation and native package creation repeats the check. Multibyte and first-over tests are added. Representative peak-memory/time acceptance remains open.
+- **Dependency advisories:** prior audit found three development-toolchain advisories and zero production advisories. Vitest 5.1.2 and the moderate-or-higher full-graph audit gate are committed; the final exact-head artifact must confirm zero remaining advisories.
+- **Android instrumentation:** run #4933 on becec6809276d2a9af40af324b5b9088b478ca23 failed 8/181 tests (seven rendered Work workspace startup failures and one missing overlay action). The initial Admin selector fix omitted nested visible label text. The matcher now clones the label and removes form controls before matching, while excluding selected option text. A retryable startup-failure UI and page/hierarchy diagnostics have also been added; these changes are not acceptance evidence. Fix the root causes based on the next exact-head logs.
+
+| Contract §1A condition | Current disposition |
+|---|---|
+| 1. Entry-path coverage | **INCOMPLETE** — mapped Stage 6 journeys exist, but Android acceptance failures remain unresolved. |
+| 2. Browser/Dexie and Android/Room requirements | **SCOPED CORE PROVEN; STAGE 6 ANDROID ACCEPTANCE PENDING**. |
+| 3. Populated cross-runtime lifecycle and calculation parity | **SCOPED CORE PROVEN; FINAL EXACT-HEAD REGRESSION PENDING**. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — fare correction approved; dependency re-audit and backup performance evidence remain open. |
+| 5. Negative/boundary/interruption/recovery | **STAGE 5 ACCEPTED; NEW BACKUP BOUNDARY TESTS PENDING EXACT-HEAD CI**. |
+| 6. Four records and PR description agree | **RECONCILED AT THIS CHECKPOINT**; recheck after final docs commit. |
+| 7. Required exact-head CI | **PENDING** — Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate must all pass on the same final SHA. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+**Execution controls:** no new PR, no merge, no unrelated feature work, and no whole-contract completion claim. Keep external OEM/device, reboot, Dropbox, owner-visual and branch-protection checks separate from CI.
+
+### Stage 6 verification checkpoint — correction/recovery and backup boundary reconciliation — 2026-11-27
+This checkpoint aligns the execution plan with contract §1A, evidence matrix §9.57 and gap register §9.56. It does not declare whole-contract acceptance.
+
+- **Correction/recovery integrity:** exact source IDs/revisions, Maintenance/Compliance correction-chain heads, Fuel correction projection, daily-kilometre allocation provenance and Performance source provenance are asserted by tests/helpers/semantic-fixture-calculation-parity.ts and tests/helpers/assert-restored-domain-calculation-parity.ts. tests/historical-correction.test.ts verifies append-only correction and idempotent replay; tests/business-expense-correction-retry.test.ts preserves target/chain revisions for ambiguous UI retries. Stage 5 Browser/Android Work outbox restore/replay tests assert exactly one event/effect after recreation. Browser and Android interrupted-restore tests assert rollback to the pre-restore graph. Current-head CI execution remains required.
+- **Backup count and size:** Browser and Android tests cover inclusive/first-over record counts, pre-mutation restore rejection, multibyte UTF-8, encrypted-envelope expansion and first-over size rejection. Android raw Room export/restore and native package creation enforce record caps before normalization, crypto or checkpoint mutation. Tests may not be weakened. Representative peak-memory/time acceptance remains an open critical item.
+- **Encrypted portability:** TypeScript-produced populated package → production Room restore and Android-produced populated package → production Dexie restore are both mandatory. The latter is not accepted if its cross-platform job is skipped. Interruption/rollback remains a required assertion in both runtimes.
+- **Dependency audit:** artifact dependency-advisory-reports from run #46018147927 was inspected; full and production audit JSON each report zero vulnerabilities. This closes the advisory re-audit on that SHA, not on any later commit.
+- **Current code-head CI:** run [#46018147927](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46018147927) on e8e3170ef033c416ac1541d798251f9c5a08ec8c: Architecture and Web passed; Android remained in progress at checkpoint. Cross-platform encrypted restore and Integrated regression outcomes were not yet available.
+- **§1A disposition:** 1 INCOMPLETE; 2 SCOPED CORE PROVEN / current Stage 6 Android pending; 3 SCOPED CORE PROVEN / current cross-platform regression pending; 4 PARTIAL (Trip Financial approved, zero advisory audit, count/size enforcement implemented, representative performance evidence open); 5 Stage 5 accepted / new backup boundary execution pending; 6 RECONCILED by this checkpoint; 7 PENDING final five-job exact-head run; 8 VERIFIED open/draft/unmerged.
+- **External/manual gates:** physical OEM/device certification and owner usability/visual approval; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; repository branch-protection/ruleset verification. None is a CI pass.
+
+**Execution control:** remain on this PR branch; no new PR, no merge, no weakening assertions. Whole-contract status remains **INCOMPLETE**.
+
+### Stage 6 retest checkpoint — Android correction interaction — 2026-11-27
+Run #46018147927 on e8e3170ef033c416ac1541d798251f9c5a08ec8c failed the Android gate at ComplianceCorrectionCapacitorAcceptanceTest line 128. The rendered correction button was found, but the one-shot evaluateJavascript click assertion returned false. The Android script stopped before Maintenance correction, Settings-return, Performance parity, restored-Room WebView and populated Room lifecycle checks. Cross-platform encrypted restore was skipped and Integrated regression failed; neither is evidence of a pass.
+
+Commit 9a191aa123aedb8593129543a5a5ab97f850295b changes the click path to wait for an enabled rendered control, dispatch once with a DOM marker preventing repeated toggles, and independently wait for the correction editor to open. The assertion is not weakened. Push run #46020055556 was queued on this code SHA; retest pending.
+
+Keep the sequence active at Android acceptance until the Compliance correction editor assertion passes and all subsequent Android phases execute. Then verify Maintenance correction, Settings-return event delivery, Performance browser/Room parity, restored Room WebView calculation, Room populated lifecycle and the generated Android backup artifact. Cross-platform encrypted restore must execute and pass; skip is not acceptable. Finally inspect Integrated regression and rerun all five required jobs after the final documentation update.
+
+Correction/recovery and backup acceptance remains as mapped in matrix §9.57–§9.58: exact restored IDs/revisions, correction-chain heads, allocation provenance, idempotent correction and Work replay, count/UTF-8 boundaries, both encrypted restore directions and interruption rollback. Do not weaken assertions.
+
+§1A status: 1 INCOMPLETE; 2 SCOPED CORE PROVEN / current Android pending; 3 SCOPED CORE PROVEN / both-direction current restore pending; 4 PARTIAL (Trip Financial approved, dependency audit zero on e8, count/size enforcement implemented, representative peak-memory/time evidence open); 5 Stage 5 accepted / new boundaries pending retest; 6 reconciled; 7 pending final five-job exact-head CI; 8 verified open/draft/unmerged.
+
+Physical OEM/device certification, full OS reboot where emulator coverage is nondeterministic, live Dropbox account operations, owner visual/usability approval and branch-protection/ruleset verification remain manual/administrative gates, not CI passes. PR #99 remains draft and unmerged.
+
+
+### Final code-head CI and contract reconciliation checkpoint — 2026-11-27
+
+Run [#46036999823](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46036999823) passed on code SHA `deb211117283ac10cdfbc11d3486181404909ea3`. Required jobs: Architecture, Web, Android, Cross-platform encrypted backup restore, Integrated regression — all **success**. Production geocoder verification was **skipped** with `REQUIRE_PRODUCTION_GEOCODER=false` and is optional, not a required PR gate. Android instrumentation completed 178/178 with zero skipped; Web regression completed 825 passed and one skipped Android-produced-package test, which was separately executed and passed (1/1) in the required cross-platform job.
+
+| §1A condition | Current disposition at deb211117283ac10cdfbc11d3486181404909ea3 |
+|---|---|
+| 1. Normative mapping and supported entry-path audit | **AUTOMATED ENTRY-PATH EVIDENCE PASSED** — rendered PWA and Android entry-path acceptance completed in the Web/Android jobs; detailed mapping remains in the evidence matrix and owning contracts. Physical-device/OEM checks remain separate manual gates. |
+| 2. Independent Browser/Dexie and Android/Room authority | **SCOPED CORE PROVEN ON THIS SHA** — Web regression/rendered PWA and Android Room/WebView instrumentation passed; Android completed 178/178 instrumentation tests with zero skipped. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **BOTH DIRECTIONS PASSED ON THIS SHA** — TypeScript-produced populated package restored through production Room lifecycle; Android-produced package restored through production Dexie (cross-platform job 1/1 passed); restored records/calculations/provenance were checked. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction is owner-approved; full and production npm audit artifacts report zero vulnerabilities; record-count and UTF-8/envelope preflight enforcement and boundary tests passed. Representative peak-memory/time acceptance on supported browser and Android devices remains open; no lower device cap is assumed. |
+| 5. Negative, boundary, interruption and recovery proof | **STAGE 5 ACCEPTED; CURRENT BOUNDARY/RESTORE REGRESSION PASSED** — count/size boundary tests, pre-mutation rejection, encrypted restore and interrupted-restore rollback assertions passed in the required Web/Android/cross-platform gates. No assertion was weakened. |
+| 6. Evidence matrix, gap register, contract and PR description agree | **RECONCILIATION IN PROGRESS** — this checkpoint is being applied to all four project records and the PR description; verify after the final documentation update. |
+| 7. Required CI on exact final PR head | **PASSED ON CODE SHA; FINAL DOCUMENTATION-HEAD RERUN REQUIRED** — all five required jobs passed in run #46036999823. Rerun after the five-record reconciliation commits so the final SHA itself is green. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED** — no merge or close is authorized. |
+
+**Methodical next gate:** (1) finish this same-status update across the contract, evidence matrix, execution plan, architecture gap register and PR body; (2) run all five required CI jobs on the resulting exact SHA; (3) retain the representative large-snapshot peak-memory/time benchmark as the remaining critical evidence item until measurements are available on the supported browser and Android device targets; (4) keep physical OEM/reboot, live Dropbox and owner visual approval separate from CI. Do not infer a lower mobile limit or call the contract complete while the benchmark remains open.
+
+**Execution control:** same PR branch only; no new PR, no merge, no weakened assertions. PR #99 remains open, draft and unmerged; whole-contract status remains **INCOMPLETE**.
+
+
+### Privacy-safe CI diagnostics and final retest — 2026-11-27
+
+**Current code SHA:** `21eee884b14e065c2e9c91aab2cd3a71e0a7cd73` (browser acceptance log-redaction change; required CI rerun pending).
+
+**Privacy/logging audit finding and correction**
+- The Stage 3 same-record journey previously wrote its complete calculation snapshot, provenance text and UI source IDs to CI stdout. Failure diagnostics in the Admin form and Performance browser acceptance scripts could also print raw dashboard text, form values, status text or HTML.
+- Updated `scripts/stage3-browser-golden-journey.mjs`, `scripts/admin-form-browser-acceptance.mjs` and `scripts/performance-screen-browser-acceptance.mjs` to emit counts/boolean summaries only. Full before/after comparisons and provenance assertions remain in memory and unchanged; mismatch diagnostics report changed section/count summaries rather than source payloads or IDs.
+- Source review confirms those three scripts no longer pass rendered text, values, raw IDs or full calculation objects to console logging. This is a targeted remediation; final CI on the resulting SHA and broader artifact/privacy review remain required. Do not claim historical workflow logs have been retroactively redacted.
+
+**Latest completed evidence before this logging-only change**
+- Run [#46036999823](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46036999823) on `deb211117283ac10cdfbc11d3486181404909ea3`: Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression all passed.
+- Android instrumentation: 178/178, zero skipped. Web: 825 passed, one Android-package test skipped in the general suite; the mandatory cross-platform job executed that test separately and passed 1/1.
+- TypeScript-produced populated package → production Room lifecycle passed; Android-produced populated package → production Dexie restore passed 1/1. Full and production npm audit artifacts each report zero vulnerabilities. The optional production geocoder job was skipped by explicit workflow configuration and is not a required PR gate.
+- This run is not final validation of `21eee884b14e065c2e9c91aab2cd3a71e0a7cd73`; all required jobs must rerun after the logging changes and this documentation/PR-body reconciliation.
+
+**§1A status**
+| Condition | Disposition |
+|---|---|
+| 1. Normative mapping and entry-path audit | **AUTOMATED ENTRY-PATH EVIDENCE PASSED ON deb2111**; final-head rerun pending. Physical-device/OEM acceptance remains separate. |
+| 2. Independent Browser/Dexie and Android/Room authority | **SCOPED CORE PROVEN ON deb2111**; final-head rerun pending. |
+| 3. Populated cross-runtime semantic/calculation/restore parity | **BOTH ENCRYPTED DIRECTIONS PASSED ON deb2111**; final-head rerun pending. |
+| 4. Critical gaps closed or owner-accepted | **PARTIAL** — Trip Financial correction owner-approved; dependency audits zero; count and UTF-8/envelope preflight tests passed. Representative large-snapshot peak-memory/time evidence remains open. Browser acceptance log redaction is committed but awaits CI. |
+| 5. Negative, boundary, interruption and recovery proof | **PASSED ON deb2111** — count/size boundaries, pre-mutation rejection, encrypted restore and rollback assertions passed; final-head rerun pending. |
+| 6. Evidence matrix, gap register, contract and PR description agree | **RECONCILIATION IN PROGRESS** — this update is being applied to all four project records and the PR body. |
+| 7. Required CI on exact final PR head | **PENDING** — the previous code SHA passed all five required jobs; rerun after current code and docs changes is mandatory. |
+| 8. PR metadata | **VERIFIED OPEN · DRAFT · UNMERGED**. |
+
+**Repository administration observation:** branch metadata reports `main.protected=false`; the repository rulesets endpoint returned an empty list. The detailed branch-protection endpoint returned 403 to the connected GitHub integration, so an owner/admin must confirm the intended enforcement policy in repository settings. No settings were changed.
+
+**Remaining external/manual gates:** supported physical-device/OEM certification; full OS reboot where emulator coverage is nondeterministic; live Dropbox account authentication/upload/download/scheduled-backup/restore; final owner visual/usability approval; and owner/admin confirmation of branch protection. These are not CI passes.
+
+**Whole-contract disposition: INCOMPLETE. PR #99 remains OPEN · DRAFT · UNMERGED. No merge is authorized.**
+
+
+## 2026-11-28 exact-head CI verification checkpoint
+
+- **Code SHA tested:** `a17fb205250585e1cf5396212fbee80d88ea5e9c`.
+- **Required five gates passed twice on this exact SHA:** runs [#46094959440](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46094959440) and [#46094964520](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46094964520) each completed successfully for Architecture, Web, Android, Cross-platform encrypted backup restore, and Integrated regression. Production geocoder verification was skipped by workflow configuration and is optional, not one of the five required gates.
+- **Android repeatability:** both Android jobs passed the complete 178-test instrumentation suite with zero skipped. The isolated Compliance correction WebView, Maintenance correction WebView, Device Readiness return, Performance/Room parity, restored Room/WebView Performance, process-restart recovery and populated Room backup lifecycle steps passed. The overlay action/GPS lifecycle tests are included in the passing 178-test suite.
+- **Browser/cross-runtime evidence:** Web regression reported 826 passed and one Android-produced-package test skipped in that suite; the required cross-platform job ran that Android-produced backup restore test separately and passed 1/1. TypeScript-produced populated package → production Room lifecycle and Android-produced populated package → production Dexie restore both passed. Full and production dependency audits reported zero vulnerabilities.
+- **CI fixes validated:** Android overlay acceptance now locates its native window after the live status header replaces its initial text; the Compliance correction acceptance helper receives its WebView reader explicitly and reports control-presence diagnostics without exposing entered business values. No business assertion was weakened.
+- **§1A status at this code SHA:** (1) normative mapping/entry-path audit remains mapped, with physical-device evidence still external; (2) independent Dexie/Room authority is scoped-core proven by the current Web/Android gates; (3) both populated encrypted restore directions and calculation/provenance parity passed; (4) **PARTIAL**—Trip Financial correction policy is owner-approved, dependency audits are clean, and count/size preflight boundary coverage passed, but representative large-snapshot peak-memory and execution-time acceptance remains open; (5) automated negative/boundary/interruption/recovery gates passed, while physical OEM/full-OS-reboot checks remain external; (6) this checkpoint is being reconciled across the four records and PR description; (7) all five gates passed on this code SHA, but a fresh run is required after the documentation-only commits; (8) PR remains open, draft and unmerged.
+- **Remaining contract/release gates:** representative large-snapshot memory/time benchmarks on owner-confirmed supported browser and Android device classes; physical-device/OEM certification; full OS reboot persistence where emulator coverage is insufficient; live Dropbox account authentication, upload, download, scheduled backup and restore; owner visual/usability approval; and owner/admin confirmation of branch protection/rulesets. Current repository metadata previously showed `main.protected=false` and no rulesets; the detailed protection endpoint was not readable through the integration. No repository protection setting was changed.
+- **Disposition:** whole contract remains **INCOMPLETE**. Do not treat two green CI runs as proof of the remaining benchmark or manual gates. PR #99 remains **OPEN · DRAFT · UNMERGED**; no merge is authorized.
+
+
+## 2026-11-28 final-head CI, privacy and contract reconciliation
+
+**Exact implementation/documentation base validated:** `aaad33fe74c15457040e3a5ca3e0db424317504f`.
+
+**Required CI passed twice on this exact SHA:** runs [#46135791079](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46135791079) and [#46135787306](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46135787306). Each completed successfully for all five required gates: Architecture, Web, Android, Cross-platform encrypted backup restore, and Integrated regression. Optional Production geocoder verification was skipped by workflow configuration and is not one of the five required gates.
+
+- **Android repeatability:** both runs completed the full 178/178 instrumentation suite with zero skipped. This includes the isolated Compliance correction WebView, Maintenance correction WebView, Device Readiness Settings-return, Performance/Room parity, restored Room/WebView Performance, process-restart recovery, populated Room backup lifecycle, and overlay GPS/transition lifecycle coverage.
+- **Web:** both runs reported 826 passed and one Android-produced-package test skipped in the general Web suite. The required cross-platform job separately executed that Android-produced populated encrypted package → production Browser/Dexie restore test and passed 1/1 on both runs.
+- **Restore direction and integrity:** the Android-produced → production Dexie direction passed 1/1 in each cross-platform job. The TypeScript-produced populated package → production Room lifecycle, including restore/reopen/recompute, passed in Android instrumentation. The integrated regression gate passed in both runs.
+- **Audits and browser journeys:** full and production dependency audits reported zero vulnerabilities. Rendered Admin form conformance at 390px, Performance Admin/dashboard, Fuel entry/offline/draft resume, Work/Fuel/Performance same-record encrypted restore journey, seven-event Work journey and BackupPanel acceptance passed.
+- **Overlay/Compliance test fixes:** overlay actions are held until startup pending-intent recovery settles; swipe dispatch is serialized before Room lookup; event-scoped GPS requests are deduplicated; the Android GPS fake is installed on the main thread before service creation. Compliance's controlled select acceptance now dispatches the native `change` event without a preceding `input` event that could reset React's controlled value. Both full Android runs passed without weakening business assertions.
+- **Fuel location capture:** an explicit bounded deadline closes a durable location-capture placeholder if Android WebView never delivers a location callback. Fuel purchase submission remains non-blocking; the capture result is a timeout, not fabricated GPS evidence.
+- **Diagnostic privacy:** failure-only Compliance assertions now use fixed/value-free status messages and booleans. Android's failure log filter excludes payload-bearing Capacitor/Room callback logs. This change does not retroactively remove payloads from older workflow logs; historical log retention remains a separate platform concern.
+
+### §1A / Stage 6 disposition at this exact SHA
+
+1. **Entry-path mapping and automated acceptance — scoped automated coverage passed twice.** Rendered Browser and Android entry paths for Admin, Fuel, Work, Performance, Compliance and Maintenance, correction/renewal and restore were exercised. Physical OEM/device acceptance remains external.
+2. **Independent Dexie/Room authority, provenance and workflow — scoped core proven.** Current Android/Web and integrated acceptance passed; source records, correction lineage, Work/GPS immutability, allocation and Performance provenance assertions remain intact. This is not a claim of physical-device certification.
+3. **Populated cross-runtime restore/calculation parity — both encrypted directions passed twice.** TypeScript-produced populated package → production Room and Android-produced populated package → production Dexie both executed successfully.
+4. **Critical gaps — PARTIAL.** Dependency audits are clean and count/UTF-8/envelope preflight enforcement plus inclusive/first-over boundaries passed. Representative large-snapshot peak-memory and execution-time acceptance remains open; no device-memory limit is inferred from the package-format ceiling.
+5. **Negative/boundary/interruption/recovery — automated evidence passed twice.** The 178-test Android suite and required Browser/cross-platform/integrated gates passed; rollback, idempotency, event-scoped GPS and restore recovery assertions were not weakened.
+6. **Four-record and PR-description reconciliation — this checkpoint records the same scope/status in all four records and PR #99.** Recheck after this documentation commit.
+7. **Exact-head required CI — passed twice on the SHA above.** Because this checkpoint changes the documentation head, rerun all five required gates on the new final SHA before treating that SHA as validated.
+8. **PR metadata — OPEN · DRAFT · UNMERGED.** No merge is authorized.
+
+### Remaining contract/release gates (not CI passes)
+
+- **Large-snapshot benchmark:** measure peak memory and elapsed time for Browser and Android backup preflight/export/restore on owner-confirmed supported target classes. The repository has no normative minimum Android RAM/device class or supported-browser version recorded. CI emulator/headless-browser measurements may be reported as provisional only, not substituted for target acceptance.
+- **Physical-device/OEM certification:** verify GPS, overlay, background restrictions, process death and lifecycle on the supported physical Android/OEM target.
+- **Full OS reboot persistence:** verify on supported hardware where emulator coverage is insufficient.
+- **Live Dropbox:** real account authentication, upload, download, scheduled backup and restore. Mocked OAuth/transport acceptance does not close this.
+- **Owner visual/usability approval:** final Admin/Work/Performance/Backup flows.
+- **Repository administration:** owner/admin confirmation of branch-protection/ruleset policy. Previously observed metadata showed `main.protected=false` and no rulesets; the detailed protection endpoint was not readable through the integration. No protection setting was changed.
+
+**Whole-contract disposition remains INCOMPLETE.** Stages 1–5 remain accepted at their recorded exact heads; Stage 6 automated acceptance is now evidenced on this SHA but the whole-contract external/performance gates above remain open. PR #99 stays **OPEN · DRAFT · UNMERGED**. No new PR, merge, or scope expansion is authorized by this checkpoint.
+
+
+## 2026-11-28 — cross-runtime GPS recovery ownership and repeated exact-head CI
+
+**Validated implementation head:** `a1e4ab8313b84d64b80e82cd73dc2d0670c12a61`.
+
+The overlay GPS duplicate-registration failure was traced to an ownership race, not an emulator flake: if WebView/Work initialization completed after a native overlay action was queued, PWA startup recovery could also resume the same `pending_location` intent and request a second GPS fix. The two runtime paths now filter by the durable command's `originSurface`:
+
+- PWA `resumePendingBackground()` skips `native_overlay` intents; Android's `DriverOverlayService` owns their GPS recovery.
+- Android overlay startup/retry recovery selects only `native_overlay` intents.
+- Android overlay readiness still sees all pending intents, so a PWA-owned pending action continues to block a conflicting native transition.
+- Browser restart recovery remains covered for PWA-owned intents; a new regression test proves PWA startup does not reacquire GPS for a native-overlay-owned intent.
+- No business assertion was weakened. The test-only GPS fake now retains caller traces on failure, which exposed the competing `DriverWorkflowPlugin.requestReliableFix` path.
+
+**All five required CI gates passed twice on this implementation head:**
+
+- Run [#46146495179](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46146495179): Architecture, Web, Android, Cross-platform encrypted backup restore, Integrated regression — all success.
+- Run [#46146491507](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46146491507): same five gates — all success.
+- Android: 178/178 instrumentation tests, zero skipped, in each run. This includes Compliance and Maintenance correction WebView tests, overlay GPS/transition lifecycle, process restart/recovery, Room/Performance parity and populated Room backup lifecycle.
+- Web: 827 passed, one skipped in each run. The Android-produced populated-package restore test skipped in the general Web suite was separately executed and passed 1/1 in each required cross-platform restore job.
+- Both encrypted cross-runtime restore directions and the integrated regression gate passed in both runs. Full and production dependency audits reported zero vulnerabilities.
+- Optional Production geocoder verification was skipped by workflow configuration; it is not one of the five required gates.
+
+**This documentation reconciliation creates a new PR head.** The five required gates must run again on that documentation-updated SHA before that SHA is treated as the final validated head.
+
+### Current contract disposition
+
+- Automated calculation, persistence, backup/restore, recovery, correction lineage, 04:00 operational boundary and cross-runtime parity gates in scope for PR #99 have repeatable CI evidence on the implementation head above.
+- Whole contract remains **INCOMPLETE** because external and target-device acceptance is still outstanding:
+  1. Representative large-snapshot peak-memory and elapsed-time benchmarks for Browser and Android preflight/export/restore on owner-confirmed supported target classes. The repository still has no normative minimum Android RAM/device class or supported-browser version recorded.
+  2. Physical Android/OEM certification for GPS, overlay, background restrictions, process death and lifecycle.
+  3. Full OS reboot persistence on supported hardware where emulator evidence is insufficient.
+  4. Live Dropbox account authentication, upload, download, scheduled backup and restore; mocked OAuth/transport tests do not close this.
+  5. Owner visual/usability approval for Admin, Work, Performance and Backup flows.
+  6. Owner/admin confirmation of branch-protection/ruleset policy. Previously observed repository metadata showed `main.protected=false` and no rulesets; the detailed protection endpoint was not accessible through the integration. No protection setting was changed.
+
+PR #99 remains **OPEN · DRAFT · UNMERGED**. No merge is authorized by this checkpoint.
+
+
+## 2026-11-28 — supported Android/browser benchmark baseline
+
+**Owner-confirmed target:** mainstream Android phones released in **2022 or later**; measurable floor Android 12+ / 64-bit ARM / at least 4 GB installed physical RAM. Browser-only PWA target: Chrome for Android Stable current major plus two preceding majors. Installed app target: Android System WebView Stable current Chromium major plus two preceding majors.
+
+**Benchmark disposition:** The owner has no computer and cannot use USB debugging. Physical-device large-snapshot measurement is **SKIPPED for PR #99 by owner direction**. Do not call it passed or require the owner to perform device setup. CI emulator/headless-browser measurements may be captured as provisional virtual regression data only; they do not represent physical-device acceptance. This is a scoped, explicit deferral, not a change to product behavior or package limits.
+
+## 2026-11-28 — owner-directed benchmark deferral and exact-head CI checkpoint
+
+- **Supported device target corrected:** mainstream Android devices released in **2022 or later**; measurable Android floor Android 12+, 64-bit ARM, and at least 4 GB installed physical RAM. Browser-only PWA target remains Chrome for Android Stable (current plus two preceding major versions); installed Android app target remains Android System WebView Stable (current plus two preceding Chromium major versions).
+- **Physical large-snapshot benchmark:** **SKIPPED by owner direction**. The owner has no computer and cannot use USB debugging. This is neither a pass nor evidence of physical-device performance. No owner-side setup is required. CI emulator/headless-browser runs remain virtual regression evidence only.
+- **Exact-head CI:** run [#5317](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/46151083944) on implementation/documentation SHA `1bbdb22eb6eec473cdbed58567704cd2e51680d5` completed successfully. All five required jobs passed: Architecture, Web, Android, Cross-platform encrypted backup restore, and Integrated regression. Optional Production geocoder verification was skipped by configuration and is not a required gate.
+- **Remaining non-CI acceptance:** physical OEM/device certification (unless separately deferred by owner), full OS reboot persistence where emulator coverage is insufficient, live Dropbox account authentication/upload/download/scheduled backup/restore, owner visual/usability approval, and owner/admin confirmation of branch-protection/ruleset policy. These cannot be represented as completed by CI.
+- **Disposition:** automated implementation and the five required CI gates are green on the SHA above. The whole contract remains **INCOMPLETE** while the listed external/manual acceptance decisions remain open. PR #99 stays **OPEN · DRAFT · UNMERGED**; no merge is authorized. This checkpoint supersedes older statements that the Android/browser target was undefined or that the physical benchmark was still awaiting owner setup.

@@ -1,10 +1,11 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import {
   assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
   type FinanceLoanScheduleResolver, type FinancePaymentEntryV1, type FinancePaymentLedgerV1,
-  type FinancePaymentMethodV1,
+  type FinancePaymentMethodV1, requireFinanceAdminAuthor,
 } from "./finance-loan-payment-service";
 
 type ScheduleRow = Readonly<{
@@ -14,6 +15,7 @@ type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecord
 type SettlementPreview = Readonly<{
   amountPaise: number; scheduleVersion: number; paidThroughInstallment: number;
   loanRevision: number; paymentLedgerRevision: number | null;
+  operatingConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>;
 }>;
 const METHODS = new Set<FinancePaymentMethodV1>(["cash", "bank_transfer", "cheque", "upi", "other"]);
 const DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
@@ -48,14 +50,18 @@ export class FinanceLoanSettlementService {
     private readonly loans: LoanDirectory,
     private readonly schedules: FinanceLoanScheduleResolver,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
   ) {}
 
   private async load(loanId: string) {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_payment_loan_not_found");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && operating.vehicleId !== loan.data.details.vehicleId) throw new Error("finance_payment_settlement_operating_vehicle_mismatch");
     const raw = await this.repository.get<unknown>(ledgerId(loanId));
     if (raw) assertFinancePaymentLedgerV1(raw.data, loanId);
-    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined };
+    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined, operating };
   }
 
   private async rows(loanId: string, loan: FinanceLoanRecordV1, version: number): Promise<readonly ScheduleRow[]> {
@@ -85,7 +91,7 @@ export class FinanceLoanSettlementService {
 
   async preview(input: { loanId: string; businessDate: string }): Promise<SettlementPreview> {
     if (!validDate(input.businessDate)) throw new Error("finance_payment_settlement_input_invalid");
-    const { loan, ledger } = await this.load(input.loanId);
+    const { loan, ledger, operating } = await this.load(input.loanId);
     const entries = ledger?.data.entries ?? [];
     await this.assertDateNotBeforeHistory(input.loanId, input.businessDate, entries);
     if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
@@ -109,12 +115,13 @@ export class FinanceLoanSettlementService {
       amountPaise: settlementRow.closingPrincipalPaise as number,
       scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
       loanRevision: loan.revision, paymentLedgerRevision: ledger?.revision ?? null,
+      ...(operating ? { operatingConfiguration: operating } : {}),
     };
   }
 
   async commit(input: {
     id: string; commandId: string; loanId: string; businessDate: string; method: FinancePaymentMethodV1;
-    reference?: string; source: RecordEnvelope<unknown>["source"]; preview: SettlementPreview;
+    reference?: string; source: RecordEnvelope<unknown>["source"]; preview: SettlementPreview; now?: string;
   }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
       throw new Error("finance_payment_settlement_input_invalid");
@@ -126,7 +133,7 @@ export class FinanceLoanSettlementService {
       throw new Error("finance_payment_settlement_preview_invalid");
     }
     for (let attempt = 0; attempt < 12; attempt++) {
-      const { loan, ledger } = await this.load(input.loanId);
+      const { loan, ledger, operating } = await this.load(input.loanId);
       const entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
@@ -141,6 +148,9 @@ export class FinanceLoanSettlementService {
       }
       if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
         throw new Error("finance_loan_already_settled");
+      }
+      if (JSON.stringify(operating ?? null) !== JSON.stringify(input.preview.operatingConfiguration ?? null)) {
+        throw new Error("finance_payment_settlement_operating_context_stale");
       }
       if (loan.revision !== input.preview.loanRevision ||
           (ledger?.revision ?? null) !== input.preview.paymentLedgerRevision) {
@@ -166,13 +176,14 @@ export class FinanceLoanSettlementService {
           throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
         }
       }
-      const createdAt = this.now();
+      const createdAt = input.now ?? this.now();
+      const createdBy = await requireFinanceAdminAuthor(this.currentAuthor);
       const settlement: FinancePaymentEntryV1 = {
         kind: "settlement", id: input.id, commandId: input.commandId, loanId: input.loanId,
         businessDate: input.businessDate, amountPaise: settlementRow.closingPrincipalPaise as number,
         method: input.method, ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
         scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
-        createdAt, source: input.source, status: "committed",
+        createdAt, source: input.source, createdBy, status: "committed",
       };
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, settlement] };
@@ -186,6 +197,7 @@ export class FinanceLoanSettlementService {
         ...loan, updatedAt: createdAt, revision: loan.revision + 1,
         data: { ...loan.data, lifecycleState: "closed" },
       };
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       if (await this.repository.compareAndSetMany([
         { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
         { id, expectedRevision: ledger?.revision ?? null, next: nextLedger },

@@ -43,6 +43,13 @@ describe("Finance loan prepayment history model", () => {
     expect(loan.scheduleVersions).toHaveLength(1);
     expect(loan.currentScheduleVersion).toBe(1);
   });
+  it("rejects Driver authorship on a Finance prepayment revision", () => {
+    const value = state();
+    const invalid = { ...value, revisions: [{ ...value.revisions[0],
+      createdBy: { personId: "driver-1", role: "driver" as const } }] };
+    expect(() => assertFinanceLoanPrepaymentStateV1(invalid, loan, value.loanId))
+      .toThrow("finance_loan_prepayment_revision_invalid");
+  });
   it("rejects altered calculation output and inconsistent principal history", () => {
     const value = state();
     const altered = { ...value, revisions: [{ ...value.revisions[0], output: { ...value.revisions[0].output, interestSavedPaise: 1 } }] };
@@ -50,6 +57,20 @@ describe("Finance loan prepayment history model", () => {
       .toThrow("finance_loan_prepayment_output_provenance_invalid");
     const inconsistent = { ...value, revisions: [{ ...value.revisions[0], principalAfterPaise: 7_000_000 }] };
     expect(() => assertFinanceLoanPrepaymentStateV1(inconsistent, loan, value.loanId))
+      .toThrow("finance_loan_prepayment_revision_invalid");
+  });
+  it("rejects unsupported Reduce EMI history even when its calculation fields are internally present", () => {
+    const value = state();
+    const revision = value.revisions[0];
+    const invalid = {
+      ...value,
+      revisions: [{
+        ...revision,
+        mode: "reduce_emi",
+        input: { ...revision.input, mode: "reduce_emi" },
+      }],
+    };
+    expect(() => assertFinanceLoanPrepaymentStateV1(invalid, loan, value.loanId))
       .toThrow("finance_loan_prepayment_revision_invalid");
   });
   it("rejects an unrelated loan identity", () => {

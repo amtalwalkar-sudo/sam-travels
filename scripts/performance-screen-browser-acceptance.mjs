@@ -1,47 +1,12 @@
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
+import { indiaDateOffsetDays, proratedTargetPaise, moneyFromPaise, monthTargetPaise, previousMonthDate } from "./performance-acceptance-helpers.mjs";
+import { assertBrowserStage3GoldenJourney } from "./stage3-browser-golden-journey.mjs";
+import { buildPerformanceBackfillCorrectionFixtureV1 } from "./performance-backfill-correction-fixture.mjs";
 
 const baseUrl = "http://127.0.0.1:4173";
-function indiaDateOffsetDays(offset) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  const base = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
-  return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
-}
-function proratedTargetPaise(monthlyTargetPaise, from, to) {
-  let total = 0;
-  let cursor = from;
-  while (cursor <= to) {
-    const [year, month] = cursor.split("-").map(Number);
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-    const end = monthEnd < to ? monthEnd : to;
-    const days = Math.round((Date.parse(end + "T00:00:00Z") - Date.parse(cursor + "T00:00:00Z")) / 86_400_000) + 1;
-    total += Math.floor((monthlyTargetPaise * days * 2 + daysInMonth) / (2 * daysInMonth));
-    cursor = new Date(Date.parse(end + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
-  }
-  return total;
-}
-function moneyFromPaise(paise) {
-  return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function monthTargetPaise(month, from, to, monthlyTargetPaise) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const monthStart = month + "-01";
-  const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
-  const start = from > monthStart ? from : monthStart;
-  const end = to < monthEnd ? to : monthEnd;
-  return start > end ? 0 : proratedTargetPaise(monthlyTargetPaise, start, end);
-}
-function previousMonthDate(day) {
-  const today = indiaDateOffsetDays(0);
-  const [year, month] = today.split("-").map(Number);
-  const previous = new Date(Date.UTC(year, month - 2, 1));
-  return previous.toISOString().slice(0, 7) + "-" + String(day).padStart(2, "0");
-}
-const today = indiaDateOffsetDays(0);
+const indiaHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).find(part => part.type === "hour")?.value ?? "0");
+const today = indiaDateOffsetDays(indiaHour < 4 ? -1 : 0);
 const businessStartDate = previousMonthDate(15);
 const recoveryToExclusive = (() => {
   const [year, month, day] = businessStartDate.split("-").map(Number);
@@ -54,7 +19,7 @@ const recoveryToExclusive = (() => {
 const targetRupees = "30000";
 const preBusinessAmount = "1800";
 const note = "Performance screen acceptance pre-business cost";
-const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
+const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
   detached: true, stdio: "ignore",
 });
 let browser;
@@ -66,9 +31,13 @@ try {
   }
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-  page.on("pageerror", error => console.log("Browser page error:", error.message));
-  page.on("console", message => { if (message.type() === "error") console.log("Browser console error:", message.text()); });
+  const context = await browser.newContext({
+    permissions: ["geolocation"],
+    geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 12 },
+  });
+  const page = await context.newPage();
+  page.on("pageerror", () => console.log("Browser page error observed."));
+  page.on("console", message => { if (message.type() === "error") console.log("Browser console error observed."); });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
 
@@ -90,16 +59,162 @@ try {
 
   const adminSections = page.getByRole("navigation", { name: "Admin sections" });
   await adminSections.getByRole("button", { name: "Vehicle", exact: true }).click();
-  await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
-  await page.getByLabel("Registration number").fill("MH00PS0093");
-  await page.getByLabel("Make").fill("Acceptance");
-  await page.getByLabel("Model").fill("Performance");
-  await page.getByLabel("Vehicle type").fill("Car");
-  await page.getByLabel("Fuel type").selectOption("CNG");
-  await page.getByLabel("Year of manufacture").fill("2024");
-  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
-  await page.getByText("MH00PS0093", { exact: true }).waitFor();
-  console.log("Single active vehicle configured for the Performance distance projection.");
+  const operatingFixture = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const vehicles = rows.filter(row => row.id.startsWith("feature:vehicle:") &&
+      row.data?.lifecycleState === "active");
+    const drivers = rows.filter(row => row.id.startsWith("feature:driver-records:driver:") &&
+      row.data?.lifecycleState === "active");
+    if (vehicles.length !== 1) throw new Error("initial_profile_active_vehicle_count_invalid");
+    if (drivers.length !== 1) throw new Error("initial_profile_active_driver_count_invalid");
+    return {
+      vehicleId: vehicles[0].id,
+      registration: vehicles[0].data.registrationNumber,
+      driverId: drivers[0].data.driverId,
+      driverName: drivers[0].data.name,
+    };
+  });
+  const { vehicleId, registration, driverId, driverName } = operatingFixture;
+  await page.getByText(registration, { exact: true }).waitFor();
+  console.log("Initial-profile single active vehicle and driver loaded for Performance acceptance.");
+
+  await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
+  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await driverCard.waitFor({ state: "visible" });
+  const configure = driverCard.getByRole("button", { name: "Configure for Work", exact: true });
+  if (await configure.count()) await configure.click();
+  else await driverCard.getByRole("button", { name: "Verify operating configuration", exact: true }).click();
+  await page.getByRole("status").filter({
+    hasText: driverName + " is configured with " + registration + " for Work.",
+  }).waitFor();
+  const configuredRecords = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return rows;
+  });
+  const selectedWorkDriver = configuredRecords.find(row => row.id === "work:selected-driver");
+  if (selectedWorkDriver?.data?.driverId !== driverId) {
+    throw new Error("work_driver_selection_mismatch");
+  }
+  const assignmentHistory = configuredRecords.find(row =>
+    row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(driverId)
+  );
+  const currentAssignments = assignmentHistory?.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
+  if (currentAssignments.length !== 1 || currentAssignments[0].vehicleId !== vehicleId) {
+    throw new Error("current_assignment_mismatch");
+  }
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+
+  const identityPanel = page.locator(".admin-capability-panel");
+  const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
+  await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor({ state: "attached" });
+  await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
+  await identityPanel.getByLabel("Active role").selectOption("admin");
+  await identityPanel.getByLabel("Admin PIN").fill(testPin); await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
+  await identityPanel.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
+  await page.getByLabel("Person name").fill("Performance Acceptance Driver Person");
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
+  const driverPersonLink = page.getByLabel("Link " + driverName + " to person");
+  await driverPersonLink.locator("option").filter({ hasText: "Performance Acceptance Driver Person" }).waitFor({ state: "attached" });
+  await driverPersonLink.selectOption({ label: "Performance Acceptance Driver Person" });
+
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Drive", exact: true }).click();
+  if (await page.getByLabel("Work Driver").count()) {
+    throw new Error("unexpected_work_driver_selector");
+  }
+  const shiftStartOdometer = page.getByLabel("Shift-start odometer (km)");
+  await shiftStartOdometer.waitFor({ state: "visible" });
+  await shiftStartOdometer.fill("1000");
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button =>
+    button.textContent?.trim() === "Start shift" && !button.disabled
+  ), { timeout: 30000 });
+  await page.getByRole("button", { name: "Start shift", exact: true }).click();
+  await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
+
+  async function completeSwipe(label, nextState) {
+    await page.locator('input[type="range"][aria-label="Swipe to ' + label + '"]').press("End");
+    await page.getByRole("heading", { name: nextState, exact: true }).waitFor({ timeout: 30000 });
+  }
+  await completeSwipe("Going to pickup", "Going To Pickup");
+  await completeSwipe("Start trip", "Trip Active");
+  await completeSwipe("End trip", "Shift Active");
+  await page.getByText("Fare and trip financials required", { exact: true }).waitFor();
+
+  await page.getByLabel("Fare in rupees").fill("2520.00");
+  await page.getByText("Add Toll (optional)", { exact: true }).click();
+  await page.getByLabel("Toll in rupees").fill("320.00");
+  await page.getByLabel("Toll paid by").selectOption("driver");
+  await page.getByText("Add Parking (optional)", { exact: true }).click();
+  await page.getByLabel("Parking in rupees").fill("250.00");
+  await page.getByLabel("Parking paid by").selectOption("driver");
+  await page.getByRole("button", { name: "Submit trip financials", exact: true }).click();
+  await page.locator(".driver-message").filter({ hasText: "Fare and trip financials submitted" }).waitFor({ timeout: 30000 });
+
+  const committedTripFinancials = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const transaction = db.transaction("records", "readonly");
+      const read = transaction.objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    const row = rows.find(item => item.data?.kind === "completed_ride_financials" &&
+      item.data.status === "submitted" && item.data.farePaise === 252000);
+    return row ? { id: row.id, revision: row.revision, data: row.data } : null;
+  });
+  if (!committedTripFinancials || committedTripFinancials.revision !== 2 ||
+      committedTripFinancials.data.tollPaise !== 32000 ||
+      committedTripFinancials.data.tollPayer !== "driver" ||
+      committedTripFinancials.data.parkingPaise !== 25000 ||
+      committedTripFinancials.data.parkingPayer !== "driver" ||
+      committedTripFinancials.data.tripContext?.vehicleId !== vehicleId ||
+      committedTripFinancials.data.tripContext?.operationalDate !== today) {
+    throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record");
+  }
+
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+
+  // Restore Admin authority after Work changes actor.
+  await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
+  await identityPanel.getByLabel("Active role").selectOption("admin");
+  await identityPanel.getByLabel("Admin PIN").fill(testPin);
+  await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
+  await identityPanel.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
 
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill(businessStartDate);
@@ -115,56 +230,15 @@ try {
   await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor();
   await page.getByText(note, { exact: true }).waitFor();
-  await page.evaluate(async ({ operationalDate }) => {
+  const acceptanceRecords = buildPerformanceBackfillCorrectionFixtureV1(
+    today, committedTripFinancials.data.tripContext,
+  );
+  await page.evaluate(async (records) => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const createdAt = operationalDate + "T10:00:00.000Z";
-    const tripContext = {
-      schemaVersion: 1, shiftId: "performance-acceptance-shift",
-      driverId: "performance-acceptance-driver",
-      assignmentId: "performance-acceptance-assignment",
-      vehicleId: "feature:vehicle:MH00PS0093",
-      operationalDate,
-    };
-    const records = [
-      {
-        id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, kind: "daily_business_kilometres",
-          vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
-          totalBusinessKm: 42, unallocatedBusinessKm: 0,
-          entries: [{ shiftId: "performance-acceptance-shift", allocationStatus: "allocated",
-            businessKm: 42, personalKm: 7 }],
-        },
-      },
-      {
-        id: "work:trip-financial-obligation:performance-screen-fare",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, tripId: "performance-screen-fare",
-          kind: "completed_ride_financials", status: "submitted",
-          endRideEventId: "performance-screen-fare-end", createdAt,
-          tripContext, farePaise: 120000,
-        },
-      },
-      {
-        id: "work:trip-financial-obligation:performance-screen-cancellation",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, tripId: "performance-screen-cancellation",
-          kind: "cancellation_fee", status: "submitted",
-          cancellationEventId: "performance-screen-cancellation-event", createdAt,
-          tripContext, feePaise: 5000,
-        },
-      },
-    ];
     await new Promise((resolve, reject) => {
       const transaction = db.transaction("records", "readwrite");
       for (const record of records) transaction.objectStore("records").put(record);
@@ -173,7 +247,7 @@ try {
       transaction.onabort = () => reject(transaction.error);
     });
     db.close();
-  }, { operationalDate: today });
+  }, acceptanceRecords);
   console.log("Verified fare and cancellation-fee source records seeded for the selected operational date.");
   console.log("Performance Admin inputs saved: actual business start date, fixed monthly target, and a separately noted pre-business cost.");
 
@@ -188,10 +262,10 @@ try {
   try {
     await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
   } catch (error) {
-    console.log("Performance screen after calculation:", await page.locator(".performance-dashboard").innerText());
-    console.log("Performance inputs:", await period.locator("input").evaluateAll(inputs => inputs.map(input => ({ value: input.value, disabled: input.disabled }))));
-    console.log("Performance refresh button:", await period.getByRole("button").evaluate(button => ({ text: button.innerText, disabled: button.disabled, html: button.outerHTML })));
-    console.log("Performance errors:", await page.locator(".performance-error, .performance-loading, .performance-empty").allTextContents());
+    console.log("Performance dashboard present:", (await page.locator(".performance-dashboard").count()) === 1);
+    console.log("Performance input count:", await period.locator("input").count());
+    console.log("Performance refresh button count:", await period.getByRole("button").count());
+    console.log("Performance error/loading/empty state count:", await page.locator(".performance-error, .performance-loading, .performance-empty").count());
     throw error;
   }
   await page.locator(".performance-meta").getByText(businessStartDate, { exact: true }).waitFor();
@@ -203,19 +277,25 @@ try {
   }
 
   const periodRevenue = page.getByRole("button", { name: "Explain Period revenue", exact: true });
-  if (!(await periodRevenue.innerText()).includes("₹1,250.00")) {
-    throw new Error("verified_fare_and_cancellation_fee_not_combined_in_period_revenue");
+  if (!(await periodRevenue.innerText()).includes("₹2,720.00")) {
+    throw new Error("rendered_corrected_backfill_fare_and_work_revenue_not_combined_in_period_revenue");
   }
   const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
-  if (!(await lifetimeRevenue.innerText()).includes("₹1,250.00")) {
-    throw new Error("verified_revenue_missing_from_lifetime_position");
+  if (!(await lifetimeRevenue.innerText()).includes("₹2,720.00")) {
+    throw new Error("rendered_corrected_backfill_fare_missing_from_lifetime_position");
+  }
+  const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
+  const eligibleCostText = await eligibleCostsCard.innerText();
+  const eligibleCostRupees = Number((eligibleCostText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
+  if (eligibleCostRupees < 720) {
+    throw new Error("corrected_driver_paid_parking_or_customer_paid_toll_not_reflected_once_in_full_performance_calculation");
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
   const configuredTargetPaise = Number(targetRupees) * 100;
   const selectedTarget = proratedTargetPaise(configuredTargetPaise, businessStartDate, today);
   if (!(await targetCard.innerText()).includes(moneyFromPaise(selectedTarget))) {
-    throw new Error("selected_period_target_does_not_match_calendar_day_proration:" + selectedTarget);
+    throw new Error("selected_period_target_does_not_match_calendar_day_proration");
   }
   await page.getByRole("button", { name: "Explain Lifetime target position", exact: true }).waitFor();
   await page.getByText("Lifetime eligible costs", { exact: true }).waitFor();
@@ -227,7 +307,7 @@ try {
   const distanceSummaryText = await distanceHistory.locator(".performance-recovery-summary").innerText();
   if (!distanceSummaryText.includes("42 km") || !distanceSummaryText.includes("Qualifying active driving days") ||
       !distanceSummaryText.includes("1") || !distanceSummaryText.includes("Complete")) {
-    throw new Error("confirmed_distance_summary_or_active_day_average_missing:" + distanceSummaryText);
+    throw new Error("confirmed_distance_summary_or_active_day_average_missing");
   }
   const dailyDistance = distanceHistory.locator(".performance-table").filter({
     has: page.locator("caption", { hasText: "Daily distance from confirmed Work allocations" }),
@@ -241,7 +321,7 @@ try {
   for (const table of [dailyDistance, weeklyDistance, monthlyDistance]) {
     const tableText = await table.innerText();
     if (!tableText.includes("42 km")) {
-      throw new Error("distance_period_rollup_missing_confirmed_business_km:" + tableText);
+      throw new Error("distance_period_rollup_missing_confirmed_business_km");
     }
   }
   if ((await dailyDistance.innerText()).includes("49 km")) {
@@ -255,7 +335,7 @@ try {
   await recovery.locator("td").filter({ hasText: note }).first().waitFor();
   const summary = await recovery.locator(".performance-recovery-summary").innerText();
   if (!summary.includes(businessStartDate) || !summary.includes(recoveryToExclusive)) {
-    throw new Error("recovery_window_does_not_match_exact_18_month_anniversary:" + summary);
+    throw new Error("recovery_window_does_not_match_exact_18_month_anniversary");
   }
   const recoveryDates = await recovery.locator("small.performance-subtext").allTextContents();
   if (recoveryDates.some(date => date > today)) {
@@ -270,7 +350,7 @@ try {
   const monthKeys = [...new Set([businessStartDate.slice(0, 7), today.slice(0, 7)])];
   for (const month of monthKeys) {
     const expected = moneyFromPaise(monthTargetPaise(month, businessStartDate, today, configuredTargetPaise));
-    if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration:" + month + ":" + expected);
+    if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration");
   }
   console.log("Monthly roll-up target values reconcile to calendar-day proration for each partial month.");
 
@@ -292,13 +372,15 @@ try {
   }
   await page.getByText(/Expected cumulative surplus/).waitFor();
   await page.getByText(/Actual cumulative surplus/).waitFor();
-  console.log("Driver Passbook cumulative target, actual surplus and remaining balance rendered.");
+  console.log("Driver Passbook totals and provenance rendered.");
 
   const provenance = page.locator("#performance-provenance");
   await provenance.locator("summary").first().click();
   await provenance.getByText("performance.calculation.v1", { exact: false }).waitFor().catch(() => {});
   await provenance.getByText("Calculation ID", { exact: false }).waitFor();
   console.log("Performance calculation provenance and completeness disclosure rendered.");
+
+  await assertBrowserStage3GoldenJourney(page);
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}

@@ -2,6 +2,7 @@ import type { AtomicRecordBatchRepository } from "../../../packages/core/src/rep
 import type { RecordEnvelope } from "../../../packages/core/src/types";
 import type { PersonIdentityService } from "../../../packages/application/src/person-identity-service";
 import type { AdminPresentationServices } from "../../../packages/application/src/admin-presentation-services";
+import type { OperatingConfigurationServiceV1 } from "../../../packages/application/src/operating-configuration-service";
 import { createAdminIdentityPresentationAdapter } from "./admin-identity-presentation-adapter";
 import { createMaintenanceExpenseCorrectionAdapter } from "./maintenance-expense-correction-runtime";
 import { createComplianceHistoricalCorrectionService } from "./compliance-historical-correction";
@@ -12,10 +13,11 @@ export function createAdminPresentationAdapters(input: {
   records: AtomicRecordBatchRepository;
   source: RecordEnvelope<unknown>["source"];
   driverRecords: AdminPresentationServices["driverRecords"];
+  operatingConfiguration: OperatingConfigurationServiceV1;
 }) {
   return Object.freeze({
     identity: createAdminIdentityPresentationAdapter(input),
-    maintenance: createMaintenanceExpenseCorrectionAdapter(input.records, input.source, input.identity),
+    maintenance: createMaintenanceExpenseCorrectionAdapter(input.records, input.source, input.identity, input.operatingConfiguration),
     compliance: createComplianceHistoricalCorrectionService(input.records, input.identity, input.source),
   });
 }

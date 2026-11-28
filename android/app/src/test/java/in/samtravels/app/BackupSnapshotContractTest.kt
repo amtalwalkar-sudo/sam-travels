@@ -21,7 +21,7 @@ class BackupSnapshotContractTest {
     fun acceptsCurrentManifestAndSnapshot() {
         BackupSnapshotContract.validateManifest(validManifest())
         BackupSnapshotContract.validateSnapshot(
-            JSONObject("""{"schemaVersion":1,"snapshotRevision":4,"records":[]}"""),
+            JSONObject("""{"format":"sam-travels-canonical-snapshot-v1","schemaVersion":1,"snapshotRevision":4,"records":[]}"""),
         )
     }
 
@@ -39,12 +39,37 @@ class BackupSnapshotContractTest {
     }
 
     @Test
+    fun rejectsManifestRecordCountAboveProductionLimit() {
+        assertEquals("backup_record_count_limit", assertThrows(IllegalArgumentException::class.java) {
+            BackupSnapshotContract.validateManifest(
+                validManifest().put("recordCounts", JSONObject().put("records", MAX_BACKUP_RECORD_COUNT + 1)),
+            )
+        }.message)
+    }
+
+    @Test
+    fun acceptsSupportedLegacySnapshotWithoutDeclaredFormat() {
+        BackupSnapshotContract.validateSnapshot(
+            JSONObject("""{"schemaVersion":1,"snapshotRevision":0,"records":[]}"""),
+        )
+    }
+
+    @Test
+    fun rejectsUnsupportedCanonicalSnapshotFormat() {
+        assertEquals("backup_unsupported_snapshot_format", assertThrows(IllegalArgumentException::class.java) {
+            BackupSnapshotContract.validateSnapshot(
+                JSONObject("""{"format":"sam-travels-platform-snapshot-v0","schemaVersion":1,"snapshotRevision":0,"records":[]}"""),
+            )
+        }.message)
+    }
+
+    @Test
     fun rejectsMalformedSnapshotAndFutureVersion() {
         assertThrows(IllegalArgumentException::class.java) {
             BackupSnapshotContract.validateSnapshot(JSONObject("""{"schemaVersion":2,"records":[]}"""))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            BackupSnapshotContract.validateSnapshot(JSONObject("""{"schemaVersion":1,"snapshotRevision":0}"""))
+            BackupSnapshotContract.validateSnapshot(JSONObject("""{"format":"sam-travels-canonical-snapshot-v1","schemaVersion":1,"snapshotRevision":0}"""))
         }
     }
 }

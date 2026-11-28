@@ -27,8 +27,23 @@ class DriverOverlayService:Service(){
   )
  }
  private val main=Handler(Looper.getMainLooper())
+ // Room invalidation is the fast path. A low-frequency refresh pulse is the
+ // cross-process safety net for OEM/Room invalidation delivery gaps.
+ private val roomRefreshPulse=object:Runnable{
+  override fun run(){
+   if(serviceDestroyed)return
+   refresh()
+   main.postDelayed(this,1_000L)
+  }
+ }
  @Volatile private var intervalStartedAt:String?=null
  private var activeLocationEventId:String?=null
+ // Main-thread idempotency guard prevents stale recovery reacquiring an event after its first fix.
+ private val locationRequestEventIds=mutableSetOf<String>()
+ // Main-thread gate: one overlay transition may be queued, awaiting GPS, or committing at a time.
+ private var transitionInFlight=false
+ // Reserve swipe dispatch before Room lookup so duplicate ACTION_UP events cannot queue two commands.
+ private var swipeDispatchInFlight=false
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -38,6 +53,8 @@ class DriverOverlayService:Service(){
  @Volatile private var startupRecoveryReady=false
  @Volatile private var startupRecoveryFailed=false
  @Volatile private var pendingIntentRecoveryChecked=false
+ // Keep fresh actions disabled until the startup pending-intent scan settles.
+ @Volatile private var startupPendingRecoverySettled=false
  private val notificationChannelId="sam_travels_driver_controls"
  private val notificationId=7301
  private fun enterForeground(){
@@ -56,20 +73,31 @@ class DriverOverlayService:Service(){
    startForeground(notificationId,notification)
   }
  }
- private val db by lazy{DriverOverlayDatabaseFactory.open(applicationContext)}
- private val locationSource by lazy{DriverLocationSourceFactory.create(this)}
+ // Snapshot test-factory overrides so a retiring service cannot observe later test globals.
+ private var databaseNameForService:String?=null
+ private lateinit var locationSource:DriverLocationSource
+ private val db by lazy{DriverOverlayDatabaseFactory.open(applicationContext,databaseNameForService)}
+ override fun onCreate(){
+  super.onCreate()
+  databaseNameForService=DriverOverlayDatabaseFactory.databaseNameOverrideForTests
+  locationSource=DriverLocationSourceFactory.create(this)
+  android.util.Log.i("DriverOverlayService", "service_created instance=${System.identityHashCode(this)} source=${System.identityHashCode(locationSource)} isolatedDatabaseOverridePresent=${databaseNameForService != null} testLocationSource=${DriverLocationSourceFactory.overrideForTests != null}")
+ }
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
   try{enterForeground()}catch(error:Exception){android.util.Log.e("DriverOverlayService","Foreground startup failed",error);stopSelf();return START_NOT_STICKY}
   executor.execute{
    try{
+    android.util.Log.i("DriverOverlayService", "service_database_opened isolatedPath=${databaseNameForService != null} pendingIntents=${DriverWorkflowStore.listIntents(db).count { it.optString("status") == "pending_location" }}")
     NativeStartupRecovery.ensure(db)
     startupRecoveryReady=true
     startupRecoveryFailed=false
     if(databaseObserver==null){
      databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
      db.invalidationTracker.addObserver(databaseObserver!!)
+     main.removeCallbacks(roomRefreshPulse)
+     main.postDelayed(roomRefreshPulse,1_000L)
     }
     val active=DriverWorkflowStore.snapshot(db).optString("state")!="idle"
     main.post{if(active){presentation.showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
@@ -95,18 +123,43 @@ class DriverOverlayService:Service(){
    try{
     NativeStartupRecovery.ensure(db)
     startupRecoveryReady=true
-    val intent=DriverWorkflowStore.firstPendingLocation(db)?:return@execute
+    val intent=DriverWorkflowStore.firstPendingLocation(db, "native_overlay")?:run{
+     android.util.Log.i("DriverOverlayService", "startup_recovery_no_pending_intent")
+     main.post{
+      startupPendingRecoverySettled=true
+      refresh()
+     }
+     return@execute
+    }
+    android.util.Log.i("DriverOverlayService", "startup_recovery_pending_intent_found")
     val command=intent.optJSONObject("command")?:error("pending_command_missing")
     val id=command.optString("eventId")
     if(!DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))){
      DriverWorkflowStore.markNeedsAttention(db,id,"gps_recovery_window_expired")
-     main.post{refresh("Action retained · GPS evidence window expired; review required")}
+     main.post{
+      startupPendingRecoverySettled=true
+      refresh("Action retained · GPS evidence window expired; review required")
+     }
      return@execute
     }
     val resumed=DriverWorkflowStore.reactivate(db,id)
-    main.post{acquireLocation(id,command,resumed)}
+    main.post{
+     // Do not reacquire a stale snapshot if another surface or transition won the race.
+     if(transitionInFlight||activeLocationEventId!=null){
+      startupPendingRecoverySettled=true
+      refresh()
+      return@post
+     }
+     acquireLocation(id,command,resumed)
+     startupPendingRecoverySettled=true
+     refresh()
+    }
    }catch(error:Exception){
-    main.post{refresh("Pending action retained · "+(error.message?:"recovery deferred"))}
+    main.post{
+     startupRecoveryReady=false
+     startupPendingRecoverySettled=false
+     refresh("Pending action retained · "+(error.message?:"recovery deferred"))
+    }
    }
   }
  }
@@ -138,8 +191,11 @@ class DriverOverlayService:Service(){
    if(state=="idle"){main.post{presentation.removePanel();stopSelf()};return@post}
    // Location-request state is owned by the main thread. Read it only here,
    // alongside presentation updates, rather than from the database executor.
-   val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&
+   val canSwipe=startupPendingRecoverySettled&&!pending&&!financialPending&&
+    activeLocationEventId==null&&!transitionInFlight&&
     swipePresentation.action(state)!=null&&(state!="shift_active"||s.has("shiftContext"))
+   if (!canSwipe) android.util.Log.i("DriverOverlayService",
+    "swipe_readiness pending=$pending financialPending=$financialPending activeLocationRequest=${activeLocationEventId != null} shiftContext=${s.has("shiftContext")} actionPresent=${swipePresentation.action(state) != null} recoveryReady=$startupRecoveryReady")
    presentation.updateTimer(elapsedInterval())
    presentation.render(
     state,s.optInt("revision"),pending,expiredPending,financialPending,canSwipe,
@@ -156,7 +212,7 @@ class DriverOverlayService:Service(){
   }
  }}}
  private fun runRecovery(){
-  if(!startupRecoveryReady||activeLocationEventId!=null)return
+  if(!startupRecoveryReady||activeLocationEventId!=null||transitionInFlight)return
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
    startupRecoveryReady=true
@@ -168,22 +224,53 @@ class DriverOverlayService:Service(){
     main.post{refresh("GPS evidence window expired · reissue the action when ready")}
     return@execute
    }
-   val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
+   val resumed=DriverWorkflowStore.reactivate(db,id)
+   main.post{
+    if(transitionInFlight||activeLocationEventId!=null)return@post
+    acquireLocation(id,command,resumed)
+   }
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
  private fun runSwipeTransition(){
-  if(!startupRecoveryReady)return
+  if(Looper.myLooper()!=Looper.getMainLooper()){
+   main.post{runSwipeTransition()}
+   return
+  }
+  if(!startupRecoveryReady||!startupPendingRecoverySettled||
+    transitionInFlight||activeLocationEventId!=null||swipeDispatchInFlight){
+   android.util.Log.i("DriverOverlayService", "swipe_dispatch_rejected instance=${System.identityHashCode(this)} transitionInFlight=$transitionInFlight active=${activeLocationEventId != null} dispatchInFlight=$swipeDispatchInFlight startupRecoverySettled=$startupPendingRecoverySettled")
+   return
+  }
+  android.util.Log.i("DriverOverlayService", "swipe_dispatch_accepted instance=${System.identityHashCode(this)}")
+  swipeDispatchInFlight=true
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
     val state=DriverWorkflowStore.snapshot(db).optString("state")
     val event=swipePresentation.action(state)?.eventType
-    if(event!=null)main.post{runTransition(event)}else main.post{refresh("No trip action is available in this state")}
-   }catch(error:Exception){main.post{refresh("Unable to read current trip state · "+(error.message?:"retry"))}}
+    if(event!=null)main.post{runTransition(event)}
+    else main.post{
+     swipeDispatchInFlight=false
+     refresh("No trip action is available in this state")
+    }
+   }catch(error:Exception){
+    main.post{
+     swipeDispatchInFlight=false
+     refresh("Unable to read current trip state · "+(error.message?:"retry"))
+    }
+   }
   }
  }
  private fun runTransition(event:String){
-  if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
+  if(Looper.myLooper()!=Looper.getMainLooper()){main.post{runTransition(event)};return}
+  if(transitionInFlight||activeLocationEventId!=null){
+   swipeDispatchInFlight=false
+   return
+  }
+  swipeDispatchInFlight=false
+  if(!startupRecoveryReady||!startupPendingRecoverySettled){refresh("Recovery required · actions disabled");return}
+  transitionInFlight=true
+  android.util.Log.i("DriverOverlayService", "transition_dispatch_accepted instance=${System.identityHashCode(this)} eventType=$event")
   presentation.setSavingStatus()
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
@@ -194,7 +281,7 @@ class DriverOverlayService:Service(){
     .put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",snapshot.optString("state"))
     .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id).put("workflowVersion",2)
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
-  }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
+  }catch(e:Exception){main.post{transitionInFlight=false;refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }
  /**
   * All location-request state and LocationManager lifecycle operations are main-thread
@@ -210,8 +297,12 @@ class DriverOverlayService:Service(){
   acquireLocationOnMain(id,command,intent)
  }
  private fun acquireLocationOnMain(id:String,command:JSONObject,intent:JSONObject){
-  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" }
+  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" };android.util.Log.i("DriverOverlayService", "gps_acquire_attempt instance=${System.identityHashCode(this)} source=${System.identityHashCode(locationSource)} eventType=${command.optString("eventType")} active=${activeLocationEventId != null} previouslyRequested=${locationRequestEventIds.contains(id)} transitionInFlight=$transitionInFlight startupRecoverySettled=$startupPendingRecoverySettled")
   try{
+   if(locationRequestEventIds.contains(id)){
+    android.util.Log.i("DriverOverlayService", "gps_request_duplicate_suppressed")
+    return
+   }
    if(activeLocationEventId!=null){if(activeLocationEventId==id)return;markAttention(id,intent,"another_location_request_active");return}
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
    val transitionAt=command.optString("transitionAt")
@@ -219,6 +310,7 @@ class DriverOverlayService:Service(){
    if(remainingMs<=0L){markAttention(id,intent,"gps_recovery_window_expired");return}
    val provider=locationSource.bestProvider()
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
+   locationRequestEventIds.add(id)
    activeLocationEventId=id
    val powerManager=getSystemService(Context.POWER_SERVICE) as PowerManager
    gpsWakeLock=powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:DriverGps").apply{setReferenceCounted(false);acquire(remainingMs.coerceAtMost(30_000L))}
@@ -233,7 +325,10 @@ class DriverOverlayService:Service(){
     try{locationSource.removeUpdates(listener)}catch(_:Exception){}
     activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
     releaseGpsWakeLock()
-    if(location!=null)complete(id,command,intent,location)else markAttention(id,intent,reason)
+    if(location!=null)complete(id,command,intent,location)else{
+     locationRequestEventIds.remove(id)
+     markAttention(id,intent,reason)
+    }
    }
    timeout=Runnable{finish(reason="location_timeout")}
    listener=LocationListener{location:Location->
@@ -246,9 +341,9 @@ class DriverOverlayService:Service(){
     }
    }
    activeLocationListener=listener;activeLocationTimeout=timeout
-   locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper())
+   locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper());android.util.Log.i("DriverOverlayService", "gps_request_started instance=${System.identityHashCode(this)} eventType=${command.optString("eventType")}")
    main.postDelayed(timeout,remainingMs)
-  }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
+  }catch(e:Exception){locationRequestEventIds.remove(id);activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
  private fun elapsedInterval():String{
   val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
@@ -257,6 +352,8 @@ class DriverOverlayService:Service(){
  }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
+  if(Looper.myLooper()==Looper.getMainLooper())locationRequestEventIds.remove(id)
+  else main.post{locationRequestEventIds.remove(id)}
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
   val effectiveReason=if(!DriverRecoveryPolicy.isWithinGpsWindow(transitionAt))"gps_recovery_window_expired" else reason
   executor.execute{
@@ -269,7 +366,7 @@ class DriverOverlayService:Service(){
     startupRecoveryReady=false
     startupRecoveryFailed=true
    }
-   main.post{refresh("Action retained · "+effectiveReason)}
+   main.post{transitionInFlight=false;refresh("Action retained · "+effectiveReason)}
   }
  }
  private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){
@@ -280,16 +377,18 @@ class DriverOverlayService:Service(){
      .put("provider",location.provider?:"android")
     NativeStartupRecovery.ensure(db)
     DriverWorkflowStore.complete(db,id,gps)
-    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
+    main.post{transitionInFlight=false;refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
    }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
   }
  }
  override fun onDestroy(){
   check(Looper.myLooper()==Looper.getMainLooper()){ "service_destroy_must_run_on_main_thread" }
-  serviceDestroyed=true
+  serviceDestroyed=true;android.util.Log.i("DriverOverlayService", "service_destroyed instance=${System.identityHashCode(this)} source=${System.identityHashCode(locationSource)}")
+  main.removeCallbacks(roomRefreshPulse)
   activeLocationTimeout?.let{main.removeCallbacks(it)}
   activeLocationListener?.let{try{locationSource.removeUpdates(it)}catch(_:Exception){}}
   activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
+  locationRequestEventIds.clear()
   releaseGpsWakeLock()
   databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null
   presentation.removePanel();executor.shutdown()

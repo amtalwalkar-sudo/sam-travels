@@ -92,11 +92,29 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     return this.snapshot ?? this.allocation.getReport();
   }
 
+  async listPreBusinessRecoveryEntries() {
+    const report = await this.report();
+    return Object.freeze(report.result.sources.flatMap(source => {
+      if ((source.sourceKind !== "emi" && source.sourceKind !== "compliance") ||
+          source.disposition !== "allocated" || !source.sourcePeriod ||
+          source.sourcePeriod.from >= report.businessStartDate) return [];
+      return [Object.freeze({
+        sourceId: source.sourceId, revision: source.sourceVersion,
+        amountPaise: source.sourceAmountPaise, note: source.sourcePeriod.label,
+        origin: source.sourceKind,
+        ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
+        ...((report.sourceCorrectionRefs?.find(item => item.sourceId === source.sourceId)?.refs.length ?? 0) > 0
+          ? { sourceRefs: Object.freeze(report.sourceCorrectionRefs!.find(item => item.sourceId === source.sourceId)!.refs.map(ref => Object.freeze({ ...ref }))) }
+          : {}),
+      })];
+    }));
+  }
+
   async listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
-      if ((source.sourceKind !== "emi" && source.sourceKind !== "emi-pre-business-carry-forward") ||
-          source.disposition !== "allocated") return [];
+      if (source.sourceKind !== "emi" || source.disposition !== "allocated" ||
+          (source.sourcePeriod?.from ?? "") < from) return [];
       return canonicalDailyRows(source, from, to, "emi");
     }));
   }
@@ -107,6 +125,7 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const correctionRefs = report.sourceCorrectionRefs ?? [];
     return Object.freeze(report.result.sources.flatMap(source => {
       if (source.sourceKind !== "compliance" || source.disposition !== "allocated" ||
+          (source.sourcePeriod?.from ?? "") < from ||
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
       const baseId = source.sourceId.replace(/:allocated$/, "");
       const refs = correctionRefs.find(item => item.sourceId === baseId)?.refs ?? [];
@@ -122,8 +141,7 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
       (source.sourceKind === "compliance" || source.sourceKind === "emi") &&
       source.disposition === "allocated" && !source.sourcePeriod);
     const incompleteDaily = report.result.sources.filter(source => {
-      if ((source.sourceKind !== "compliance" && source.sourceKind !== "emi" &&
-           source.sourceKind !== "emi-pre-business-carry-forward") ||
+      if ((source.sourceKind !== "compliance" && source.sourceKind !== "emi") ||
           source.disposition !== "allocated" || !source.eligibleFrom || !source.eligibleTo) return false;
       const expectedDays = dayNumber(source.eligibleTo) - dayNumber(source.eligibleFrom) + 1;
       const dates = source.daily.map(row => row.date);
@@ -132,8 +150,7 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
         dates.some((date, index) => index > 0 && dayNumber(date) !== dayNumber(dates[index - 1]) + 1);
     });
     const historicalWithoutEligibleDays = report.result.sources.filter(source =>
-      (source.sourceKind === "compliance" || source.sourceKind === "emi" ||
-       source.sourceKind === "emi-pre-business-carry-forward") &&
+      (source.sourceKind === "compliance" || source.sourceKind === "emi") &&
       source.disposition === "pre_business_historical");
     if (blocked.length || missingPeriod.length || incompleteDaily.length || historicalWithoutEligibleDays.length) return Object.freeze([Object.freeze({
       source: "finance-and-compliance-allocation",

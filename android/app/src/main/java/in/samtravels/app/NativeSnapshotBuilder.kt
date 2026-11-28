@@ -20,8 +20,14 @@ internal object NativeSnapshotBuilder {
         isInternal: (String) -> Boolean,
         applicationVersion: String,
         createdAt: String = Instant.now().toString(),
+        maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
     ): NativeSnapshotBundle {
-        val records = NativeBackupCoverage.exportBusinessRecords(database, isInternal)
+        // Count the raw exported Room rows before canonical normalization allocates
+        // a second JSON graph. Keep the post-normalization assertion as a contract fence.
+        val exportedRecords = NativeBackupCoverage.exportBusinessRecords(database, isInternal)
+        requireBackupRecordCountWithinLimit(exportedRecords.length(), maxRecordCount)
+        val records = NativeFeatureBackupManifestCompatibility.toCanonicalInterchangeRecords(exportedRecords)
+        requireBackupRecordCountWithinLimit(records.length(), maxRecordCount)
         val snapshotRevision = (0 until records.length()).map { records.getJSONObject(it) }
             .firstOrNull { it.optString("participantId") == "work-driver-state" && it.optString("id") == "driver-state" }
             ?.let { row ->
@@ -29,8 +35,9 @@ internal object NativeSnapshotBuilder {
             } ?: 0
         require(snapshotRevision >= 0) { "backup_snapshot_revision_invalid" }
         NativeBackupCoverage.validateSnapshotRevision(records, snapshotRevision)
-        val participants: JSONArray = NativeBackupCoverage.participantManifest()
+        val participants: JSONArray = NativeFeatureBackupManifestCompatibility.canonicalParticipantManifest()
         val snapshot = JSONObject()
+            .put("format", "sam-travels-canonical-snapshot-v1")
             .put("records", records)
             .put("snapshotRevision", snapshotRevision)
             .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION)

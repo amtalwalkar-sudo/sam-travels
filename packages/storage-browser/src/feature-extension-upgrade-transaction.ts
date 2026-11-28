@@ -12,18 +12,24 @@ export type BrowserFeatureMigrationContext = Readonly<{ records: RecordRepositor
  * transaction, so a thrown migration or publication error aborts both.
  */
 export class DexieFeatureExtensionUpgradeTransaction {
+  constructor(private readonly featureId?: string) {}
+
   async run<Result>(
     operation: (context: {
       migrationContext: BrowserFeatureMigrationContext;
       persistInstalledExtension(snapshot: FeatureExtensionCompatibilitySnapshot): Promise<void>;
     }) => Promise<Result>,
   ): Promise<Result> {
+    const deleteNamespacePrefix = this.featureId ? "feature:" + this.featureId + ":" : undefined;
     return browserDatabase.transaction("rw", browserDatabase.records, async () => operation({
       migrationContext: { records: {
         async get<T>(id: string) { const row = await browserDatabase.records.get(id); if (row) assertRecordEnvelope(row); return row as RecordEnvelope<T> | undefined; },
         async put<T>(record: RecordEnvelope<T>) { assertRecordEnvelope(record); await browserDatabase.records.put(record as RecordEnvelope<unknown>); },
         async list<T>() { const rows = await browserDatabase.records.toArray(); rows.forEach(assertRecordEnvelope); return rows as Array<RecordEnvelope<T>>; },
-        async remove(id: string) { await browserDatabase.records.delete(id); },
+        async remove(id: string) {
+          if (!deleteNamespacePrefix || !id.startsWith(deleteNamespacePrefix)) throw new Error("feature_upgrade_delete_namespace_mismatch");
+          await browserDatabase.records.delete(id);
+        },
       } },
       persistInstalledExtension: async snapshot => {
         const id = "installed-extension:" + snapshot.extension.id;

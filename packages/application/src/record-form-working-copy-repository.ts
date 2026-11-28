@@ -1,8 +1,8 @@
-import type { AtomicRecordRepository, RecordRepository } from "../../core/src/repositories";
+import { FORM_WORKING_COPY_RECORD_PREFIX, type AtomicRecordRepository, type RecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import type { FormWorkingCopy, FormWorkingCopyRepository } from "./shared-form-runtime";
 
-const PREFIX = "__sam_travels_form_working_copy__:";
+const PREFIX = FORM_WORKING_COPY_RECORD_PREFIX;
 function recordId(formId: string, instanceId: string) {
   return PREFIX + encodeURIComponent(formId) + ":" + encodeURIComponent(instanceId);
 }
@@ -23,7 +23,12 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
         !Number.isSafeInteger(copy.formVersion) || copy.formVersion < 1 ||
         !Number.isSafeInteger(copy.revision) || copy.revision < 0 ||
         !["in_progress", "pending", "saved", "submitted"].includes(copy.status) ||
-        !copy.operationId || !copy.values || typeof copy.values !== "object" || Array.isArray(copy.values)) {
+        !copy.operationId || !copy.values || typeof copy.values !== "object" || Array.isArray(copy.values) ||
+        (copy.status === "pending" && (!copy.submission ||
+          !["save", "submit"].includes(copy.submission.action) ||
+          typeof copy.submission.payloadFingerprint !== "string" || !copy.submission.payloadFingerprint ||
+          typeof copy.submission.submittedAt !== "string" ||
+          !copy.submission.values || typeof copy.submission.values !== "object" || Array.isArray(copy.submission.values)))) {
       throw new Error("form_working_copy_invalid");
     }
     return copy;
@@ -39,7 +44,12 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
           !Number.isSafeInteger(copy.formVersion) || copy.formVersion < 1 ||
           !Number.isSafeInteger(copy.revision) || copy.revision < 0 ||
           !["in_progress", "pending", "saved", "submitted"].includes(copy.status) ||
-          !copy.operationId || !copy.values || typeof copy.values !== "object" || Array.isArray(copy.values)) {
+          !copy.operationId || !copy.values || typeof copy.values !== "object" || Array.isArray(copy.values) ||
+          (copy.status === "pending" && (!copy.submission ||
+            !["save", "submit"].includes(copy.submission.action) ||
+            typeof copy.submission.payloadFingerprint !== "string" || !copy.submission.payloadFingerprint ||
+            typeof copy.submission.submittedAt !== "string" ||
+            !copy.submission.values || typeof copy.submission.values !== "object" || Array.isArray(copy.submission.values)))) {
         throw new Error("form_working_copy_invalid");
       }
       return copy;

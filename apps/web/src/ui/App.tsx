@@ -3,8 +3,11 @@ import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "
 import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { BackupPanel } from "./BackupPanel";
 import { getPlatformRecordSource } from "../native-store";
+import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
+import { cancellationFeeObligationId } from "../../../../packages/application/src/trip-financial-service";
+import { TripFinancialCorrectionServiceV1 } from "../../../../packages/application/src/trip-financial-correction-service";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src";
+import { resolveDriverRecordAuthor } from "../person-identity-adapters";
 import { TripFinancialFormRuntimeProvider } from "./trip-financial-form-context";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
@@ -25,12 +28,19 @@ export type AppProps = Readonly<{
 
 /** Application composition owns shared services, dependency injection, and replaceable shell selection. */
 export function App(props: AppProps) {
-  const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
-    props.platformRepository, getPlatformRecordSource(), async () => {
-      const actor = await getPersonIdentityService().currentActor();
-      return { personId: actor.actorId, role: actor.role };
-    },
-  ), [props.platformRepository]);
+  const tripFinancialForms = useMemo(() => {
+    const corrections = new TripFinancialCorrectionServiceV1(
+      props.platformRepository, getPersonIdentityService(), getPlatformRecordSource(),
+    );
+    return createTripFinancialFormRuntimeV1(
+    props.platformRepository, getPlatformRecordSource(), async (tripId: string) => {
+      const obligation = await props.platformRepository.get(cancellationFeeObligationId(tripId));
+      const driverId = (obligation?.data as { tripContext?: { driverId?: string } } | undefined)?.tripContext?.driverId;
+      if (typeof driverId !== "string" || !driverId.trim()) throw new Error("trip_financial_driver_context_missing");
+      return resolveDriverRecordAuthor(props.platformRepository, driverId);
+    }, corrections,
+  );
+  }, [props.platformRepository]);
   return <TripFinancialFormRuntimeProvider value={tripFinancialForms}>
     <AppWorkspace {...props} />
   </TripFinancialFormRuntimeProvider>;

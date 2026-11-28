@@ -1,8 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { beginFuelLocationCapture, createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
 import {
+  FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
-} from "../packages/application/src/admin-form-definitions";
+} from "../packages/application/src";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe("Fuel Entry submit-time GPS acquisition", () => {
   it("requests a fresh device fix and resolves with its actual timestamp and accuracy", async () => {
@@ -61,6 +67,8 @@ describe("Fuel Entry submit-time GPS acquisition", () => {
 });
 
 
+
+
 describe("Admin business expense form submission mapping", () => {
   function setup() {
     const createExpenseEntry = vi.fn(async (input: unknown) => input);
@@ -70,7 +78,8 @@ describe("Admin business expense form submission mapping", () => {
       source as never,
     );
     const command = (formId: string, values: Record<string, unknown>) => ({
-      formId, action: "save", instanceId: "admin-entry-1", operationId: "operation-1", values,
+      formId, action: "save", instanceId: "admin-entry-1", operationId: "operation-1",
+      submittedAt: "2026-11-14T10:00:00.000Z", payloadFingerprint: "fingerprint-1", values,
     }) as never;
     return { createExpenseEntry, submit, command, source };
   }
@@ -83,6 +92,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "platform_fee", businessDate: "2026-11-14", amountPaise: 1234,
         currencyCode: "INR", effect: "charge", vehicleId: "vehicle-1", reference: "trip-42",
@@ -101,10 +112,12 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 5000,
         currencyCode: "INR", effect: "charge", category: "Parking",
-        tripExpenseTreatment: "standalone", vehicleId: "vehicle-1", driverId: "driver-1", description: "airport parking",
+        tripExpenseTreatment: "standalone", vehicleId: "vehicle-1", driverId: "feature:driver-records:driver:driver-1", description: "airport parking",
         reference: "receipt-7",
       },
     });
@@ -120,6 +133,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 1200,
         currencyCode: "INR", effect: "charge", category: "Toll",
@@ -143,11 +158,13 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "traffic_challan", businessDate: "2026-11-12", amountPaise: 50000,
         currencyCode: "INR", effect: "charge", vehicleId: "vehicle-2",
         paymentStatus: "unpaid", description: "Signal violation",
-        driverId: "driver-2", reference: "challan-8",
+        driverId: "feature:driver-records:driver:driver-2", reference: "challan-8",
       },
     });
   });
@@ -175,5 +192,45 @@ describe("Admin business expense form submission mapping", () => {
     await expect(submit(command(TRAFFIC_CHALLAN_FORM_V1.id, {
       businessDate: "2026-11-14", amountRupees: 10, description: "Violation", paymentStatus: "unpaid",
     }))).rejects.toThrow("traffic_challan_vehicle_required");
+  });
+});
+
+
+describe("Fuel Entry form submission mapping", () => {
+  it("submits the authoritative purchase without requesting or persisting GPS", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-18T00:00:00.000Z"));
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    const createFuelPurchase = vi.fn(async (input: unknown) => ({ id: "purchase-1", input }));
+    const source = { platform: "browser-test" };
+    const submit = createBusinessExpenseFormSubmissionHandler(
+      { createFuelPurchase } as never,
+      source as never,
+    );
+    const result = await submit({
+      formId: FUEL_ENTRY_FORM_V1.id,
+      action: "submit",
+      instanceId: "fuel-entry-instance-1",
+      operationId: "fuel-entry-operation-1",
+      submittedAt: "2026-11-18T00:00:00.000Z",
+      payloadFingerprint: '{"fuel":"purchase-1"}',
+      values: {
+        vehicleId: "vehicle-1", odometerKm: 12345, priceRupeesPerKg: 95.5,
+        amountRupees: 477.25, partialRefill: true,
+      },
+    } as never);
+    expect(createFuelPurchase).toHaveBeenCalledWith({
+      uuid: "fuel-entry-instance-1", source,
+      operation: { operationId: "fuel-entry-operation-1", payloadFingerprint: '{"fuel":"purchase-1"}' },
+      now: "2026-11-18T00:00:00.000Z",
+      data: {
+        vehicleId: "vehicle-1", odometerKm: 12345, pricePaisePerKg: 9550,
+        amountPaise: 47725, partialRefill: true,
+        occurredAt: "2026-11-18T00:00:00.000Z", businessDate: "2026-11-18",
+      },
+    });
+    expect(result).toMatchObject({ id: "purchase-1" });
+    expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 });

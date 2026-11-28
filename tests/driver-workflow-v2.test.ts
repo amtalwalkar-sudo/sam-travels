@@ -68,7 +68,7 @@ describe("version 2 Work trip lifecycle",()=>{
   await send("shift_start","shift-v2",0,45000);
   const afterShift=await repository.getSnapshot();
   expect(afterShift.shiftId).toBe("shift-v2");
-  expect(afterShift.shiftContext).toEqual({schemaVersion:1,driverId:"driver-v2",assignmentId:"assignment-v2",vehicleId:"feature:vehicle:MH01AB1234"});
+  expect(afterShift.shiftContext).toEqual({schemaVersion:1,driverId:"driver-v2",assignmentId:"assignment-v2",vehicleId:"feature:vehicle:MH01AB1234",selectionRevision:1,driverRevision:1,vehicleRevision:1,assignmentRevision:1});
   expect((await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver"))?.data.lockedShiftId).toBe("shift-v2");
   await expect(selection.selectDriver("driver-v2")).rejects.toThrow("work_driver_selection_locked_during_shift");
   const driverRow=await browserDatabase.records.get("feature:driver-records:driver:driver-v2");

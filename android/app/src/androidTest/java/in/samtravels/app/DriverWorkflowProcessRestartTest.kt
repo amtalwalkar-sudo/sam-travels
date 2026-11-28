@@ -2,6 +2,7 @@ package `in`.samtravels.app
 
 import android.content.Context
 import android.os.Process
+import android.provider.Settings
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -10,14 +11,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * CI runs these two methods in separate instrumentation invocations and force-stops
- * both app/test packages between them. This exercises a real target-process death,
- * not merely closing and reopening a Room instance in one process.
+ * CI runs these methods in separate instrumentation invocations, force-stops both
+ * app/test packages, and reboots the Android OS between preparation and recovery.
+ * The persisted Android boot counter proves that recovery follows a full OS reboot,
+ * not merely process death or closing/reopening Room in one process.
  */
 @RunWith(AndroidJUnit4::class)
 class DriverWorkflowProcessRestartTest {
@@ -39,7 +42,13 @@ class DriverWorkflowProcessRestartTest {
             .put("schemaVersion", 1).put("workflowVersion", 2).put("commandId", id).put("eventId", id)
             .put("eventType", event).put("originSurface", "native_overlay").put("transitionAt", at)
             .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id).apply {
-                if (event == "shift_start") put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 12000))
+                if (event == "shift_start") {
+                    put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 12000))
+                    put("driverContext", JSONObject().put("schemaVersion", 1)
+                        .put("driverId", "restart-driver")
+                        .put("assignmentId", "restart-assignment")
+                        .put("vehicleId", "feature:vehicle:MH01JK7890"))
+                }
             }
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restart-driver"))
@@ -68,6 +77,7 @@ class DriverWorkflowProcessRestartTest {
                 .getString("status"))
             putRecord("driver-process-restart-marker", JSONObject()
                 .put("preparedPid", Process.myPid())
+                .put("preparedBootCount", Settings.Global.getInt(app.contentResolver, Settings.Global.BOOT_COUNT, -1))
                 .put("preparedPendingAt", pendingAt)
                 .put("preparedAppPackage", app.packageName)
                 .put("preparedDbPath", app.getDatabasePath(databaseName).absolutePath))
@@ -89,6 +99,13 @@ class DriverWorkflowProcessRestartTest {
             val markerRow = db.records().get("driver-process-restart-marker")
             assertNotNull("Room restart marker must survive the force-stop boundary", markerRow)
             val marker = JSONObject(markerRow!!.json).getJSONObject("data")
+            val preparedBootCount = marker.getInt("preparedBootCount")
+            val currentBootCount = Settings.Global.getInt(app.contentResolver, Settings.Global.BOOT_COUNT, -1)
+            assertTrue("Emulator must expose a readable Android boot counter", preparedBootCount >= 0 && currentBootCount >= 0)
+            assertTrue(
+                "Android OS boot counter must advance between prepare and recovery phases",
+                currentBootCount > preparedBootCount,
+            )
             assertNotEquals("CI must restart the instrumentation process between phases",
                 marker.getInt("preparedPid"), Process.myPid())
             assertEquals("Instrumentation must reopen the same target application package",

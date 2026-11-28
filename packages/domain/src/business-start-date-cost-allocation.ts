@@ -4,21 +4,21 @@
  * Source dates and amounts are never mutated. Daily integer-paise rows are
  * canonical; month/year summaries are derived only by summing those rows.
  */
-export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_ID = "business-start-date-cost-allocation.v1" as const;
-export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_VERSION = 1 as const;
+export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_ID = "business-start-date-cost-allocation.v2" as const;
+export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_VERSION = 2 as const;
 
 export type DailyCostAllocationV1 = Readonly<{
   date: string;
   amountPaise: number;
   sourceId: string;
-  sourceKind: "compliance" | "emi" | "emi-pre-business-carry-forward";
+  sourceKind: "compliance" | "emi" | "pre-business-pool";
   sourceVersion: number;
   scheduleVersion?: number;
 }>;
-export type AllocationDispositionV1 = "allocated" | "pre_business_historical" | "overlap_review_required";
+export type AllocationDispositionV1 = "allocated" | "pre_business_historical" | "pre_business_pool_summary" | "overlap_review_required";
 export type CostAllocationSourceResultV1 = Readonly<{
   sourceId: string;
-  sourceKind: "compliance" | "emi" | "emi-pre-business-carry-forward";
+  sourceKind: "compliance" | "emi" | "pre-business-pool";
   sourceVersion: number;
   scheduleVersion?: number;
   sourceAmountPaise: number;
@@ -120,12 +120,12 @@ export function allocateComplianceCostV1(
     sourceAmountPaise: record.totalCostPaise, disposition: "overlap_review_required",
     sourcePeriod: Object.freeze({ from: record.validFrom, to: record.validTo, label: record.complianceName }), daily: Object.freeze([]),
   });
-  if (record.validTo < businessStartDate) return Object.freeze({
+  if (record.validFrom < businessStartDate) return Object.freeze({
     sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
     sourceAmountPaise: record.totalCostPaise, disposition: "pre_business_historical",
     sourcePeriod: Object.freeze({ from: record.validFrom, to: record.validTo, label: record.complianceName }), daily: Object.freeze([]),
   });
-  const from = record.validFrom < businessStartDate ? businessStartDate : record.validFrom;
+  const from = record.validFrom;
   const daily = distribute({ sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
     amountPaise: record.totalCostPaise, from, to: record.validTo });
   return Object.freeze({ sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
@@ -160,47 +160,124 @@ export function allocateScheduledEmisV1(
     seen.add(rowVersion + ":" + row.installmentNumber);
   });
   const periods = rows.map((row,index) => ({
-    row,
-    from: row.dueDate,
+    row, from: row.dueDate,
     to: index + 1 < rows.length ? addDays(rows[index + 1].dueDate, -1) : monthEnd(row.dueDate),
   }));
   if (schedule.allocationEndDate !== undefined) {
     for (const period of periods) if (period.to > schedule.allocationEndDate) (period as {to:string}).to = schedule.allocationEndDate;
   }
-  const finalEnd = periods[periods.length - 1].to;
-  const carryRows = periods.filter(period => period.to < businessStartDate);
-  const carryAmount = carryRows.reduce((sum,period) => sum + period.row.installmentAmountPaise, 0);
-  if (!Number.isSafeInteger(carryAmount)) throw new Error("business_start_date_emi_amount_overflow");
   const results: CostAllocationSourceResultV1[] = [];
-  if (carryAmount > 0) {
-    if (finalEnd < businessStartDate) {
-      results.push(Object.freeze({
-        sourceId: schedule.loanId + ":pre-business-emi-carry-forward",
-        sourceKind: "emi-pre-business-carry-forward", sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion,
-        sourceAmountPaise: carryAmount, disposition: "pre_business_historical", daily: Object.freeze([]),
-      }));
-    } else {
-      const sourceId = schedule.loanId + ":pre-business-emi-carry-forward";
-      const daily = distribute({ sourceId, sourceKind: "emi-pre-business-carry-forward",
-        sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion, amountPaise: carryAmount, from: businessStartDate, to: finalEnd });
-      results.push(Object.freeze({ sourceId, sourceKind: "emi-pre-business-carry-forward",
-        sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion, sourceAmountPaise: carryAmount, disposition: "allocated",
-        eligibleFrom: businessStartDate, eligibleTo: finalEnd, daily: Object.freeze(daily) }));
-    }
-  }
-  for (const period of periods.filter(item => item.to >= businessStartDate)) {
-    const from = period.from < businessStartDate ? businessStartDate : period.from;
+  for (const period of periods) {
     const rowScheduleVersion = period.row.scheduleVersion ?? schedule.scheduleVersion;
-    const sourceId = schedule.loanId + ":emi:" + period.row.installmentNumber + (period.row.scheduleVersion !== undefined ? ":v" + rowScheduleVersion : "");
-    const daily = distribute({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: rowScheduleVersion,
-      amountPaise: period.row.installmentAmountPaise, from, to: period.to });
-    results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: rowScheduleVersion,
-      sourceAmountPaise: period.row.installmentAmountPaise, disposition: "allocated",
-      sourcePeriod: Object.freeze({ from: period.row.dueDate, to: period.to,
+    const sourceId = schedule.loanId + ":emi:" + period.row.installmentNumber +
+      (period.row.scheduleVersion !== undefined ? ":v" + rowScheduleVersion : "");
+    if (period.row.dueDate < businessStartDate) {
+      results.push(Object.freeze({
+        sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision,
+        scheduleVersion: rowScheduleVersion, sourceAmountPaise: period.row.installmentAmountPaise,
+        disposition: "pre_business_historical",
+        sourcePeriod: Object.freeze({ from: period.row.dueDate, to: period.to,
+          label: "EMI installment " + period.row.installmentNumber }),
+        daily: Object.freeze([]),
+      }));
+      continue;
+    }
+    const daily = distribute({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision,
+      scheduleVersion: rowScheduleVersion, amountPaise: period.row.installmentAmountPaise,
+      from: period.from, to: period.to });
+    results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision,
+      scheduleVersion: rowScheduleVersion, sourceAmountPaise: period.row.installmentAmountPaise,
+      disposition: "allocated", sourcePeriod: Object.freeze({ from: period.row.dueDate, to: period.to,
         label: "EMI installment " + period.row.installmentNumber }),
-      eligibleFrom: from, eligibleTo: period.to, daily: Object.freeze(daily) }));
+      eligibleFrom: period.from, eligibleTo: period.to, daily: Object.freeze(daily) }));
   }
   return Object.freeze(results);
+}
+
+function addAnchoredMonths(value: string, months: number): string {
+  const [year, month, dayOfMonth] = value.split("-").map(Number);
+  const absoluteMonth = year * 12 + (month - 1) + months;
+  const targetYear = Math.floor(absoluteMonth / 12);
+  const targetMonth = absoluteMonth % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(targetYear, targetMonth, Math.min(dayOfMonth, lastDay))).toISOString().slice(0, 10);
+}
+
+/** One aggregate pool; source rows remain individually traceable as pool members. */
+export function allocatePreBusinessCostPoolV1(
+  businessStartDate: string,
+  sources: readonly CostAllocationSourceResultV1[],
+): readonly CostAllocationSourceResultV1[] {
+  assertDate(businessStartDate);
+  const members = sources.filter(source => source.disposition === "pre_business_historical");
+  if (!members.length) return Object.freeze([...sources]);
+  const totalPaise = members.reduce((sum, source) => sum + source.sourceAmountPaise, 0);
+  if (!Number.isSafeInteger(totalPaise)) throw new Error("business_start_date_allocation_total_overflow");
+  const memberIds = new Set(members.map(source => source.sourceId));
+  const retained = sources.filter(source => !memberIds.has(source.sourceId));
+  const sourceId = "reporting:business-start-date:pre-business-pool";
+  const monthlyBase = Math.floor(totalPaise / 18);
+  const monthlyRemainder = totalPaise % 18;
+  const aggregateDaily: DailyCostAllocationV1[] = [];
+  for (let index = 0; index < 18; index++) {
+    const from = addAnchoredMonths(businessStartDate, index);
+    const to = addDays(addAnchoredMonths(businessStartDate, index + 1), -1);
+    aggregateDaily.push(...distribute({
+      sourceId, sourceKind: "pre-business-pool", sourceVersion: 1,
+      amountPaise: monthlyBase + (index < monthlyRemainder ? 1 : 0), from, to,
+    }));
+  }
+
+  // Split each aggregate daily amount back across its original source records.
+  // Row totals remain the aggregate pool's daily schedule, while each source
+  // column reconciles exactly to its immutable original amount and category.
+  const remaining = members.map(member => member.sourceAmountPaise);
+  const memberDaily = members.map((): DailyCostAllocationV1[] => []);
+  let remainingTotal = totalPaise;
+  for (const aggregateRow of aggregateDaily) {
+    const denominator = BigInt(remainingTotal || 1);
+    const numerators = remaining.map(amount => BigInt(aggregateRow.amountPaise) * BigInt(amount));
+    const shares = numerators.map(value => remainingTotal === 0 ? 0 : Number(value / denominator));
+    const fractions = numerators.map(value => remainingTotal === 0 ? 0n : value % denominator);
+    let residual = aggregateRow.amountPaise - shares.reduce((sum, value) => sum + value, 0);
+    const order = members.map((_, index) => index).sort((left, right) =>
+      fractions[left] === fractions[right]
+        ? members[left].sourceId.localeCompare(members[right].sourceId)
+        : fractions[left] > fractions[right] ? -1 : 1);
+    for (const index of order) {
+      if (residual === 0) break;
+      if (shares[index] < remaining[index]) { shares[index]++; residual--; }
+    }
+    if (residual !== 0) throw new Error("business_start_date_pool_apportionment_failed");
+    members.forEach((member, index) => {
+      const amountPaise = shares[index];
+      remaining[index] -= amountPaise;
+      memberDaily[index].push(Object.freeze({
+        date: aggregateRow.date, amountPaise, sourceId: member.sourceId,
+        sourceKind: member.sourceKind, sourceVersion: member.sourceVersion,
+        ...(member.scheduleVersion !== undefined ? { scheduleVersion: member.scheduleVersion } : {}),
+      }));
+    });
+    remainingTotal -= aggregateRow.amountPaise;
+  }
+  if (remaining.some(amount => amount !== 0) || remainingTotal !== 0) {
+    throw new Error("business_start_date_pool_source_reconciliation_failed");
+  }
+  const poolMembers = members.map((source, index) => Object.freeze({
+    ...source, disposition: "allocated" as const,
+    eligibleFrom: businessStartDate,
+    eligibleTo: addDays(addAnchoredMonths(businessStartDate, 18), -1),
+    daily: Object.freeze(memberDaily[index]),
+  }));
+  return Object.freeze([
+    ...retained, ...poolMembers,
+    Object.freeze({
+      sourceId, sourceKind: "pre-business-pool" as const, sourceVersion: 1,
+      sourceAmountPaise: totalPaise, disposition: "pre_business_pool_summary" as const,
+      eligibleFrom: businessStartDate, eligibleTo: addDays(addAnchoredMonths(businessStartDate, 18), -1),
+      daily: Object.freeze(aggregateDaily),
+    }),
+  ]);
 }
 
 export function buildBusinessStartDateAllocationResultV1(
@@ -212,8 +289,11 @@ export function buildBusinessStartDateAllocationResultV1(
   let allocatedAmountPaise = 0, historicalAmountPaise = 0, withheldAmountPaise = 0;
   for (const source of sources) {
     const sourceDailyTotal = source.daily.reduce((sum, row) => sum + row.amountPaise, 0);
-    if (source.disposition === "allocated" && sourceDailyTotal !== source.sourceAmountPaise) throw new Error("business_start_date_allocation_source_reconciliation_failed");
-    if (source.disposition !== "allocated" && sourceDailyTotal !== 0) throw new Error("business_start_date_allocation_nonallocated_source_has_daily_rows");
+    if ((source.disposition === "allocated" || source.disposition === "pre_business_pool_summary") &&
+        sourceDailyTotal !== source.sourceAmountPaise) throw new Error("business_start_date_allocation_source_reconciliation_failed");
+    if (source.disposition !== "allocated" && source.disposition !== "pre_business_pool_summary" && sourceDailyTotal !== 0) {
+      throw new Error("business_start_date_allocation_nonallocated_source_has_daily_rows");
+    }
     if (source.disposition === "pre_business_historical") historicalAmountPaise += source.sourceAmountPaise;
     else if (source.disposition === "overlap_review_required") withheldAmountPaise += source.sourceAmountPaise;
     for (const row of source.daily) {
@@ -221,8 +301,10 @@ export function buildBusinessStartDateAllocationResultV1(
       if (row.date < businessStartDate || !Number.isSafeInteger(row.sourceVersion) || row.sourceVersion < 1) {
         throw new Error("business_start_date_allocation_row_invalid");
       }
-      dailyTotals.set(row.date, (dailyTotals.get(row.date) ?? 0) + row.amountPaise);
-      allocatedAmountPaise += row.amountPaise;
+      if (source.disposition !== "pre_business_pool_summary") {
+        dailyTotals.set(row.date, (dailyTotals.get(row.date) ?? 0) + row.amountPaise);
+        if (source.disposition === "allocated") allocatedAmountPaise += row.amountPaise;
+      }
     }
   }
   const daily = [...dailyTotals].sort(([a],[b]) => a.localeCompare(b))

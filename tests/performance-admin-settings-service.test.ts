@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   PerformanceAdminSettingsServiceV1,
@@ -7,7 +7,7 @@ import {
   PERFORMANCE_ADMIN_SETTINGS_RECORD_ID,
 } from "../packages/application/src/performance-admin-settings-service";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
@@ -17,6 +17,14 @@ class MemoryRepository implements AtomicRecordRepository {
     const current = this.rows.get(id);
     if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
     this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    for (const mutation of mutations) {
+      const current = this.rows.get(mutation.id);
+      if (mutation.expectedRevision === null ? current !== undefined : current?.revision !== mutation.expectedRevision) return false;
+    }
+    for (const mutation of mutations) this.rows.set(mutation.id, mutation.next as RecordEnvelope<unknown>);
     return true;
   }
 }
@@ -38,6 +46,35 @@ describe("Performance Admin source records v1", () => {
       data: { kind: "settings", monthlyDriverTargetPaise: 5_000_000 },
     });
     await expect(service.getMonthlyTargetPaise()).resolves.toBe(5_000_000);
+  });
+
+  it("replays Driver Target create and update receipts with stable revisions", async () => {
+    const repository = new MemoryRepository();
+    const service = new PerformanceAdminSettingsServiceV1(repository);
+    const createOperation = { operationId: "performance-target-create", payloadFingerprint: "target-4500000" };
+    const created = await service.setMonthlyDriverTargetPaise(4_500_000, "web", createOperation, "2026-11-19T08:00:00.000Z");
+    expect(await service.setMonthlyDriverTargetPaise(4_500_000, "web", createOperation, "2026-11-19T09:00:00.000Z")).toEqual(created);
+    const updateOperation = { operationId: "performance-target-update", payloadFingerprint: "target-5000000" };
+    const updated = await service.setMonthlyDriverTargetPaise(5_000_000, "web", updateOperation, "2026-11-19T08:30:00.000Z");
+    expect(await service.setMonthlyDriverTargetPaise(5_000_000, "web", updateOperation, "2026-11-19T09:30:00.000Z")).toEqual(updated);
+    expect(updated.revision).toBe(2);
+    expect((await repository.list()).filter(row => row.id.startsWith("__sam_travels_feature_operation__:"))).toHaveLength(2);
+    await expect(service.setMonthlyDriverTargetPaise(6_000_000, "web", updateOperation))
+      .rejects.toThrow("feature_record_operation_payload_conflict");
+  });
+
+  it("commits the manual pre-business cost and operation receipt atomically", async () => {
+    const repository = new MemoryRepository();
+    const service = new PerformanceAdminSettingsServiceV1(repository);
+    const input = {
+      commandId: "55555555-5555-4555-8555-555555555555",
+      amountPaise: 15_000, note: "Pre-launch expense", source: "web" as const,
+      operation: { operationId: "pre-business-operation", payloadFingerprint: "pre-business-payload" },
+      now: "2026-11-19T08:00:00.000Z",
+    };
+    const created = await service.createPreBusinessCost(input);
+    expect(await service.createPreBusinessCost({ ...input, now: "2026-11-19T09:00:00.000Z" })).toEqual(created);
+    expect((await repository.list()).filter(row => row.id.startsWith("__sam_travels_feature_operation__:"))).toHaveLength(1);
   });
 
   it("stores multiple pre-business costs independently and makes retries idempotent", async () => {

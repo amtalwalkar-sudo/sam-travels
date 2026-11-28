@@ -16,6 +16,12 @@ import com.getcapacitor.annotation.CapacitorPlugin
 
 @CapacitorPlugin(name = "DeviceReadiness")
 class DeviceReadinessPlugin : Plugin() {
+    /** Explicit native resume event: Android Settings handoff may not reliably emit WebView focus/visibility events. */
+    override fun handleOnResume() {
+        super.handleOnResume()
+        notifyListeners("appResume", JSObject())
+    }
+
     @PluginMethod
     fun getStatus(call: PluginCall) {
         try {

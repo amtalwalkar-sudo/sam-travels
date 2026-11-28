@@ -91,15 +91,99 @@ internal fun NativeBackupCoverage.registerFeatureRecordParticipant(
 
 /** Backward compatibility for snapshots created before a new empty feature participant existed. */
 internal object NativeFeatureBackupManifestCompatibility {
+    /** Canonical interchange groups Room's finance sub-adapters under the browser finance owner. */
+    fun canonicalParticipantManifest(): JSONArray {
+        val result = JSONArray()
+        var financeAdded = false
+        NativeBackupCoverage.discoverParticipants().sortedBy { it.id }.forEach { participant ->
+            if (participant.featureId == "finance") {
+                if (!financeAdded) {
+                    result.put(JSONObject()
+                        .put("id", "finance-records")
+                        .put("featureId", "finance")
+                        .put("snapshotVersion", 1)
+                        .put("restoreValidatorId", "finance-records-v1"))
+                    financeAdded = true
+                }
+            } else {
+                result.put(JSONObject()
+                    .put("id", participant.id)
+                    .put("featureId", participant.featureId)
+                    .put("snapshotVersion", participant.snapshotVersion)
+                    .put("restoreValidatorId", participant.id + "-v1"))
+            }
+        }
+        return result
+    }
+
+    /** Room keeps finance validators separate; the interchange owner is intentionally singular. */
+    fun toCanonicalInterchangeRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            if (row.optString("participantId") == "finance-payment-records" ||
+                row.optString("participantId") == "finance-prepayment-records") {
+                row.put("participantId", "finance-records")
+            }
+            result.put(row)
+        }
+        return result
+    }
+
+    /** Split the canonical finance owner back to the precise Room validator by stable record namespace. */
+    fun normalizeCanonicalInterchangeRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            if (row.optString("participantId") == "finance-records") {
+                val id = row.optString("id")
+                when {
+                    id.startsWith("feature:finance:payments:") -> row.put("participantId", "finance-payment-records")
+                    id.startsWith("feature:finance:prepayments:") -> row.put("participantId", "finance-prepayment-records")
+                }
+            }
+            result.put(row)
+        }
+        return result
+    }
+
+    /** Convert pre-manifest snapshots from the old shared-records owner model. */
+    fun normalizeLegacyRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            val originalId = row.optString("id")
+            when {
+                originalId.startsWith("driver-event:") -> {
+                    row.put("id", originalId.removePrefix("driver-event:"))
+                    row.put("participantId", "logbook-events")
+                }
+                originalId == "driver-state" || originalId == "legacy-driver-state" ||
+                    originalId.startsWith("driver-intent:") || originalId.startsWith("driver-outbox:") ->
+                    row.put("participantId", "work-driver-state")
+                row.optString("participantId") == "logbook-events" -> Unit
+                else -> row.put("participantId", "platform-records")
+            }
+            result.put(row)
+        }
+        return result
+    }
+
     fun validate(incoming: JSONArray?, records: JSONArray?) {
         if (incoming == null) return
-        val expected = NativeBackupCoverage.participantManifest()
+        val expected = canonicalParticipantManifest()
         fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
-            listOf(item.getString("id"), item.getString("featureId"),
-                item.getInt("snapshotVersion").toString(), item.getString("adapterId"),
-                item.getString("restoreValidatorId")).joinToString("|")
-        }.sorted()
+            val rawId = item.getString("id")
+            val financeOwner = rawId == "finance-payment-records" ||
+                rawId == "finance-prepayment-records" || rawId == "finance-records"
+            listOf(
+                if (financeOwner) "finance-records" else rawId,
+                item.getString("featureId"),
+                item.getInt("snapshotVersion").toString(),
+                if (financeOwner) "finance-records-v1" else item.getString("restoreValidatorId"),
+            ).joinToString("|")
+        }.distinct().sorted()
         if (canonical(incoming) == canonical(expected)) return
         val incomingIds = (0 until incoming.length()).map { incoming.getJSONObject(it).getString("id") }.toSet()
         val omitted = (0 until expected.length()).map { expected.getJSONObject(it) }

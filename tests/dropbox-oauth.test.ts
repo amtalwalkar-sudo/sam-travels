@@ -56,6 +56,28 @@ describe("Dropbox OAuth gateway boundary", () => {
     expect(vault.values.has("dropbox.oauth.pending.v1")).toBe(false);
   });
 
+  it("uses the browser fetch global with its required receiver when no adapter is injected", async () => {
+    const policy = new MemoryPolicy();
+    policy.enabled = true;
+    const vault = new MemoryVault();
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      access_token: "browser-access",
+      refresh_token: "browser-refresh",
+      expires_in: 3600,
+      token_type: "bearer",
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const client = new DropboxBackupClient(policy, vault, "test-client", "http://localhost/oauth");
+      const authorization = new URL(await client.beginAuthorization());
+      await client.completeAuthorization("code", authorization.searchParams.get("state")!);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(await client.isConnected()).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("refreshes expired access tokens before listing and paginates history", async () => {
     const policy = new MemoryPolicy();
     policy.enabled = true;

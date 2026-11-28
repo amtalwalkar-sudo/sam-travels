@@ -100,6 +100,22 @@ class DriverWorkflowIdentityAttributionTest {
         } finally { db.close() }
     }
 
+
+    @Test fun softDeletedDriverPersonLinkCannotAuthorizeNativeWorkEvent() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            DriverWorkflowIdentityTestFixtures.seed(db, "driver-deleted-link", "person-deleted-link")
+            val row = db.records().get("identity:driver-person-link:driver-deleted-link")!!
+            val envelope = JSONObject(row.json).put("deletedAt", java.time.Instant.now().toString())
+            db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, row.updatedAt))
+            DriverWorkflowStore.queue(db, command("deleted-link-event"))
+            val failure = runCatching { DriverWorkflowStore.complete(db, "deleted-link-event", gps()) }.exceptionOrNull()
+            assertEquals("driver_person_link_missing", failure?.message)
+            assertTrue(db.logBookEvents().list().isEmpty())
+        } finally { db.close() }
+    }
+
     @Test fun inactiveLinkedDriverCannotAuthorANativeOverlayEvent() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()

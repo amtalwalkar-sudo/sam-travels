@@ -13,7 +13,9 @@ internal object NativeDriverRecordsBackup {
 
     @Synchronized
     fun ensureRegistered() {
-        if (processRegistration == null) processRegistration = register()
+        if (processRegistration == null || PARTICIPANT_ID !in NativeBackupCoverage.registeredParticipantIds()) {
+            processRegistration = register()
+        }
     }
 
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
@@ -21,8 +23,14 @@ internal object NativeDriverRecordsBackup {
         featureId = FEATURE_ID,
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows, _ ->
+        validateRelationships = { rows, allRecords ->
             var selectedWorkDrivers = 0
+            // Relationship integrity is based on the canonical Vehicle record
+            // identity. Ownership is independently enforced by the participant
+            // validator, so do not make this lookup depend on an interchange owner
+            // label that may be normalized during backup/restore.
+            val vehicleIds = allRecords.map { it.optString("id") }
+                .filter { it.startsWith("feature:vehicle:") }.toSet()
             rows.forEach { row ->
                 val id = row.optString("id")
                 val data = JSONObject(row.getString("json")).getJSONObject("data")
@@ -61,21 +69,37 @@ internal object NativeDriverRecordsBackup {
                         val ids = mutableSetOf<String>()
                         var active = 0
                         var previous = Long.MIN_VALUE
+                        var previousUnassignedAt = Long.MIN_VALUE
                         for (index in 0 until assignments.length()) {
                             val assignment = assignments.getJSONObject(index)
                             val assignmentKeys = assignment.keys().asSequence().toSet()
-                            require(assignmentKeys.all { it in setOf("assignmentId", "vehicleId", "assignedAt", "unassignedAt") } &&
+                            val vehicleId = assignment.optString("vehicleId")
+                            val validAssignmentReference = assignmentKeys.all { it in setOf("assignmentId", "vehicleId", "assignedAt", "unassignedAt") } &&
                                 assignmentKeys.containsAll(setOf("assignmentId", "vehicleId", "assignedAt")) &&
                                 assignment.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
                                 ids.add(assignment.optString("assignmentId")) &&
-                                assignment.optString("vehicleId").startsWith("feature:vehicle:")) { "driver_assignment_invalid" }
+                                vehicleId.startsWith("feature:vehicle:") && vehicleId in vehicleIds
+                            if (!validAssignmentReference) {
+                                android.util.Log.e(
+                                    "NativeDriverRecordsBackup",
+                                    "Missing assignment Vehicle $vehicleId; exported vehicle ids=" +
+                                        allRecords.map { it.optString("id") }.filter { it.startsWith("feature:vehicle:") },
+                                )
+                                throw IllegalArgumentException("driver_assignment_vehicle_reference_missing")
+                            }
                             val assigned = Instant.parse(assignment.getString("assignedAt")).toEpochMilli()
                             require(assigned >= previous) { "driver_assignment_history_order_invalid" }
+                            require(previousUnassignedAt != Long.MAX_VALUE) { "driver_multiple_active_assignments" }
+                            require(assigned >= previousUnassignedAt) { "driver_assignment_period_overlap" }
                             previous = assigned
                             if (assignment.has("unassignedAt")) {
                                 val ended = Instant.parse(assignment.getString("unassignedAt")).toEpochMilli()
                                 require(ended >= assigned) { "driver_assignment_period_invalid" }
-                            } else active++
+                                previousUnassignedAt = ended
+                            } else {
+                                active++
+                                previousUnassignedAt = Long.MAX_VALUE
+                            }
                         }
                         require(active <= 1) { "driver_multiple_active_assignments" }
                     }

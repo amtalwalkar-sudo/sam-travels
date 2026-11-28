@@ -9,7 +9,7 @@ import { maintenanceRateHistoryRecordId } from "../packages/features/maintenance
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
 import { validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
-import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords } from "../apps/web/src/maintenance-expense-correction-runtime";
+import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords, projectMaintenanceVisitRecords } from "../apps/web/src/maintenance-expense-correction-runtime";
 
 describe("Maintenance correction on the browser IndexedDB repository", () => {
   const records = new DexieRecordRepository();
@@ -20,7 +20,7 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
   afterEach(async () => {
     unregisterMaintenance?.(); unregisterMaintenance = undefined;
     unregisterVehicle?.(); unregisterVehicle = undefined;
-    for (const id of touched.splice(0)) await records.remove(id);
+    for (const id of touched.splice(0)) await browserDatabase.records.delete(id);
   });
 
   it("appends and replays a correction without changing the original IndexedDB record", async () => {
@@ -167,4 +167,46 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     })).rejects.toThrow("historical_correction_field_not_allowed");
     expect((await browserDatabase.records.get(targetRecordId))?.revision).toBe(1);
   });
+
+  it("corrects a service visit total through the browser adapter without rewriting itemised source evidence", async () => {
+    const targetRecordId = "feature:maintenance:visit:" + crypto.randomUUID();
+    const correctionId = "indexeddb-visit-" + crypto.randomUUID();
+    touched.push(targetRecordId, "historical-correction:" + correctionId,
+      "historical-correction-chain:" + encodeURIComponent(targetRecordId));
+    const recordedAt = "2026-10-11T00:00:00.000Z";
+    const original = {
+      id: targetRecordId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web" as const, revision: 1,
+      createdBy: { personId: "admin-maintenance", role: "admin" as const },
+      data: {
+        schemaVersion: 1 as const, kind: "visit" as const,
+        vehicleId: "feature:vehicle:MH01AB1234", maintenanceDate: "2026-10-10",
+        maintenanceType: "Tyre repair", description: "Original visit receipt",
+        items: [{ id: "item-1", description: "Tyre repair", amountPaise: 250000 }],
+        totalPaise: 250000,
+      },
+    };
+    await records.put(original);
+    const adapter = createMaintenanceExpenseCorrectionAdapter(records, "web", {
+      currentActor: async () => ({
+        role: "admin", actorId: "admin-maintenance", adminPinVerifiedAt: recordedAt,
+      }),
+    } as never);
+    await adapter.submit({
+      correctionId, targetRecordId, expectedTargetRevision: 1, expectedChainRevision: 0,
+      fieldPath: "totalPaise", afterValue: 275000,
+      reason: "Corrected visit total against final garage invoice",
+      businessEffectiveDate: "2026-10-10",
+    });
+    const projection = await projectMaintenanceVisitRecords([original as never], adapter);
+    const unchanged = await records.get<typeof original.data>(targetRecordId);
+    expect(projection[0]).toMatchObject({
+      data: { totalPaise: 275000, items: [{ amountPaise: 250000 }] },
+      correctionChainRevision: 1,
+      correctionRefs: [{ sourceId: "historical-correction:" + correctionId, revision: 1, chainRevision: 1 }],
+    });
+    expect(unchanged?.data.totalPaise).toBe(250000);
+    expect(unchanged?.data.items).toEqual(original.data.items);
+  });
+
 });

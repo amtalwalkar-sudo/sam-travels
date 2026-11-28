@@ -97,6 +97,19 @@ export class ComplianceAnalysisService {
   async getOverview(): Promise<ComplianceOverview> {
     const actor = await this.identity.currentActor();
     if (actor.role !== "admin") throw new Error("business_admin_authority_required");
+    return this.buildAllocationOverview();
+  }
+
+  /**
+   * Internal read-only cost-allocation projection. Performance is available
+   * outside the Admin workspace, so calculation must not depend on the
+   * short-lived PIN-verified Admin presentation session.
+   */
+  async getAllocationOverview(): Promise<ComplianceOverview> {
+    return this.buildAllocationOverview();
+  }
+
+  private async buildAllocationOverview(): Promise<ComplianceOverview> {
     const [sourceRecords, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
     const records = await this.projectCorrectedRecords(sourceRecords);
     const groups = new Map<string, { vehicleId: string; complianceName: string }>();

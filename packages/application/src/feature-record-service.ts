@@ -1,5 +1,5 @@
 import { assertRecordEnvelope, RECORD_ENVELOPE_SCHEMA_VERSION } from "../../core/src/persistence-contract";
-import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 
 export type FeatureRecordDefinition<Data> = Readonly<{
@@ -12,6 +12,43 @@ export type FeatureRecordSource = RecordEnvelope<unknown>["source"];
 
 type FeatureRecordAuthorResolver = () => Promise<RecordAuthorV1>;
 
+export type FeatureRecordOperationIdentityV1 = Readonly<{
+  operationId: string;
+  payloadFingerprint: string;
+}>;
+
+type FeatureRecordOperationReceiptV1<Data> = Readonly<{
+  schemaVersion: 1;
+  kind: "feature_record_operation_receipt";
+  operationId: string;
+  payloadFingerprint: string;
+  action: "create" | "update";
+  targetRecordId: string;
+  result: RecordEnvelope<Data>;
+}>;
+
+const OPERATION_RECEIPT_PREFIX = "__sam_travels_feature_operation__:";
+
+function operationReceiptId(operationId: string): string {
+  if (!operationId.trim() || operationId.length > 256) throw new Error("feature_record_operation_identity_invalid");
+  return OPERATION_RECEIPT_PREFIX + encodeURIComponent(operationId);
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === undefined) return "undefined";
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value) ?? "null";
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("feature_record_operation_payload_invalid");
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+    return "{" + entries.map(([key, entry]) => JSON.stringify(key) + ":" + canonicalJson(entry)).join(",") + "}";
+  }
+  throw new Error("feature_record_operation_payload_invalid");
+}
+
 /**
  * The only generic persistence entry point for feature-owned records.
  *
@@ -22,7 +59,7 @@ type FeatureRecordAuthorResolver = () => Promise<RecordAuthorV1>;
  */
 export class FeatureRecordService<Data> {
   private static authorResolver?: FeatureRecordAuthorResolver;
-  static setAuthorResolver(resolver: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
+  static setAuthorResolver(resolver?: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
   constructor(
     private readonly repository: AtomicRecordRepository,
     private readonly definition: FeatureRecordDefinition<Data>,
@@ -49,6 +86,85 @@ export class FeatureRecordService<Data> {
     this.definition.validate(record.data);
   }
 
+  /** Returns the committed result for a matching operation regardless of whether it created or updated the target. */
+  async replayOperation(
+    operation: FeatureRecordOperationIdentityV1,
+    targetRecordId: string,
+    expectedData: Data,
+  ): Promise<RecordEnvelope<Data> | undefined> {
+    this.assertOwnedId(targetRecordId);
+    this.definition.validate(expectedData);
+    if (!operation.payloadFingerprint.trim()) throw new Error("feature_record_operation_identity_invalid");
+    const receipt = await this.repository.get<FeatureRecordOperationReceiptV1<Data>>(operationReceiptId(operation.operationId));
+    if (!receipt) return undefined;
+    assertRecordEnvelope(receipt);
+    const data = receipt.data;
+    if (data?.kind !== "feature_record_operation_receipt" || data.schemaVersion !== 1 ||
+        data.operationId !== operation.operationId || !["create", "update"].includes(data.action) ||
+        data.targetRecordId !== targetRecordId || data.payloadFingerprint !== operation.payloadFingerprint ||
+        !data.result || canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
+      throw new Error("feature_record_operation_payload_conflict");
+    }
+    this.assertOwnedRecord(data.result);
+    if (data.result.id !== targetRecordId) throw new Error("feature_record_operation_receipt_invalid");
+    return data.result;
+  }
+
+  private async findOperationReceipt(
+    operation: FeatureRecordOperationIdentityV1,
+    action: "create" | "update",
+    targetRecordId: string,
+    expectedData: Data,
+  ): Promise<RecordEnvelope<Data> | undefined> {
+    if (!operation.payloadFingerprint.trim()) throw new Error("feature_record_operation_identity_invalid");
+    const receipt = await this.repository.get<FeatureRecordOperationReceiptV1<Data>>(operationReceiptId(operation.operationId));
+    if (!receipt) return undefined;
+    assertRecordEnvelope(receipt);
+    const data = receipt.data;
+    if (data?.kind !== "feature_record_operation_receipt" || data.schemaVersion !== 1 ||
+        data.operationId !== operation.operationId || data.action !== action || data.targetRecordId !== targetRecordId ||
+        data.payloadFingerprint !== operation.payloadFingerprint ||
+        !data.result || canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
+      throw new Error("feature_record_operation_payload_conflict");
+    }
+    assertRecordEnvelope(data.result);
+    if (data.result.id !== targetRecordId) throw new Error("feature_record_operation_receipt_invalid");
+    return data.result;
+  }
+
+  private async commitOperation(
+    record: RecordEnvelope<Data>,
+    operation: FeatureRecordOperationIdentityV1,
+    action: "create" | "update",
+    expectedRevision: number | null,
+  ): Promise<RecordEnvelope<Data>> {
+    const batch = this.repository as AtomicRecordBatchRepository;
+    if (typeof batch.compareAndSetMany !== "function") throw new Error("feature_record_durable_operation_requires_atomic_batch");
+    const receiptId = operationReceiptId(operation.operationId);
+    const timestamp = record.updatedAt;
+    const receipt: RecordEnvelope<FeatureRecordOperationReceiptV1<Data>> = {
+      id: receiptId, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: record.source, revision: 1,
+      data: {
+        schemaVersion: 1, kind: "feature_record_operation_receipt", operationId: operation.operationId,
+        payloadFingerprint: operation.payloadFingerprint, action, targetRecordId: record.id, result: record,
+      },
+    };
+    const committed = await batch.compareAndSetMany([
+      { id: record.id, expectedRevision, next: record },
+      { id: receiptId, expectedRevision: null, next: receipt },
+    ]);
+    if (committed) return record;
+    const replay = await this.findOperationReceipt(operation, action, record.id, record.data);
+    if (replay) return replay;
+    if (expectedRevision === null && await this.repository.get(record.id)) {
+      throw new Error("feature_record_already_exists:" + record.id);
+    }
+    throw new Error(action === "update"
+      ? "feature_record_stale_revision:" + record.id
+      : "feature_record_operation_commit_conflict");
+  }
+
   async create(input: {
     id: string;
     data: Data;
@@ -56,12 +172,21 @@ export class FeatureRecordService<Data> {
     businessDate?: string;
     now?: string;
     createdBy?: RecordAuthorV1;
+    operation?: FeatureRecordOperationIdentityV1;
   }): Promise<RecordEnvelope<Data>> {
     this.assertOwnedId(input.id);
     this.definition.validate(input.data);
+    if (input.operation) {
+      const replay = await this.findOperationReceipt(input.operation, "create", input.id, input.data);
+      if (replay) return replay;
+    }
     const timestamp = input.now ?? this.now();
-    const createdBy = input.createdBy ?? (FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
-    if (FeatureRecordService.authorResolver && !createdBy) throw new Error("business_actor_not_active");
+    const createdBy = input.createdBy ?? (input.source === "import"
+      ? undefined
+      : FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
+    if (input.source !== "import" && FeatureRecordService.authorResolver && !createdBy) {
+      throw new Error("business_actor_not_active");
+    }
     const record: RecordEnvelope<Data> = {
       id: input.id,
       schemaVersion: RECORD_ENVELOPE_SCHEMA_VERSION,
@@ -74,6 +199,7 @@ export class FeatureRecordService<Data> {
       data: input.data,
     };
     assertRecordEnvelope(record);
+    if (input.operation) return this.commitOperation(record, input.operation, "create", null);
     const committed = await this.repository.compareAndSet(input.id, null, record);
     if (!committed) throw new Error("feature_record_already_exists:" + input.id);
     return record;
@@ -84,25 +210,37 @@ export class FeatureRecordService<Data> {
     expectedRevision: number;
     data: Data;
     now?: string;
+    operation?: FeatureRecordOperationIdentityV1;
+    updatedBy?: RecordAuthorV1;
   }): Promise<RecordEnvelope<Data>> {
     this.assertOwnedId(input.id);
+    if (input.operation) {
+      const replay = await this.findOperationReceipt(input.operation, "update", input.id, input.data);
+      if (replay) return replay;
+    }
     if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
       throw new Error("feature_record_expected_revision_invalid");
     }
     this.definition.validate(input.data);
     const current = await this.repository.get<unknown>(input.id);
     if (!current) throw new Error("feature_record_not_found:" + input.id);
+    if (current.deletedAt) throw new Error("feature_record_deleted:" + input.id);
     this.assertOwnedRecord(current);
     if (current.revision !== input.expectedRevision) {
       throw new Error("feature_record_stale_revision:" + input.id);
     }
+    const updatedBy = input.updatedBy ?? (FeatureRecordService.authorResolver
+      ? await FeatureRecordService.authorResolver() : undefined);
+    if (FeatureRecordService.authorResolver && !updatedBy) throw new Error("business_actor_not_active");
     const next: RecordEnvelope<Data> = {
       ...current,
       updatedAt: input.now ?? this.now(),
       revision: current.revision + 1,
+      ...(updatedBy ? { updatedBy } : {}),
       data: input.data,
     };
     assertRecordEnvelope(next);
+    if (input.operation) return this.commitOperation(next, input.operation, "update", input.expectedRevision);
     const committed = await this.repository.compareAndSet(input.id, input.expectedRevision, next);
     if (!committed) throw new Error("feature_record_stale_revision:" + input.id);
     return next;
@@ -111,7 +249,7 @@ export class FeatureRecordService<Data> {
   async get(id: string): Promise<RecordEnvelope<Data> | undefined> {
     this.assertOwnedId(id);
     const record = await this.repository.get<unknown>(id);
-    if (!record) return undefined;
+    if (!record || record.deletedAt) return undefined;
     this.assertOwnedRecord(record);
     return record;
   }
@@ -119,7 +257,7 @@ export class FeatureRecordService<Data> {
   async list(): Promise<Array<RecordEnvelope<Data>>> {
     const records = await this.repository.list<unknown>();
     return records
-      .filter(record => record.id.startsWith(this.definition.recordIdPrefix))
+      .filter(record => record.id.startsWith(this.definition.recordIdPrefix) && !record.deletedAt)
       .map(record => {
         this.assertOwnedRecord(record);
         return record;

@@ -1,7 +1,8 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
-
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
+import { projectMaintenanceCorrectedRecord } from "./maintenance-correction-projection";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 export type MaintenanceExpenseItemV1 = Readonly<{ id: string; description: string; amountPaise: number }>;
 export type MaintenanceVisitV1 = Readonly<{
   schemaVersion: 1; kind: "visit"; vehicleId: string; maintenanceDate: string;
@@ -37,14 +38,12 @@ export type MaintenanceBusinessDateResolver = (instant: string) => string;
 export type MaintenanceVisitInput = Omit<MaintenanceVisitV1, "schemaVersion" | "kind" | "totalPaise">;
 export type MaintenanceExpenseInput = Omit<GeneralMaintenanceExpenseV1, "schemaVersion" | "kind">;
 export type MaintenanceRateHistoryEntry = MaintenanceRateEntryV1;
-
 const PREFIX = "feature:maintenance:";
 const VISIT_PREFIX = PREFIX + "visit:";
 const EXPENSE_PREFIX = PREFIX + "expense:";
 const RATE_PREFIX = PREFIX + "rate:";
 const DEFAULT_RATE = 250;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function recordId(kind: "visit" | "expense", uuid: string): string {
   if (typeof uuid !== "string" || !UUID.test(uuid)) throw new Error("maintenance_record_uuid_invalid");
   return (kind === "visit" ? VISIT_PREFIX : EXPENSE_PREFIX) + uuid.toLowerCase();
@@ -65,7 +64,6 @@ function isValidDate(value: string): boolean {
 export class MaintenanceService {
   private readonly records: FeatureRecordService<MaintenanceRecordV1>;
   private readonly repository: AtomicRecordRepository;
-
   constructor(
     repository: AtomicRecordRepository,
     validate: MaintenanceRecordValidator,
@@ -73,6 +71,7 @@ export class MaintenanceService {
     private readonly calculateVisitTotal: MaintenanceVisitTotalCalculator,
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">>,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -82,7 +81,23 @@ export class MaintenanceService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string): Promise<RecordEnvelope<{ lifecycleState: string }>> {
+  private async requireVehicleReadOnly(vehicleId: string) {
+    const configuration = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
+      : undefined;
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
+    const vehicle = await this.vehicles.getById(vehicleId);
+    if (!vehicle) throw new Error("maintenance_vehicle_not_found");
+    return vehicle;
+  }
+
+  private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
+    const configuration = expectedConfiguration ?? await this.operatingConfiguration?.get();
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("maintenance_vehicle_not_found");
     return vehicle;
@@ -90,8 +105,10 @@ export class MaintenanceService {
 
   async createVisit(input: {
     uuid: string; data: MaintenanceVisitInput; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceVisitV1>> {
-    await this.requireVehicle(input.data.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.data.vehicleId, operating);
     const data: MaintenanceVisitV1 = {
       ...input.data, schemaVersion: 1, kind: "visit",
       totalPaise: this.calculateVisitTotal(input.data.items),
@@ -99,20 +116,24 @@ export class MaintenanceService {
     if (data.nextServiceDate && data.nextServiceDate < data.maintenanceDate) {
       throw new Error("maintenance_next_service_date_before_visit");
     }
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
       id: recordId("visit", input.uuid), data, source: input.source,
-      businessDate: data.maintenanceDate,
+      businessDate: data.maintenanceDate, operation: input.operation, now: input.now,
     }) as Promise<RecordEnvelope<MaintenanceVisitV1>>;
   }
 
   async createExpense(input: {
     uuid: string; data: MaintenanceExpenseInput; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
-    await this.requireVehicle(input.data.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.data.vehicleId, operating);
     const data: GeneralMaintenanceExpenseV1 = { ...input.data, schemaVersion: 1, kind: "expense" };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
       id: recordId("expense", input.uuid), data, source: input.source,
-      businessDate: data.expenseDate,
+      businessDate: data.expenseDate, operation: input.operation, now: input.now,
     }) as Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>>;
   }
 
@@ -120,7 +141,7 @@ export class MaintenanceService {
     record?: RecordEnvelope<MaintenanceRateHistoryV1>;
     entries: readonly MaintenanceRateHistoryEntry[];
   }> {
-    const vehicle = await this.requireVehicle(vehicleId);
+    const vehicle = await this.requireVehicleReadOnly(vehicleId);
     const id = rateHistoryId(vehicleId);
     const storedRecord = await this.records.get(id);
     let record: RecordEnvelope<MaintenanceRateHistoryV1> | undefined;
@@ -148,13 +169,15 @@ export class MaintenanceService {
 
   async setRate(input: {
     vehicleId: string; ratePaisePerKm: number; commandId: string; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceRateHistoryV1>> {
-    const vehicle = await this.requireVehicle(input.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    const vehicle = await this.requireVehicle(input.vehicleId, operating);
     if (!Number.isSafeInteger(input.ratePaisePerKm) || input.ratePaisePerKm < 0) {
       throw new Error("maintenance_rate_invalid");
     }
     if (!UUID.test(input.commandId)) throw new Error("maintenance_rate_command_id_invalid");
-    const timestamp = this.now();
+    const timestamp = input.now ?? this.now();
     const effectiveFrom = this.businessDateFromInstant(timestamp);
     const id = rateHistoryId(input.vehicleId);
     const current = await this.records.get(id);
@@ -193,13 +216,14 @@ export class MaintenanceService {
       schemaVersion: 1, kind: "rate_history", vehicleId: input.vehicleId,
       entries: Object.freeze(entries),
     };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     if (!current) {
       return this.records.create({
-        id, data, source: input.source, businessDate: effectiveFrom, now: timestamp,
+        id, data, source: input.source, businessDate: effectiveFrom, now: timestamp, operation: input.operation,
       }) as Promise<RecordEnvelope<MaintenanceRateHistoryV1>>;
     }
     return this.records.update({
-      id, expectedRevision: current.revision, data, now: timestamp,
+      id, expectedRevision: current.revision, data, now: timestamp, operation: input.operation,
     }) as Promise<RecordEnvelope<MaintenanceRateHistoryV1>>;
   }
 
@@ -211,9 +235,9 @@ export class MaintenanceService {
     return eligible[eligible.length - 1];
   }
 
-
   async accrueDailyBusinessKilometres(input: { vehicleId: string; operationalDate: string; source: FeatureRecordSource }): Promise<RecordEnvelope<MaintenanceDailyAccrualV1>> {
-    await this.requireVehicle(input.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.vehicleId, operating);
     if (!isValidDate(input.operationalDate)) throw new Error("maintenance_business_date_invalid");
     const dailyBusinessKmRecordId = "work:daily-business-km:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
     const daily = await this.repository.get<{
@@ -272,6 +296,7 @@ export class MaintenanceService {
       throw new Error("maintenance_daily_accrual_amount_out_of_range");
     }
     try {
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       return await this.records.create({ id, data, source: input.source, businessDate: input.operationalDate }) as RecordEnvelope<MaintenanceDailyAccrualV1>;
     } catch (error) {
       const raced = await this.records.get(id);
@@ -287,13 +312,17 @@ export class MaintenanceService {
     rateHistory: readonly MaintenanceRateHistoryEntry[];
     rateHistoryRecord?: RecordEnvelope<MaintenanceRateHistoryV1>;
   }> {
-    await this.requireVehicle(vehicleId);
+    await this.requireVehicleReadOnly(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
     const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];
-    const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
-    const expenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
-    const rate = await this.getRateHistory(vehicleId);
+    const sourceVisits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
+    const sourceExpenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
+    const [visits, expenses, rate] = await Promise.all([
+      Promise.all(sourceVisits.map(record => projectMaintenanceCorrectedRecord(this.repository, record))),
+      Promise.all(sourceExpenses.map(record => projectMaintenanceCorrectedRecord(this.repository, record))),
+      this.getRateHistory(vehicleId),
+    ]);
     return {
       accruals: Object.freeze(accruals.sort((a, b) => b.data.operationalDate.localeCompare(a.data.operationalDate))),
       visits: Object.freeze(visits.sort((a, b) => b.data.maintenanceDate.localeCompare(a.data.maintenanceDate))),
@@ -307,22 +336,26 @@ export class MaintenanceService {
     await this.requireVehicle(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
-    return owned.reduce((total, record) => {
-      const amount = record.data.kind === "visit" ? record.data.totalPaise
-        : record.data.kind === "expense" ? record.data.amountPaise : 0;
+    const [visits, expenses] = await Promise.all([
+      Promise.all(owned.filter(record => record.data.kind === "visit")
+        .map(record => projectMaintenanceCorrectedRecord(this.repository, record as RecordEnvelope<MaintenanceVisitV1>))),
+      Promise.all(owned.filter(record => record.data.kind === "expense")
+        .map(record => projectMaintenanceCorrectedRecord(this.repository, record as RecordEnvelope<GeneralMaintenanceExpenseV1>))),
+    ]);
+    return [...visits, ...expenses].reduce((total, record) => {
+      const amount = record.data.kind === "visit" ? record.data.totalPaise : record.data.amountPaise;
       const next = total + amount;
       if (!Number.isSafeInteger(next)) throw new Error("maintenance_actual_expense_total_out_of_range");
       return next;
     }, 0);
   }
-
   async getServiceReminderStates(vehicleId: string, asOf: string): Promise<readonly Readonly<{
     visit: RecordEnvelope<MaintenanceVisitV1>;
     dateDue: boolean;
     kilometreStatus: "not_applicable" | "odometer_unavailable" | "not_due" | "due";
     latestOdometerKm?: number;
   }>[]> {
-    await this.requireVehicle(vehicleId);
+    await this.requireVehicleReadOnly(vehicleId);
     if (!isValidDate(asOf)) throw new Error("maintenance_business_date_invalid");
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);

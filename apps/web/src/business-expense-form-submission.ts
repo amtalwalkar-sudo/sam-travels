@@ -8,6 +8,7 @@ import {
   TRAFFIC_CHALLAN_FORM_V1,
 } from "../../../packages/application/src";
 import { maintenanceBusinessDateFromInstant } from "../../../packages/features/maintenance";
+import { driverRecordId } from "../../../packages/domain/src/driver-record-identity";
 import type { TimelineEnrichmentQueue } from "../../../packages/features/timeline";
 import { scheduleNativeTimelineEnrichment } from "./timeline-enrichment-native";
 
@@ -31,6 +32,11 @@ function requiredString(value: unknown, code: string): string {
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
+function optionalDriverRecordId(value: unknown): string | undefined {
+  const id = optionalString(value);
+  if (!id) return undefined;
+  return id.startsWith("feature:driver-records:driver:") ? id : driverRecordId(id);
+}
 
 
 type FuelLocationCaptureOutcome =
@@ -45,36 +51,48 @@ export function beginFuelLocationCapture(geolocation: Geolocation | undefined =
 }> {
   let completedAt: number | undefined;
   const promise = new Promise<FuelLocationCaptureOutcome>(resolve => {
+    let finished = false;
+    let deadline: ReturnType<typeof globalThis.setTimeout> | undefined;
     const finish = (outcome: FuelLocationCaptureOutcome) => {
+      if (finished) return;
+      finished = true;
+      if (deadline !== undefined) globalThis.clearTimeout(deadline);
       completedAt = Date.now();
       resolve(outcome);
     };
+    // Android WebView may never deliver its geolocation error callback after a
+    // permission/process transition. Keep the purchase non-blocking and close
+    // the durable capture placeholder independently of the provider callback.
+    deadline = globalThis.setTimeout(
+      () => finish({ status: "timeout", reason: "location_timeout" }),
+      7_000,
+    );
     if (!geolocation) {
       finish({ status: "unavailable", reason: "geolocation_unsupported" });
       return;
     }
     try {
       geolocation.getCurrentPosition(position => {
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-      const accuracyMeters = position.coords.accuracy;
-      const capturedAt = new Date(position.timestamp);
-      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
-          !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
-          !Number.isFinite(accuracyMeters) || accuracyMeters <= 0 ||
-          !Number.isFinite(capturedAt.getTime())) {
-        finish({ status: "unavailable", reason: "invalid_device_fix" });
-        return;
-      }
-      finish({ status: "captured", latitude, longitude, accuracyMeters,
-        fixAt: capturedAt.toISOString(), gpsProvider: "device" });
-    }, error => {
-      finish({
-        status: error.code === error.PERMISSION_DENIED ? "permission_denied" :
-          error.code === error.TIMEOUT ? "timeout" : "unavailable",
-        reason: error.code === error.PERMISSION_DENIED ? "permission_denied" :
-          error.code === error.TIMEOUT ? "timeout" : "position_unavailable",
-      });
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const accuracyMeters = position.coords.accuracy;
+        const capturedAt = new Date(position.timestamp);
+        if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+            !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+            !Number.isFinite(accuracyMeters) || accuracyMeters <= 0 ||
+            !Number.isFinite(capturedAt.getTime())) {
+          finish({ status: "unavailable", reason: "invalid_device_fix" });
+          return;
+        }
+        finish({ status: "captured", latitude, longitude, accuracyMeters,
+          fixAt: capturedAt.toISOString(), gpsProvider: "device" });
+      }, error => {
+        finish({
+          status: error.code === error.PERMISSION_DENIED ? "permission_denied" :
+            error.code === error.TIMEOUT ? "timeout" : "unavailable",
+          reason: error.code === error.PERMISSION_DENIED ? "permission_denied" :
+            error.code === error.TIMEOUT ? "timeout" : "position_unavailable",
+        });
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 });
     } catch {
       finish({ status: "unavailable", reason: "position_request_failed" });
@@ -94,9 +112,8 @@ export function createBusinessExpenseFormSubmissionHandler(
 
   if (command.formId === FUEL_ENTRY_FORM_V1.id) {
     if (command.action !== "submit") throw new Error("fuel_entry_requires_submit");
-    const occurredAt = new Date().toISOString();
-    // The fresh device fix is requested from this actual Submit event, never
-    // when the form opens. Its callback is detached from the local save path.
+    const occurredAt = command.submittedAt;
+    // Capture GPS at Submit, but never let permission or timeout delay the offline-first save.
     const locationCapture = locationEnrichment ? beginFuelLocationCapture() : undefined;
     let sourceCommitted = false;
     const captureOutcome = locationCapture?.promise.then(outcome => ({
@@ -105,6 +122,8 @@ export function createBusinessExpenseFormSubmissionHandler(
     }));
     const created = await service.createFuelPurchase({
       uuid: command.instanceId, source,
+      operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+      now: command.submittedAt,
       data: {
         vehicleId: requiredString(values.vehicleId, "fuel_vehicle_required"),
         odometerKm: positiveInteger(values.odometerKm, "fuel_odometer_invalid"),
@@ -116,13 +135,15 @@ export function createBusinessExpenseFormSubmissionHandler(
       },
     });
     sourceCommitted = true;
-    // The fuel source is committed independently of GPS. When a fix arrives,
-    // persist its coordinates, accuracy, provider and actual fix timestamp under
-    // a stable fuel-scoped record. A post-commit fix is explicitly marked late.
     if (captureOutcome && locationEnrichment) {
+      // The purchase is already durable. Persist a capture placeholder before
+      // returning to the UI so a WebView/process restart cannot lose an
+      // outstanding geolocation callback.
+      const eventId = "fuel:" + created.id;
+      await locationEnrichment.beginFuelLocationCapture(eventId);
       void captureOutcome
         .then(({ outcome, captureTiming }) => locationEnrichment.recordFuelLocationCapture({
-          eventId: "fuel:" + created.id, outcome, captureTiming,
+          eventId, outcome, captureTiming,
         }))
         .then(() => {
           if (typeof window !== "undefined") {
@@ -145,6 +166,8 @@ export function createBusinessExpenseFormSubmissionHandler(
   if (command.formId === PLATFORM_FEE_FORM_V1.id) {
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
+      operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+      now: command.submittedAt,
       data: {
         sourceKind: "platform_fee", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
         vehicleId: requiredString(values.vehicleId, "platform_fee_vehicle_required"),
@@ -158,6 +181,7 @@ export function createBusinessExpenseFormSubmissionHandler(
     const tripTreatment = optionalString(values.tripExpenseTreatment);
     const hasTripLink = !!optionalString(values.tripFinancialSourceId) || !!optionalString(values.tripFinancialComponent);
     const tollOrParking = /\b(tolls?|parking)\b/i.test(category);
+    const driverId = optionalDriverRecordId(values.driverId);
     if (tollOrParking && tripTreatment !== "standalone" && tripTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
@@ -176,6 +200,8 @@ export function createBusinessExpenseFormSubmissionHandler(
     }
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
+      operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+      now: command.submittedAt,
       data: {
         sourceKind: "miscellaneous", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
         category,
@@ -183,7 +209,7 @@ export function createBusinessExpenseFormSubmissionHandler(
           ? { tripExpenseTreatment: tripTreatment as "standalone" | "already-in-trip-closeout" }
           : {}),
         ...(optionalString(values.vehicleId) ? { vehicleId: optionalString(values.vehicleId) } : {}),
-        ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
+        ...(driverId ? { driverId } : {}),
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
         ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
         ...(tripTreatment === "already-in-trip-closeout"
@@ -199,14 +225,17 @@ export function createBusinessExpenseFormSubmissionHandler(
   }
   const paymentStatus = values.paymentStatus;
   if (paymentStatus !== "unpaid" && paymentStatus !== "paid") throw new Error("traffic_challan_payment_status_required");
+  const driverId = optionalDriverRecordId(values.driverId);
   return service.createExpenseEntry({
     uuid: command.instanceId, source,
+    operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+    now: command.submittedAt,
     data: {
       sourceKind: "traffic_challan", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
       vehicleId: requiredString(values.vehicleId, "traffic_challan_vehicle_required"),
       paymentStatus,
       description: requiredString(values.description, "traffic_challan_reason_required"),
-      ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
+      ...(driverId ? { driverId } : {}),
       ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
     },
   });

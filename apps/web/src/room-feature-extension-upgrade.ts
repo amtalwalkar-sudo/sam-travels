@@ -9,6 +9,7 @@ type RoomStoreUpgradeApi = {
     records: Array<RecordEnvelope<unknown>>;
     deletes: string[];
     expectedRevisions: Record<string, number>;
+    deleteNamespacePrefix?: string;
   }): Promise<{ committed: boolean }>;
 };
 
@@ -19,7 +20,7 @@ class StagedRoomRecordRepository implements RecordRepository {
   private readonly working: Map<string, RecordEnvelope<unknown>>;
   private readonly touched = new Set<string>();
 
-  constructor(records: Array<RecordEnvelope<unknown>>) {
+  constructor(records: Array<RecordEnvelope<unknown>>, private readonly deleteNamespacePrefix?: string) {
     this.original = new Map(records.map(record => [record.id, record]));
     this.working = new Map(this.original);
   }
@@ -38,6 +39,9 @@ class StagedRoomRecordRepository implements RecordRepository {
   }
 
   async remove(id: string): Promise<void> {
+    if (!this.deleteNamespacePrefix || !id.startsWith(this.deleteNamespacePrefix)) {
+      throw new Error("feature_upgrade_delete_namespace_mismatch");
+    }
     this.working.delete(id);
     this.touched.add(id);
   }
@@ -53,13 +57,17 @@ class StagedRoomRecordRepository implements RecordRepository {
       else deletes.push(id);
     }
     if (this.touched.size === 0) return;
-    const result = await RoomStore.commitFeatureUpgradeBatch({ records, deletes, expectedRevisions });
+    const result = await RoomStore.commitFeatureUpgradeBatch({
+      records, deletes, expectedRevisions, deleteNamespacePrefix: this.deleteNamespacePrefix,
+    });
     if (!result.committed) throw new Error("feature_upgrade_concurrent_record_change");
   }
 }
 
 /** Staged Room-backed repository; the native plugin applies all changes atomically. */
 export class RoomFeatureExtensionUpgradeTransaction {
+  constructor(private readonly featureId?: string) {}
+
   async run<Result>(
     operation: (context: {
       migrationContext: { records: RecordRepository };
@@ -67,7 +75,8 @@ export class RoomFeatureExtensionUpgradeTransaction {
     }) => Promise<Result>,
   ): Promise<Result> {
     const initial = await RoomStore.list();
-    const records = new StagedRoomRecordRepository(initial.records);
+    const deleteNamespacePrefix = this.featureId ? "feature:" + this.featureId + ":" : undefined;
+    const records = new StagedRoomRecordRepository(initial.records, deleteNamespacePrefix);
     const result = await operation({
       migrationContext: { records },
       persistInstalledExtension: async snapshot => {

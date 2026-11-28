@@ -66,6 +66,47 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("compliance");
   });
 
+  it("combines manual, pre-start EMI and pre-start Compliance amounts into one 18-month Performance recovery pool", async () => {
+    const readModels = sources();
+    readModels.emi.listPreBusinessRecoveryEntries = vi.fn(async () => [
+      { sourceId: "emi-before-start", revision: 2, amountPaise: 1_800,
+        note: "Pre-start EMI", origin: "emi" as const, scheduleVersion: 3 },
+      { sourceId: "compliance-before-start", revision: 4, amountPaise: 3_600,
+        note: "Pre-start insurance", origin: "compliance" as const,
+        sourceRefs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }] },
+    ]);
+    const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-15", "2026-04-14");
+    expect(result.recovery.totalPaise).toBe(8_400);
+    expect(result.recovery.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(8_400);
+    expect(new Set(result.recovery.daily.map(row => row.origin)))
+      .toEqual(new Set(["manual", "emi", "compliance"]));
+    expect(result.recovery.daily.find(row => row.sourceId === "emi-before-start")?.scheduleVersion).toBe(3);
+    expect(result.recovery.daily.find(row => row.sourceId === "compliance-before-start")?.sourceRefs).toContainEqual({
+      sourceId: "historical-correction:compliance-premium", revision: 1,
+    });
+    expect(result.provenance.sourceRefs).toContainEqual({
+      sourceId: "historical-correction:compliance-premium", revision: 1,
+    });
+    expect(result.passbook.daily.some(day => day.sourceRefs.some(ref =>
+      ref.sourceId === "historical-correction:compliance-premium" && ref.revision === 1))).toBe(true);
+    expect(result.provenance.sourceRefs).toContainEqual(expect.objectContaining({
+      sourceId: "emi-before-start", revision: 2, scheduleVersion: 3,
+    }));
+    expect(result.daily.reduce((sum, row) => sum + row.costs.emi, 0)).toBeGreaterThan(0);
+    expect(result.daily.reduce((sum, row) => sum + row.costs.compliance, 0)).toBeGreaterThan(0);
+    expect(result.daily.reduce((sum, row) => sum + row.costs["pre-business-manual-recovery"], 0)).toBeGreaterThan(0);
+    const reversedModels = sources();
+    reversedModels.emi.listPreBusinessRecoveryEntries = vi.fn(async () => [
+      { sourceId: "compliance-before-start", revision: 4, amountPaise: 3_600,
+        note: "Pre-start insurance", origin: "compliance" as const,
+        sourceRefs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }] },
+      { sourceId: "emi-before-start", revision: 2, amountPaise: 1_800,
+        note: "Pre-start EMI", origin: "emi" as const, scheduleVersion: 3 },
+    ]);
+    const replay = await new PerformanceCalculationServiceV1(reversedModels).calculate("2026-03-15", "2026-04-14");
+    expect(replay.recovery.daily).toEqual(result.recovery.daily);
+  });
+
   it("rejects cross-category source leakage instead of silently double counting", async () => {
     const readModels = sources();
     vi.mocked(readModels.operatingCosts.listDailyCosts).mockResolvedValue([
@@ -182,6 +223,43 @@ describe("PerformanceCalculationServiceV1", () => {
     await expect(new PerformanceCalculationServiceV1(readModels, boundary)
       .calculate("2026-03-16", "2026-03-16"))
       .rejects.toThrow("performance_global_source_snapshot_changed_during_calculation");
+  });
+
+  it("ignores restore checkpoint and journal churn but still fences business-record revisions", async () => {
+    const repository = new MemoryRepository();
+    const timestamp = "2026-03-16T00:00:00.000Z";
+    const internal = (id: string, revision: number): RecordEnvelope<{ status: string }> => ({
+      id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "integration", revision, data: { status: "pending" },
+    });
+    await repository.put(internal("__sam_travels_recovery_checkpoint__:restore-1", 1));
+    await repository.put(internal("__sam_travels_recovery_journal__:restore-1", 1));
+    await repository.put(internal("timeline-enrichment:fuel:feature:business-expenses:fuel:source-1", 1));
+    await repository.put({
+      id: "feature:business-expenses:fuel:source-1", schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "integration", revision: 1,
+      data: { status: "confirmed" },
+    });
+    const boundary = new PerformanceCalculationSnapshotBoundaryV1(repository);
+    const before = await boundary.capture();
+
+    await repository.put(internal("__sam_travels_recovery_checkpoint__:restore-1", 2));
+    await repository.put(internal("__sam_travels_recovery_journal__:restore-1", 2));
+    await repository.put(internal("timeline-enrichment:fuel:feature:business-expenses:fuel:source-1", 2));
+    const afterNonFinancialEnrichment = await boundary.capture();
+    expect(afterNonFinancialEnrichment.identity).toBe(before.identity);
+
+    const afterRecoveryMetadata = await boundary.capture();
+    expect(afterRecoveryMetadata.identity).toBe(before.identity);
+
+    const businessRecord = await repository.get<{ status: string }>("feature:business-expenses:fuel:source-1");
+    expect(businessRecord).toBeDefined();
+    await repository.put({
+      ...businessRecord!, revision: 2, updatedAt: "2026-03-16T00:01:00.000Z",
+      data: { status: "corrected" },
+    });
+    const afterBusinessWrite = await boundary.capture();
+    expect(afterBusinessWrite.identity).not.toBe(before.identity);
   });
 
   it("reconciles a corrected trip revenue revision on the next calculation snapshot", async () => {

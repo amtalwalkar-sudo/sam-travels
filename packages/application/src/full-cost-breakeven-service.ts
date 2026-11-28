@@ -4,7 +4,14 @@ import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 import type { TripFinancialService } from "./trip-financial-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { buildFullCostWorkDistanceProjectionV1 } from "./full-cost-breakeven-work-distance";
+import {
+  listProjectedHistoricalTripBackfillsV1,
+  projectHistoricalTripBackfillCostsV1,
+  type HistoricalTripBackfillCostReaderV1,
+  type HistoricalTripBackfillCostCorrectionReaderV1,
+} from "./full-cost-breakeven-historical-backfills";
 import {
   calculateFullCostBreakevenV1,
   type BreakevenDailyActivityV1,
@@ -12,7 +19,6 @@ import {
   type BreakevenCompletenessV1,
   type BreakevenPeriodResultV1,
 } from "../../domain/src/full-cost-breakeven";
-
 export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV1 & {
   fuelSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
   maintenanceSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
@@ -25,7 +31,6 @@ export type FullCostBreakevenSourceProjectionV1 = Readonly<{
   datedCosts: readonly BreakevenDailyCostV1[];
   completeness: readonly BreakevenCompletenessV1[];
 }>;
-
 function ratioAmount(km: number, ratio: { numerator: string; denominator: string }): number {
   const numerator = BigInt(ratio.numerator), denominator = BigInt(ratio.denominator);
   if (denominator <= 0n || numerator < 0n) throw new Error("breakeven_source_rate_invalid");
@@ -33,7 +38,6 @@ function ratioAmount(km: number, ratio: { numerator: string; denominator: string
   if (amount > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("breakeven_source_amount_overflow");
   return Number(amount);
 }
-
 /**
  * Read-only adapter over owning application services. Annual-first fixed-cost
  * allocation remains owned by BusinessStartDateCostAllocationService; every
@@ -48,15 +52,30 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly"> &
+      Partial<Pick<OperatingConfigurationServiceV1, "assertCurrentForReadOnly" | "assertVehicleCurrentForReadOnly">>,
+    private readonly historicalTripBackfills?: HistoricalTripBackfillCostReaderV1,
+    private readonly historicalTripBackfillCorrections?: HistoricalTripBackfillCostCorrectionReaderV1,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
+    const operating = await this.operatingConfiguration?.getForReadOnly().catch(error => {
+      if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
+      throw error;
+    });
+    const operatingVehicle = operating
+      ? { schemaVersion: 1 as const, vehicleId: operating.vehicleId, vehicleRevision: operating.vehicleRevision }
+      : await this.operatingConfiguration?.getVehicleForReadOnly();
+
     const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
       this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
     ]);
+    const projectedHistoricalBackfills = await listProjectedHistoricalTripBackfillsV1(
+      this.historicalTripBackfills, this.historicalTripBackfillCorrections,
+    );
     const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
     if (this.expenses.listCorrectionReferences) {
       const correctionTargets = [...new Set([
@@ -68,16 +87,22 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
-
+    const operatingVehicles = operatingVehicle
+      ? vehicles.filter(vehicle => vehicle.id === operatingVehicle.vehicleId &&
+          vehicle.data?.lifecycleState === "active" && vehicle.revision === operatingVehicle.vehicleRevision)
+      : vehicles;
+    if (operating && operatingVehicles.length !== 1) throw new Error("operating_configuration_stale");
+    if (!operating && operatingVehicles.length !== 1) {
+      throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
+    }
+    const configuredDriverId = operating?.driverId;
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
       { source: "business-expenses", status: "complete" },
       { source: "fuel-rate-history", status: "complete" },
       { source: "maintenance-accruals", status: "complete" },
     ];
-
-    const vehicleId = vehicles[0].id;
+    const vehicleId = operatingVehicles[0].id;
     const {
       activityByDate, distanceByDate, activeDaySourceIssues,
     } = buildFullCostWorkDistanceProjectionV1({
@@ -96,9 +121,8 @@ export class FullCostBreakevenService {
       completeness.push({ source: "active-driving-day-distance", status: "unavailable",
         detail: "The shared Work record repository was not supplied to verify finalized daily-distance provenance." });
     }
-
     const accruedOperationalDates = new Set<string>();
-    const histories = await Promise.all(vehicles.map(async vehicle => ({
+    const histories = await Promise.all(operatingVehicles.map(async vehicle => ({
       vehicle,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
       rates: fuelRates.filter(rate => rate.sourcePurchaseIds.some(id => {
@@ -276,7 +300,10 @@ export class FullCostBreakevenService {
         let amountPaise = daily[category.field];
         const refs = daily.sourceIds.flatMap((sourceId, index) => {
           const source = expenseById.get(sourceId);
-          return source?.data.sourceKind === category.sourceKind &&
+          const assignedToOperatingPair = source && (source.data.vehicleId === undefined ||
+            source.data.vehicleId === vehicleId) && (source.data.driverId === undefined ||
+            !operating || source.data.driverId === configuredDriverId);
+          return source?.data.sourceKind === category.sourceKind && assignedToOperatingPair &&
             !shadowedTripDuplicateExpenseIds.has(sourceId) &&
             !withheldTripLinkedExpenseIds.has(sourceId) &&
             !withheldLegacyTollParkingExpenseIds.has(sourceId)
@@ -318,12 +345,20 @@ export class FullCostBreakevenService {
           detail: "Driver-paid parking/toll has no recoverable immutable trip context: " + record.id });
         continue;
       }
+      if (context.vehicleId !== vehicleId) continue;
       if (driverExpenses > 0) datedCosts.push({
         date: context.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
         sourceId: record.id, sourceRevision: record.revision,
-        sourceRefs: [{ sourceId: record.id, revision: record.revision }],
+        sourceRefs: [
+          { sourceId: record.id, revision: record.revision },
+          ...(record.correctionRefs ?? []).map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
+        ],
       });
     }
+
+    datedCosts.push(...projectHistoricalTripBackfillCostsV1(
+      projectedHistoricalBackfills, vehicleId, from, to,
+    ));
 
     for (const source of allocationReport.result.sources) {
       if (source.disposition === "overlap_review_required" &&
@@ -341,6 +376,9 @@ export class FullCostBreakevenService {
         });
       }
     }
+
+    if (operating) await this.operatingConfiguration?.assertCurrentForReadOnly?.(operating);
+    else if (operatingVehicle) await this.operatingConfiguration?.assertVehicleCurrentForReadOnly?.(operatingVehicle);
 
     return Object.freeze({
       businessStartDate: allocationReport.businessStartDate,

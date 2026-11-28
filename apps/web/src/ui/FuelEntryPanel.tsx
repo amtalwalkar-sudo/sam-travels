@@ -3,6 +3,7 @@ import "./AdminFormControls.css";
 import { FUEL_ENTRY_FORM_V1, type AdminPresentationServices } from "../../../../packages/application/src";
 import { deriveFuelQuantityMilliKg } from "../../../../packages/features/business-expenses";
 import { useAdminFuelEntryServices } from "./admin-services-context";
+import { FuelPurchaseCorrection } from "./FuelPurchaseCorrection";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 
@@ -24,37 +25,90 @@ export function FuelEntryPanel() {
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
   const copyRef = useRef<typeof copy>(undefined);
   const queue = useRef<Promise<void>>(Promise.resolve());
+  const startInFlight = useRef<Promise<void> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [fuelPurchases, setFuelPurchases] = useState<Awaited<ReturnType<typeof services.businessExpenses.listFuelPurchases>>>([]);
+  const [fuelCostRates, setFuelCostRates] = useState<Awaited<ReturnType<typeof services.businessExpenses.listFuelCostRateHistory>>>([]);
+  const [dailyExpenseOutputs, setDailyExpenseOutputs] = useState<Awaited<ReturnType<typeof services.businessExpenses.listDailyExpenseOutputs>>>([]);
+
+  const refreshFuelReadModels = useCallback(async () => {
+    const readModels = await services.businessExpenses.listFuelReadModels();
+    setFuelPurchases(readModels.fuelPurchases);
+    setFuelCostRates(readModels.fuelCostRates);
+    setDailyExpenseOutputs(readModels.dailyExpenseOutputs);
+  }, [services]);
 
   const start = useCallback(async () => {
-    const [availableVehicles, drafts, fuelPurchases] = await Promise.all([
-      services.vehicles.list(),
-      services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
-      services.businessExpenses.listFuelPurchases(),
-    ]);
-    const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
-    for (const purchase of fuelPurchases) {
-      const previous = latest.get(purchase.data.vehicleId);
-      if (!previous || purchase.data.occurredAt > previous.occurredAt) {
-        latest.set(purchase.data.vehicleId, { occurredAt: purchase.data.occurredAt, odometerKm: purchase.data.odometerKm });
+    // Opening can be retriggered by provider updates while the async load is
+    // still running. Share that load so two empty working copies cannot race
+    // and leave the populated draft hidden behind a newer blank one.
+    if (startInFlight.current) return startInFlight.current;
+    const pending = (async () => {
+      const [availableVehicles, drafts, readModels, configuration] = await Promise.all([
+        services.vehicles.list(),
+        services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
+        services.businessExpenses.listFuelPurchases(),
+        services.operatingConfiguration.getVehicleForReadOnly(),
+      ]);
+      // Keep the purchase list and form usable without waiting for the larger
+      // expense projection (which also resolves driver-attributed expenses).
+      const purchases = readModels;
+      setFuelPurchases(purchases);
+      void refreshFuelReadModels().catch(error =>
+        setMessage(error instanceof Error ? error.message : "Fuel calculations could not be refreshed.")
+      );
+      const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
+      for (const purchase of purchases) {
+        const previous = latest.get(purchase.data.vehicleId);
+        if (!previous || purchase.data.occurredAt > previous.occurredAt) {
+          latest.set(purchase.data.vehicleId, { occurredAt: purchase.data.occurredAt, odometerKm: purchase.data.odometerKm });
+        }
       }
+      setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
+      const activeVehicles = availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active");
+      const operatingVehicle = activeVehicles.find(vehicle => vehicle.id === configuration.vehicleId);
+      if (!operatingVehicle || operatingVehicle.revision !== configuration.vehicleRevision) {
+        setVehicles([]);
+        throw new Error("operating_configuration_stale");
+      }
+      setVehicles([operatingVehicle]);
+      const resumable = [...drafts].sort((a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt) || b.revision - a.revision || b.instanceId.localeCompare(a.instanceId)
+      )[0];
+      let next = resumable ?? await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
+      if (next.values.vehicleId !== undefined && next.values.vehicleId !== operatingVehicle.id) {
+        throw new Error("fuel_entry_draft_operating_vehicle_mismatch");
+      }
+      if (next.status !== "pending" && next.values.vehicleId === undefined) {
+        next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "vehicleId", operatingVehicle.id);
+      }
+      if (next.status === "pending" && next.values.vehicleId !== operatingVehicle.id) {
+        throw new Error("fuel_entry_pending_operating_vehicle_mismatch");
+      }
+      if (next.status !== "pending" && next.values.partialRefill === undefined) {
+        next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "partialRefill", false);
+      }
+      copyRef.current = next; setCopy(next);
+      setValues({ ...(next.submission?.values ?? next.values) });
+    })();
+    startInFlight.current = pending;
+    try {
+      await pending;
+    } finally {
+      if (startInFlight.current === pending) startInFlight.current = null;
     }
-    setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
-    setVehicles(availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active"));
-    const resumable = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    let next = resumable ?? await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
-    if (next.values.partialRefill === undefined) next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "partialRefill", false);
-    copyRef.current = next; setCopy(next);
-    // GPS is intentionally not requested when the form opens. A fresh,
-    // event-scoped request begins only inside the Submit handler.
-  }, [services]);
+  }, [services, refreshFuelReadModels]);
 
   useEffect(() => {
     if (open) void start().catch(error => setMessage(error instanceof Error ? error.message : "Fuel entry could not be opened."));
   }, [open, start]);
 
   function change(field: string, value: unknown) {
+    if (copyRef.current?.status === "pending") {
+      setMessage("A previous submission is pending. Retry it without changing its saved values.");
+      return;
+    }
     setValues(previous => ({ ...previous, [field]: value }));
     queue.current = queue.current.then(async () => {
       const current = copyRef.current;
@@ -70,6 +124,9 @@ export function FuelEntryPanel() {
       await queue.current;
       const current = copyRef.current;
       if (!current) throw new Error("fuel_entry_form_not_ready");
+      const commandSnapshot = await services.operatingConfiguration.get();
+      if (commandSnapshot.vehicleId !== current.values.vehicleId) throw new Error("operating_configuration_stale");
+      await services.operatingConfiguration.assertCurrent(commandSnapshot);
       await services.formRuntime.submit(FUEL_ENTRY_FORM_V1, current);
       if (typeof current.values.vehicleId === "string" && typeof current.values.odometerKm === "number") {
         const vehicleId = current.values.vehicleId;
@@ -77,10 +134,14 @@ export function FuelEntryPanel() {
           ...previous, [vehicleId]: Math.max(previous[vehicleId] ?? 0, current.values.odometerKm as number),
         }));
       }
+      await refreshFuelReadModels();
       setMessage("Fuel purchase saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
-      const next = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
-      copyRef.current = next; setCopy(next); setValues({ partialRefill: false });
+      await services.operatingConfiguration.assertCurrent(commandSnapshot);
+      const opened = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
+      const withVehicle = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, opened, "vehicleId", vehicles[0]?.id);
+      const next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, withVehicle, "partialRefill", false);
+      copyRef.current = next; setCopy(next); setValues({ vehicleId: vehicles[0]?.id, partialRefill: false });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Fuel purchase could not be saved.");
     } finally { setBusy(false); }
@@ -97,6 +158,13 @@ export function FuelEntryPanel() {
   const enteredOdometer = typeof values.odometerKm === "number" ? values.odometerKm : undefined;
   const odometerRegression = latestOdometer !== undefined && enteredOdometer !== undefined &&
     Number.isSafeInteger(enteredOdometer) && enteredOdometer < latestOdometer;
+  // Keep historical fuel-purchase dates visible after a correction. A five-day
+  // recent window alone can hide the recalculated daily total for an older
+  // purchase that the driver has just corrected.
+  const visibleExpenseDates = useMemo(() => new Set([
+    ...dailyExpenseOutputs.slice(-5).map(output => output.businessDate),
+    ...fuelPurchases.map(purchase => purchase.data.businessDate),
+  ]), [dailyExpenseOutputs, fuelPurchases]);
 
   return <aside className="fuel-entry-launcher" aria-label="Fuel entry">
     <button className="fuel-entry-toggle" type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>
@@ -105,38 +173,48 @@ export function FuelEntryPanel() {
     {open && <section className="fuel-entry-panel">
       <h2>Fuel Entry</h2>
       <p>Record a fuel purchase at any time. A shift or trip does not need to be active.</p>
-      {!vehicles.length && <p role="status">Add an active vehicle in Admin before recording fuel.</p>}
+      {!vehicles.length && <p role="status">{message || "Configure exactly one active vehicle in Admin before recording fuel."}</p>}
+      {vehicles.length === 1 && <p className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicles[0].data.registrationNumber} · {vehicles[0].data.make} {vehicles[0].data.model}</span></p>}
       <form onSubmit={submit}>
-        <label>Vehicle
-          <select required value={String(values.vehicleId ?? "")} onChange={event => change("vehicleId", event.target.value)}>
-            <option value="">Select vehicle</option>
-            {vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber} · {vehicle.data.make} {vehicle.data.model}</option>)}
-          </select>
-        </label>
         <label>Odometer (km)
-          <input required type="number" min="1" step="1" inputMode="numeric" value={String(values.odometerKm ?? "")}
+          <input required disabled={!copy || copy.status === "pending"} type="number" min="1" step="1" inputMode="numeric" value={String(values.odometerKm ?? "")}
             onChange={event => change("odometerKm", event.target.value === "" ? undefined : Number(event.target.value))} />
         </label>
         <label>Price per kg (₹)
-          <input required type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.priceRupeesPerKg ?? "")}
+          <input required disabled={!copy || copy.status === "pending"} type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.priceRupeesPerKg ?? "")}
             onChange={event => change("priceRupeesPerKg", event.target.value === "" ? undefined : Number(event.target.value))} />
         </label>
         <label>Amount paid (₹)
-          <input required type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.amountRupees ?? "")}
+          <input required disabled={!copy || copy.status === "pending"} type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.amountRupees ?? "")}
             onChange={event => change("amountRupees", event.target.value === "" ? undefined : Number(event.target.value))} />
         </label>
         {calculatedQuantityMilliKg !== undefined && <p className="fuel-derived-preview">Calculated fuel quantity: <strong>{(calculatedQuantityMilliKg / 1000).toFixed(3)} kg</strong></p>}
         {latestOdometer !== undefined && <small>Latest recorded odometer for this vehicle: {latestOdometer.toLocaleString("en-IN")} km</small>}
         {odometerRegression && <p className="fuel-odometer-warning" role="status">This reading is below the latest recorded odometer ({latestOdometer} km). Check it before submitting; the entry will not be blocked.</p>}
         <label className="fuel-partial-choice">
-          <input type="checkbox" checked={values.partialRefill === true} onChange={event => change("partialRefill", event.target.checked)} />
+          <input type="checkbox" disabled={!copy || copy.status === "pending"} checked={values.partialRefill === true} onChange={event => change("partialRefill", event.target.checked)} />
           Partial refill
         </label>
         <small>Full tank is the default. All purchases count as fuel expense; only full-tank refills form mileage checkpoints.</small>
         <button className="primary-action" type="submit" disabled={busy || !copy || !vehicles.length}>{busy ? "Saving…" : "Submit fuel purchase"}</button>
       </form>
+      {!copy && <p role="status">Loading fuel entry…</p>}
       {copy && <small>Draft · {copy.status.replaceAll("_", " ")}</small>}
       {message && <p role="status">{message}</p>}
+      <section aria-label="Recorded fuel purchases">
+        <h3>Recorded fuel purchases</h3>
+        {!fuelPurchases.length && <small>No fuel purchases recorded yet.</small>}
+        {fuelPurchases.map(purchase => <article key={purchase.id} className="admin-capability-panel">
+          <strong>{purchase.data.businessDate} · {purchase.data.odometerKm.toLocaleString("en-IN")} km</strong>
+          <small>Amount {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(purchase.data.amountPaise / 100)} · Price {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(purchase.data.pricePaisePerKg / 100)}/kg · {purchase.data.partialRefill ? "Partial refill" : "Full-tank checkpoint"}</small>
+          <FuelPurchaseCorrection purchase={purchase} service={services.businessExpenses} onCorrected={refreshFuelReadModels} />
+        </article>)}
+      </section>
+      <section aria-label="Fuel calculation readback">
+        <h3>Recalculated fuel outputs</h3>
+        {fuelCostRates.map(rate => <small key={rate.effectiveFrom}>Cost/km effective {rate.effectiveFrom}: {rate.costPaisePerKm.numerator}/{rate.costPaisePerKm.denominator} paise per km</small>)}
+        {dailyExpenseOutputs.filter(output => visibleExpenseDates.has(output.businessDate)).map(output => <small key={output.businessDate}>{output.businessDate}: fuel {output.fuelPaise} paise</small>)}
+      </section>
     </section>}
   </aside>;
 }

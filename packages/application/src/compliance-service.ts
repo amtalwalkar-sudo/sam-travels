@@ -1,6 +1,9 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
+import { resolveOperatingVehicle } from "../../domain/src/work-driver-context";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
+import type { OperatingConfigurationV1, OperatingVehicleV1 } from "../../domain/src/work-driver-context";
 
 export type ComplianceRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -38,18 +41,32 @@ function assertRecordId(id: string): void {
  */
 export class ComplianceService {
   private readonly records: FeatureRecordService<ComplianceRecordV1>;
+  private readonly repository: AtomicRecordRepository;
 
   constructor(
     repository: AtomicRecordRepository,
     validate: ComplianceRecordValidator,
     private readonly vehicles: VehicleDirectory,
-    now?: () => string,
+    private readonly now: () => string = () => new Date().toISOString(),
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "assertCurrentForReadOnly" | "getVehicleForReadOnly" | "assertVehicleCurrentForReadOnly">>,
   ) {
+    this.repository = repository;
     this.records = new FeatureRecordService(repository, {
       featureId: "compliance",
       recordIdPrefix: PREFIX,
       validate,
-    }, now);
+    }, this.now);
+  }
+
+  async getOperatingVehicleId(): Promise<string> {
+    const configuration = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
+      : resolveOperatingVehicle(await this.repository.list());
+    return configuration.vehicleId;
   }
 
   async create(input: {
@@ -57,7 +74,21 @@ export class ComplianceService {
     data: ComplianceRecordV1;
     source: FeatureRecordSource;
     businessDate?: string;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
+    // Compliance is Vehicle-owned. Resolve and revalidate the configured
+    // Vehicle without requiring an active Work Driver or Driver–Vehicle assignment.
+    const trustedImport = input.source === "import";
+    const operating = trustedImport ? undefined : this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
+      : resolveOperatingVehicle(await this.repository.list());
+    const operatingVehicleId = operating?.vehicleId ?? input.data.vehicleId;
+    if (!trustedImport && input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(input.data.vehicleId);
     if (!vehicle) throw new Error("compliance_vehicle_not_found");
     const id = recordId(input.uuid);
@@ -72,8 +103,27 @@ export class ComplianceService {
       // Do not compare validity dates here: early renewal may create a legitimate
       // overlap, and late renewal must preserve the actual historical gap.
     }
+    if (trustedImport) {
+      // Trusted first-run imports are Vehicle-owned and may precede Work driver selection.
+    } else if (this.operatingConfiguration && operating) {
+      if ("vehicleRevision" in operating && this.operatingConfiguration.assertVehicleCurrentForReadOnly) {
+        await this.operatingConfiguration.assertVehicleCurrentForReadOnly(operating as OperatingVehicleV1);
+      } else if (this.operatingConfiguration.assertCurrentForReadOnly && "driverId" in operating) {
+        await this.operatingConfiguration.assertCurrentForReadOnly(operating as OperatingConfigurationV1);
+      } else if ("driverId" in operating) {
+        await this.operatingConfiguration.assertCurrent(operating as OperatingConfigurationV1);
+      }
+    } else if (!trustedImport) {
+      if (!operating) throw new Error("operating_configuration_unavailable");
+      const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
+      if (currentOperatingVehicle.vehicleId !== operating.vehicleId ||
+          currentOperatingVehicle.vehicleRevision !== operating.vehicleRevision) {
+        throw new Error("operating_configuration_stale");
+      }
+    }
     return this.records.create({
       id, data: input.data, source: input.source, businessDate: input.businessDate,
+      operation: input.operation, now: input.now,
     });
   }
 

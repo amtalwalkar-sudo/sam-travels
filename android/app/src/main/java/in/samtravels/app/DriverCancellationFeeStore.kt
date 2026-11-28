@@ -105,7 +105,9 @@ object DriverCancellationFeeStore {
             require(values.has("cancellationFeePaise")&&values.optLong("cancellationFeePaise",-1L)==feePaise) { "cancellation_fee_draft_mismatch" }
             val now=Instant.now().toString()
             data.put("status","submitted").put("feePaise",feePaise).put("operationId",operationId).put("submittedAt",now)
-            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("createdBy",createdBy).put("data",data)
+            if (!envelope.has("createdBy") || envelope.isNull("createdBy")) envelope.put("createdBy", createdBy)
+            envelope.put("updatedBy", createdBy)
+            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("data",data)
             copy.put("status","submitted").put("revision",copy.optInt("revision")+1).put("updatedAt",now)
             copyEnvelope.put("revision",copyEnvelope.optInt("revision")+1).put("updatedAt",now).put("data",copy)
             db.records().put(StoredRecord(obligationId,envelope.toString(),obligationRow.schemaVersion,now))
@@ -206,7 +208,9 @@ object DriverCancellationFeeStore {
                 if(values.has(key))data.put(key,values.get(key)) else data.remove(key)
             }
             data.put("status","submitted").put("operationId",operationId).put("submittedAt",now)
-            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("createdBy",createdBy).put("data",data)
+            if (!envelope.has("createdBy") || envelope.isNull("createdBy")) envelope.put("createdBy", createdBy)
+            envelope.put("updatedBy", createdBy)
+            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("data",data)
             copy.put("status","submitted").put("revision",copy.optInt("revision")+1).put("updatedAt",now)
             copyEnvelope.put("revision",copyEnvelope.optInt("revision")+1).put("updatedAt",now).put("data",copy)
             db.records().put(StoredRecord(id,envelope.toString(),row.schemaVersion,now))

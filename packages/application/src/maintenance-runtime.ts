@@ -1,4 +1,5 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import {
   MaintenanceService,
   type MaintenanceBusinessDateResolver,
@@ -14,8 +15,9 @@ export function createApplicationMaintenanceService(
   calculateVisitTotal: MaintenanceVisitTotalCalculator,
   businessDateFromInstant: MaintenanceBusinessDateResolver,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): MaintenanceService {
-  return new MaintenanceService(repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now);
+  return new MaintenanceService(repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now, operatingConfiguration);
 }
 
 let applicationMaintenanceService: MaintenanceService | undefined;
@@ -27,10 +29,11 @@ export function initializeApplicationMaintenanceService(
   calculateVisitTotal: MaintenanceVisitTotalCalculator,
   businessDateFromInstant: MaintenanceBusinessDateResolver,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): MaintenanceService {
   if (applicationMaintenanceService) throw new Error("Application Maintenance service is already initialized");
   applicationMaintenanceService = createApplicationMaintenanceService(
-    repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now,
+    repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now, operatingConfiguration,
   );
   return applicationMaintenanceService;
 }

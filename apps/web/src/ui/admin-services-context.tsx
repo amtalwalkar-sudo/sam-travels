@@ -3,17 +3,18 @@ import type { AdminPresentationServices } from "../../../../packages/application
 import type { AdminIdentityPresentationAdapter } from "../admin-identity-presentation-adapter";
 import type { MaintenanceExpenseCorrectionAdapter } from "../maintenance-expense-correction-runtime";
 import type { ComplianceHistoricalCorrectionAdapter } from "../compliance-historical-correction";
+import type { HistoricalTripBackfillServiceV1 } from "../../../../packages/application/src/historical-trip-backfill-service";
 
 type BusinessSetupServices = Pick<AdminPresentationServices, "formRuntime" | "businessSettings" | "costAllocation">;
 type VehicleServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles">;
-type DriverServices = Pick<AdminPresentationServices, "formRuntime" | "driverRecords" | "driverAssignments" | "vehicles" | "recordSource">;
+type DriverServices = Pick<AdminPresentationServices, "formRuntime" | "driverRecords" | "driverAssignments" | "workDriverSelection" | "vehicles" | "recordSource">;
 type ComplianceServices = Pick<AdminPresentationServices, "formRuntime" | "compliance" | "complianceAnalysis" | "vehicles">;
-type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles" | "recordSource">;
-type FuelEntryServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles" | "businessExpenses">;
-type FinanceServices = Pick<AdminPresentationServices, "formRuntime" | "financeLoans" | "financeLoanPayments" | "financeLoanPrepayments" | "financeLoanSettlements" | "recordSource" | "vehicles">;
-type PerformanceServices = Pick<AdminPresentationServices, "formRuntime" | "performanceSettings" | "performanceCalculation">;
-type WorkspaceServices = Pick<AdminPresentationServices, "vehicles" | "financeLoans" | "financeLoanPrepayments">;
-type FormRuntimeServices = Pick<AdminPresentationServices, "formRuntime">;
+type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles" | "recordSource" | "operatingConfiguration">;
+type FuelEntryServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles" | "businessExpenses" | "operatingConfiguration">;
+type FinanceServices = Pick<AdminPresentationServices, "formRuntime" | "financeLoans" | "financeLoanPayments" | "financeLoanPrepayments" | "financeLoanSettlements" | "recordSource" | "vehicles" | "operatingConfiguration">;
+type PerformanceServices = Pick<AdminPresentationServices, "formRuntime" | "performanceSettings" | "performanceCalculation" | "operatingConfiguration">;
+type WorkspaceServices = Pick<AdminPresentationServices, "vehicles" | "financeLoans" | "financeLoanPrepayments" | "operatingConfiguration">;
+type FormRuntimeServices = Pick<AdminPresentationServices, "formRuntime" | "operatingConfiguration" | "vehicles">;
 
 type AdminSectionAdapters = Readonly<{
   businessSetup: BusinessSetupServices;
@@ -32,37 +33,39 @@ const AdminServicesContext = createContext<AdminSectionAdapters | null>(null);
 const AdminIdentityContext = createContext<AdminIdentityPresentationAdapter | null>(null);
 const AdminMaintenanceCorrectionContext = createContext<MaintenanceExpenseCorrectionAdapter | null>(null);
 const AdminComplianceCorrectionContext = createContext<ComplianceHistoricalCorrectionAdapter | null>(null);
+const HistoricalTripBackfillContext = createContext<HistoricalTripBackfillServiceV1 | null>(null);
 
-export function AdminServicesProvider({ services, identityAdapter, maintenanceCorrections, complianceCorrections, children }: {
+export function AdminServicesProvider({ services, identityAdapter, maintenanceCorrections, complianceCorrections, historicalTripBackfills, children }: {
   services: AdminPresentationServices;
   identityAdapter: AdminIdentityPresentationAdapter;
   maintenanceCorrections: MaintenanceExpenseCorrectionAdapter;
   complianceCorrections: ComplianceHistoricalCorrectionAdapter;
+  historicalTripBackfills?: HistoricalTripBackfillServiceV1;
   children: ReactNode;
 }) {
   const adapters = useMemo<AdminSectionAdapters>(() => ({
     businessSetup: { formRuntime: services.formRuntime, businessSettings: services.businessSettings, costAllocation: services.costAllocation },
     vehicle: { formRuntime: services.formRuntime, vehicles: services.vehicles },
     driver: { formRuntime: services.formRuntime, driverRecords: services.driverRecords,
-      driverAssignments: services.driverAssignments, vehicles: services.vehicles, recordSource: services.recordSource },
+      driverAssignments: services.driverAssignments, workDriverSelection: services.workDriverSelection, vehicles: services.vehicles, recordSource: services.recordSource },
     compliance: { formRuntime: services.formRuntime, compliance: services.compliance,
       complianceAnalysis: services.complianceAnalysis, vehicles: services.vehicles },
-    maintenance: { formRuntime: services.formRuntime, maintenance: services.maintenance, vehicles: services.vehicles, recordSource: services.recordSource },
+    maintenance: { formRuntime: services.formRuntime, maintenance: services.maintenance, vehicles: services.vehicles, recordSource: services.recordSource, operatingConfiguration: services.operatingConfiguration },
     finance: { formRuntime: services.formRuntime, financeLoans: services.financeLoans,
       financeLoanPayments: services.financeLoanPayments, financeLoanPrepayments: services.financeLoanPrepayments,
-      financeLoanSettlements: services.financeLoanSettlements, recordSource: services.recordSource, vehicles: services.vehicles },
+      financeLoanSettlements: services.financeLoanSettlements, recordSource: services.recordSource, vehicles: services.vehicles, operatingConfiguration: services.operatingConfiguration },
     workspace: { vehicles: services.vehicles, financeLoans: services.financeLoans,
-      financeLoanPrepayments: services.financeLoanPrepayments },
-    forms: { formRuntime: services.formRuntime },
-    fuelEntry: { formRuntime: services.formRuntime, vehicles: services.vehicles, businessExpenses: services.businessExpenses },
+      financeLoanPrepayments: services.financeLoanPrepayments, operatingConfiguration: services.operatingConfiguration },
+    forms: { formRuntime: services.formRuntime, operatingConfiguration: services.operatingConfiguration, vehicles: services.vehicles },
+    fuelEntry: { formRuntime: services.formRuntime, vehicles: services.vehicles, businessExpenses: services.businessExpenses, operatingConfiguration: services.operatingConfiguration },
     performance: { formRuntime: services.formRuntime, performanceSettings: services.performanceSettings,
-      performanceCalculation: services.performanceCalculation },
+      performanceCalculation: services.performanceCalculation, operatingConfiguration: services.operatingConfiguration },
   }), [services]);
 
   return <AdminServicesContext.Provider value={adapters}>
     <AdminIdentityContext.Provider value={identityAdapter}>
       <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>
-        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}>{children}</AdminComplianceCorrectionContext.Provider>
+        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}><HistoricalTripBackfillContext.Provider value={historicalTripBackfills ?? null}>{children}</HistoricalTripBackfillContext.Provider></AdminComplianceCorrectionContext.Provider>
       </AdminMaintenanceCorrectionContext.Provider>
     </AdminIdentityContext.Provider>
   </AdminServicesContext.Provider>;
@@ -101,4 +104,10 @@ export function useAdminComplianceCorrectionAdapter(): ComplianceHistoricalCorre
   const adapter = useContext(AdminComplianceCorrectionContext);
   if (!adapter) throw new Error("Compliance correction adapter was not supplied by the composition root.");
   return adapter;
+}
+
+export function useHistoricalTripBackfillService(): HistoricalTripBackfillServiceV1 {
+  const service = useContext(HistoricalTripBackfillContext);
+  if (!service) throw new Error("Historical trip backfill service was not supplied by the composition root.");
+  return service;
 }

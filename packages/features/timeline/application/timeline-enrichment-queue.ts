@@ -16,10 +16,10 @@ export type TimelineEnrichmentRecord = Readonly<{
   accuracyMeters?: number;
   fixAt?: string;
   gpsProvider?: string;
-  captureStatus?: "captured" | "permission_denied" | "timeout" | "unavailable";
+  captureStatus?: "pending" | "captured" | "permission_denied" | "timeout" | "unavailable";
   captureTiming?: "submission_event" | "late";
   captureReason?: string;
-  status: "pending" | "retry_wait" | "resolved" | "not_found" | "network_disabled" | "capture_unavailable";
+  status: "capture_pending" | "pending" | "retry_wait" | "resolved" | "not_found" | "network_disabled" | "capture_unavailable";
   label?: string;
   provider: "geoapify";
   lookedUpAt?: string;
@@ -94,6 +94,52 @@ export class TimelineEnrichmentQueue {
 
 
   /**
+   * Persist the capture intent immediately after the Fuel purchase commits.
+   * This placeholder survives WebView/process recreation while the asynchronous
+   * device GPS callback is still outstanding.
+   */
+  async beginFuelLocationCapture(eventId: string): Promise<void> {
+    if (!eventId.startsWith("fuel:feature:business-expenses:fuel:")) {
+      throw new Error("fuel_location_event_identity_invalid");
+    }
+    const id = recordId(eventId);
+    if (await this.records.get<TimelineEnrichmentRecord>(id)) return;
+    const now = new Date(this.now()).toISOString();
+    const data: TimelineEnrichmentRecord = {
+      eventId, status: "capture_pending", provider: "geoapify",
+      createdAt: now, attempts: 0, captureStatus: "pending",
+    };
+    await this.records.put({
+      id, schemaVersion: 1, createdAt: now, updatedAt: now,
+      source: "integration", revision: 1, data,
+    });
+  }
+
+  /**
+   * A pending device callback cannot survive destruction of its WebView. On the
+   * next application bootstrap, close that capture as unavailable rather than
+   * leaving a permanent pending row or silently losing the purchase evidence.
+   */
+  async recoverInterruptedFuelLocationCaptures(): Promise<number> {
+    const rows = (await this.records.list<TimelineEnrichmentRecord>())
+      .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX + "fuel:"))
+      .filter(row => row.data.captureStatus === "pending");
+    let recovered = 0;
+    for (const row of rows) {
+      const updatedAt = new Date(this.now()).toISOString();
+      const data: TimelineEnrichmentRecord = {
+        ...row.data,
+        status: "capture_unavailable",
+        captureStatus: "unavailable",
+        captureReason: "capture_interrupted",
+      };
+      await this.writeNext(row, data, updatedAt);
+      recovered += 1;
+    }
+    return recovered;
+  }
+
+  /**
    * Persist the GPS result for a Fuel Entry submission under its stable fuel-event
    * identity. The purchase itself is already committed; this evidence/enrichment
    * record is separate and can never delay or roll back that purchase.
@@ -109,7 +155,8 @@ export class TimelineEnrichmentQueue {
       throw new Error("fuel_location_event_identity_invalid");
     }
     const id = recordId(input.eventId);
-    if (await this.records.get<TimelineEnrichmentRecord>(id)) return;
+    const current = await this.records.get<TimelineEnrichmentRecord>(id);
+    if (current && current.data.captureStatus !== "pending") return;
     const now = new Date(this.now()).toISOString();
     const captured = input.outcome.status === "captured";
     if (captured && (!Number.isFinite(input.outcome.latitude) || input.outcome.latitude < -90 ||
@@ -123,8 +170,8 @@ export class TimelineEnrichmentQueue {
       eventId: input.eventId,
       status: captured ? "pending" : "capture_unavailable",
       provider: "geoapify",
-      createdAt: now,
-      attempts: 0,
+      createdAt: current?.data.createdAt ?? now,
+      attempts: current?.data.attempts ?? 0,
       captureStatus: input.outcome.status,
       captureTiming: input.captureTiming,
       ...(captured ? {
@@ -135,9 +182,13 @@ export class TimelineEnrichmentQueue {
         gpsProvider: input.outcome.gpsProvider,
       } : { captureReason: input.outcome.reason }),
     };
-    await this.records.put({
-      id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "integration", revision: 1, data,
-    });
+    if (current) {
+      await this.writeNext(current, data, now);
+    } else {
+      await this.records.put({
+        id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "integration", revision: 1, data,
+      });
+    }
   }
 
   async drain(limit = MAX_BATCH_SIZE, signal?: AbortSignal): Promise<TimelineLocationMap> {
@@ -199,7 +250,7 @@ export class TimelineEnrichmentQueue {
       if (!row) continue;
       const data = row.data;
       result[eventId] = {
-        status: data.status === "retry_wait" || data.status === "capture_unavailable" ? "unavailable" : data.status,
+        status: data.status === "retry_wait" || data.status === "capture_unavailable" || data.status === "capture_pending" ? "unavailable" : data.status,
         ...(data.label ? { label: data.label } : {}),
         provider: data.provider,
         ...(data.lookedUpAt ? { lookedUpAt: data.lookedUpAt } : {}),
