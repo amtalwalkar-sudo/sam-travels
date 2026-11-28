@@ -944,3 +944,16 @@ The overlay GPS duplicate-registration failure was traced to an ownership race, 
   6. Owner/admin confirmation of branch-protection/ruleset policy. Previously observed repository metadata showed `main.protected=false` and no rulesets; the detailed protection endpoint was not accessible through the integration. No protection setting was changed.
 
 PR #99 remains **OPEN · DRAFT · UNMERGED**. No merge is authorized by this checkpoint.
+
+
+## 2026-11-28 — supported Android/browser benchmark baseline (normative)
+
+The owner-confirmed product target is mainstream Android phones released in 2023 or later, including budget and mid-range devices. For reproducible PR #99 large-snapshot acceptance, use this explicit technical floor:
+
+- **Android device floor:** Android 12 or later, 64-bit ARM, and at least **4 GB installed physical RAM**. Release year is a market-facing description, not a substitute for these measurable requirements. Devices released after 2022 that fall below this floor are outside the guaranteed benchmark target; do not imply universal compatibility with every post-2022 handset.
+- **Browser-only PWA:** Google Chrome for Android Stable, supporting the current Stable major and the two immediately preceding major versions. Record the complete Chrome version/build used for each benchmark.
+- **Installed Android app:** Android System WebView Stable provider, supporting the current Stable Chromium major and the two immediately preceding major versions. Record the provider package/version and Android build used for each benchmark. Chrome and Android System WebView are separate test targets; a browser-only Chrome result does not substitute for the installed WebView result.
+- **CI interpretation:** the existing Pixel 2 / API 34 / x86_64 emulator is a deterministic regression environment, not proof of the 4 GB physical-device floor. The Playwright Chromium installation in CI is not pinned to a normative browser version; record its resolved version for reproducibility, but do not treat headless CI measurements as physical-device acceptance.
+- **Benchmark acceptance:** measure representative large-snapshot preflight/export/restore peak memory and elapsed time on a physical device meeting the Android floor, and on the supported Chrome Android browser. Repeat runs and record device model, installed RAM, Android build, browser/WebView version, snapshot record count and serialized/encrypted sizes, operation timings, and peak process memory. Keep the existing package/count boundaries and all semantic/recovery assertions unchanged. The 512 MiB package-format ceiling is not a RAM budget and must not be treated as one.
+
+This baseline clarifies the existing performance acceptance requirement; it adds no product feature, storage architecture, or unrelated compatibility promise. Physical OEM certification and live Dropbox account testing remain separate external/manual gates as already defined in §1A.
