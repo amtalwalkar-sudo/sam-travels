@@ -144,9 +144,7 @@ class DriverOverlayService:Service(){
     }
     val resumed=DriverWorkflowStore.reactivate(db,id)
     main.post{
-     // Keep fresh overlay actions disabled until this startup decision is
-     // complete. If another surface or a just-completed transition won the
-     // race, do not blindly reacquire the stale snapshot returned above.
+     // Do not reacquire a stale snapshot if another surface or transition won the race.
      if(transitionInFlight||activeLocationEventId!=null){
       startupPendingRecoverySettled=true
       refresh()
