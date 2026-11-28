@@ -267,10 +267,18 @@ abstract class DriverOverlayServicePresentationTestSupport {
         shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
+        val overlayPreferences = app.getSharedPreferences("sam_travels_driver_overlay", Context.MODE_PRIVATE)
+        val previousOverlayEnabled = overlayPreferences.getBoolean("overlay_enabled", false)
+        val previousActivationPending = overlayPreferences.getBoolean("overlay_activation_pending", false)
+        val previousBootResumeDeferred = overlayPreferences.getBoolean("boot_resume_deferred", false)
         app.stopService(Intent(app, DriverOverlayService::class.java))
         assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
             !isOverlayServiceRunning(app)
         })
+        // Prevent MainActivity.onResume from racing the explicit fixture start
+        // with a persisted production auto-resume preference from an earlier test.
+        overlayPreferences.edit().putBoolean("overlay_enabled", false)
+            .putBoolean("overlay_activation_pending", false).putBoolean("boot_resume_deferred", false).commit()
         app.deleteDatabase(isolatedDatabaseName)
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, isolatedDatabaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
@@ -342,6 +350,9 @@ abstract class DriverOverlayServicePresentationTestSupport {
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
+            overlayPreferences.edit().putBoolean("overlay_enabled", previousOverlayEnabled)
+                .putBoolean("overlay_activation_pending", previousActivationPending)
+                .putBoolean("boot_resume_deferred", previousBootResumeDeferred).commit()
             DriverOverlayDatabaseFactory.databaseNameOverrideForTests = null
             app.deleteDatabase(isolatedDatabaseName)
         }
