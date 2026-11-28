@@ -134,7 +134,10 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     }
                     if (!sliderStillAttached) {
                         val serviceDiagnostics = shell(ui, "logcat -d -s DriverOverlayService:I | grep -E 'service_created|service_destroyed|swipe_readiness|swipe_dispatch|transition_dispatch|gps_acquire_attempt|gps_request_started' | tail -n 30")
-                        assertTrue("Overlay action must remain attached after becoming ready; eventActionAvailable=${swipePresentationActionAvailable(db)} service=$serviceDiagnostics", sliderStillAttached)
+                        val actionAvailable = DriverSwipePresentationContract.fromAssets(
+                            InstrumentationRegistry.getInstrumentation().targetContext,
+                        ).action(DriverWorkflowStore.snapshot(db).optString("state")) != null
+                        assertTrue("Overlay action must remain attached after becoming ready; actionAvailable=$actionAvailable service=$serviceDiagnostics", sliderStillAttached)
                     }
                     val readySlider = slider ?: throw AssertionError("Overlay action node unavailable after bounded accessibility refresh")
                     val bounds = android.graphics.Rect().also { readySlider.getBoundsInScreen(it) }
