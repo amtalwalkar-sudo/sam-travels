@@ -383,7 +383,7 @@ class DriverOverlayService:Service(){
  }
  override fun onDestroy(){
   check(Looper.myLooper()==Looper.getMainLooper()){ "service_destroy_must_run_on_main_thread" }
-  serviceDestroyed=true
+  serviceDestroyed=true;android.util.Log.i("DriverOverlayService", "service_destroyed instance=${System.identityHashCode(this)} source=${System.identityHashCode(locationSource)}")
   main.removeCallbacks(roomRefreshPulse)
   activeLocationTimeout?.let{main.removeCallbacks(it)}
   activeLocationListener?.let{try{locationSource.removeUpdates(it)}catch(_:Exception){}}
