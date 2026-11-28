@@ -294,7 +294,7 @@ class DriverOverlayService:Service(){
   acquireLocationOnMain(id,command,intent)
  }
  private fun acquireLocationOnMain(id:String,command:JSONObject,intent:JSONObject){
-  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" }
+  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" };android.util.Log.i("DriverOverlayService", "gps_acquire_attempt instance=${System.identityHashCode(this)} eventType=${command.optString("eventType")} active=${activeLocationEventId != null} previouslyRequested=${locationRequestEventIds.contains(id)} transitionInFlight=$transitionInFlight startupRecoverySettled=$startupPendingRecoverySettled")
   try{
    if(locationRequestEventIds.contains(id)){
     android.util.Log.i("DriverOverlayService", "gps_request_duplicate_suppressed")
@@ -338,7 +338,7 @@ class DriverOverlayService:Service(){
     }
    }
    activeLocationListener=listener;activeLocationTimeout=timeout
-   locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper())
+   locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper());android.util.Log.i("DriverOverlayService", "gps_request_started instance=${System.identityHashCode(this)} eventType=${command.optString("eventType")}")
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){locationRequestEventIds.remove(id);activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
