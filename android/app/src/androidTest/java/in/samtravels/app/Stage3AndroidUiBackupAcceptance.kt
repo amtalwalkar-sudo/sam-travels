@@ -100,13 +100,19 @@ internal object Stage3AndroidUiBackupAcceptance {
             if (settled) break
             android.os.SystemClock.sleep(100)
         }
-        assertEquals("Every UI-created Fuel purchase has a settled durable location-capture record before backup",
-            expectedEnrichmentIds.size, enrichmentRows.values.count { row ->
-                runCatching {
-                    val data = JSONObject(row.json).getJSONObject("data")
-                    data.has("captureStatus") && data.optString("captureStatus") != "pending"
-                }.getOrDefault(false)
-            })
+        val settledCaptureCount = enrichmentRows.values.count { row ->
+            runCatching {
+                val data = JSONObject(row.json).getJSONObject("data")
+                data.has("captureStatus") && data.optString("captureStatus") != "pending"
+            }.getOrDefault(false)
+        }
+        val captureDiagnostics = expectedEnrichmentIds.mapIndexed { index, id ->
+            val row = enrichmentRows[id]
+            val data = row?.let { runCatching { JSONObject(it.json).getJSONObject("data") }.getOrNull() }
+            "capture$index:present=${row != null},settled=${data?.has("captureStatus") == true && data.optString("captureStatus") != "pending"},status=${data?.optString("status") ?: "missing"},captureState=${data?.optString("captureStatus") ?: "missing"}"
+        }.joinToString(" ")
+        assertEquals("Every UI-created Fuel purchase has a settled durable location-capture record before backup; $captureDiagnostics",
+            expectedEnrichmentIds.size, settledCaptureCount)
         adminFeeRecordId?.let { id ->
             assertTrue("Performance provenance names the exact UI-created Admin expense record",
                 calculationBeforeRestore.contains(id))
