@@ -44,6 +44,10 @@ class DriverOverlayService:Service(){
  private val locationRequestEventIds=mutableSetOf<String>()
  // Main-thread gate: one overlay transition may be queued, awaiting GPS, or committing at a time.
  private var transitionInFlight=false
+ // Reserve the swipe dispatch synchronously before reading Room on the executor.
+ // This prevents duplicate ACTION_UP delivery from queuing two commands before
+ // transitionInFlight can be set by the eventual main-thread callback.
+ private var swipeDispatchInFlight=false
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -239,19 +243,38 @@ class DriverOverlayService:Service(){
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
  private fun runSwipeTransition(){
-  if(!startupRecoveryReady||!startupPendingRecoverySettled||transitionInFlight||activeLocationEventId!=null)return
+  if(Looper.myLooper()!=Looper.getMainLooper()){
+   main.post{runSwipeTransition()}
+   return
+  }
+  if(!startupRecoveryReady||!startupPendingRecoverySettled||
+    transitionInFlight||activeLocationEventId!=null||swipeDispatchInFlight)return
+  swipeDispatchInFlight=true
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
     val state=DriverWorkflowStore.snapshot(db).optString("state")
     val event=swipePresentation.action(state)?.eventType
-    if(event!=null)main.post{runTransition(event)}else main.post{refresh("No trip action is available in this state")}
-   }catch(error:Exception){main.post{refresh("Unable to read current trip state · "+(error.message?:"retry"))}}
+    if(event!=null)main.post{runTransition(event)}
+    else main.post{
+     swipeDispatchInFlight=false
+     refresh("No trip action is available in this state")
+    }
+   }catch(error:Exception){
+    main.post{
+     swipeDispatchInFlight=false
+     refresh("Unable to read current trip state · "+(error.message?:"retry"))
+    }
+   }
   }
  }
  private fun runTransition(event:String){
   if(Looper.myLooper()!=Looper.getMainLooper()){main.post{runTransition(event)};return}
-  if(transitionInFlight||activeLocationEventId!=null)return
+  if(transitionInFlight||activeLocationEventId!=null){
+   swipeDispatchInFlight=false
+   return
+  }
+  swipeDispatchInFlight=false
   if(!startupRecoveryReady||!startupPendingRecoverySettled){refresh("Recovery required · actions disabled");return}
   transitionInFlight=true
   presentation.setSavingStatus()
